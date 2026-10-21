@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f14">
+<title>Laser Controller</title>
+<style>
+:root {
+  --bg: #0d0f14; --card: #161a22; --raised: #1f2430; --line: #2a3140;
+  --text: #e8ebf1; --muted: #8e97aa; --accent: #3ddc97; --on-accent: #062014;
+  --warn: #f5b942; --danger: #ff4d4f; --danger-press: #c9363a; --radius: 14px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  padding: 12px 16px calc(112px + env(safe-area-inset-bottom));
+}
+main { max-width: 520px; margin: 0 auto; }
+header { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 12px; }
+h1 { font-size: 20px; margin: 0; }
+.pill { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--raised); color: var(--muted); }
+.pill.ok { background: rgba(61, 220, 151, .15); color: var(--accent); }
+.pill.bad { background: rgba(255, 77, 79, .15); color: var(--danger); }
+.banner { border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; font-size: 14px; }
+.banner.warn { background: rgba(245, 185, 66, .1); color: var(--warn); border: 1px solid rgba(245, 185, 66, .35); }
+.banner.danger { background: rgba(255, 77, 79, .12); color: var(--danger); border: 1px solid rgba(255, 77, 79, .45); font-weight: 600; }
+[hidden] { display: none !important; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
+.card h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+button { font: inherit; color: var(--text); background: var(--raised); border: 1px solid var(--line); border-radius: 10px; min-height: 48px; padding: 8px 4px; cursor: pointer; }
+.seg button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.stepper { display: grid; grid-template-columns: 56px 1fr 56px; gap: 8px; align-items: center; margin-bottom: 4px; }
+.stepper .num { text-align: center; font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stepper button { font-size: 24px; }
+input[type=range] { width: 100%; height: 32px; margin: 2px 0; accent-color: var(--accent); }
+.label { display: flex; justify-content: space-between; font-size: 15px; margin-top: 10px; }
+.label b, .ch-head b { font-variant-numeric: tabular-nums; }
+.ch { padding: 10px 0 6px; border-top: 1px solid var(--line); }
+.ch:first-child { border-top: 0; padding-top: 0; }
+.ch-head { display: flex; justify-content: space-between; font-size: 15px; }
+.hint { font-size: 12px; color: var(--muted); }
+details summary { cursor: pointer; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); list-style: none; }
+details[open] summary { margin-bottom: 10px; }
+body.offline .controls { opacity: .35; pointer-events: none; }
+.offbar { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: linear-gradient(rgba(13, 15, 20, 0), var(--bg) 35%); }
+.offbar .inner { max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+#off { min-height: 72px; font-size: 26px; font-weight: 800; letter-spacing: .08em; background: var(--danger); border-color: var(--danger); color: #fff; }
+#off:active { background: var(--danger-press); }
+#reset { min-height: 72px; padding: 0 14px; font-size: 14px; color: var(--muted); }
+</style>
+</head>
+<body class="offline">
+<main>
+  <header>
+    <h1>Laser Controller</h1>
+    <span id="status" class="pill">connecting…</span>
+  </header>
+
+  <div id="clampOff" class="banner danger" hidden>CH7 clamp DISABLED: stage 1 test build. Aim at a wall away from people.</div>
+  <div id="notMeasured" class="banner warn" hidden>CH7 limits are placeholders and have not been measured yet.</div>
+  <div id="failsafe" class="banner danger" hidden></div>
+
+  <div class="controls">
+    <section class="card">
+      <h2>Mode</h2>
+      <div id="modes" class="seg"></div>
+    </section>
+
+    <section class="card">
+      <h2>Pattern</h2>
+      <div id="manualPattern">
+        <div class="stepper">
+          <button id="prevPattern" aria-label="Previous pattern">−</button>
+          <div class="num" id="patternNum">1</div>
+          <button id="nextPattern" aria-label="Next pattern">+</button>
+        </div>
+        <input type="range" id="patternSlider" min="1" max="51" value="1" aria-label="Pattern number">
+        <div class="hint">Manual mode: 51 patterns</div>
+      </div>
+      <div id="programPattern" hidden>
+        <div id="programs" class="seg"></div>
+        <div class="hint" style="margin-top:8px">Auto / sound mode: 4 programs</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Color</h2>
+      <div id="colorModes" class="seg"></div>
+      <div class="label"><span>Variation</span><b id="colorOffsetValue">0</b></div>
+      <input type="range" id="colorOffset" min="0" max="63" value="0" aria-label="Color variation">
+    </section>
+
+    <section class="card">
+      <details open>
+        <summary>All channels</summary>
+        <div id="channels"></div>
+      </details>
+    </section>
+  </div>
+</main>
+
+<div class="offbar">
+  <div class="inner">
+    <button id="off">OFF</button>
+    <button id="reset" title="Set every channel to 0">All 0</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+const CHANNELS = [
+  ['Mode', '0–63 off · 64–127 manual · 128–191 auto · 192–255 sound'],
+  ['Pattern', 'manual: 51 patterns · auto/sound: 4 programs'],
+  ['Rotation', '0–127 angle · 128–191 forward · 192–255 reverse'],
+  ['Horizontal flip', '0–127 position · 128–255 flip speed'],
+  ['Vertical flip', '0–127 position · 128–255 flip speed'],
+  ['Horizontal position', '0–127 position · 128–255 movement speed'],
+  ['Vertical position', 'clamped in firmware'],
+  ['Size', '0–63 fixed (higher = smaller) · 64–127 zoom in · 128–191 zoom out · 192–255 zoom speed'],
+  ['Color', '0–63 mono · 64–127 mixing · 128–191 mono auto · 192–255 auto'],
+  ['Dots / lines', '0–127 dots and lines · 128–255 dots only'],
+];
+const MODES = [['Off', 0], ['Manual', 96], ['Auto', 160], ['Sound', 224]];
+const COLOR_MODES = ['Mono', 'Mix', 'Mono auto', 'Auto'];
+const PATTERN_COUNT = 51;
+const HEARTBEAT_MS = 250;
+const FLUSH_MS = 50;
+const RECONNECT_MS = 1000;
+const FAILSAFE_BANNER_MS = 5000;
+
+const $ = (id) => document.getElementById(id);
+const pending = new Map();
+let ws = null;
+let isOpen = false;
+let values = new Array(CHANNELS.length).fill(0);
+let draggingCh = 0;
+let failsafeTimer = 0;
+
+// --- value mapping ------------------------------------------------------------
+const quarter = (v) => Math.min(3, Math.floor(v / 64));
+const patternIndex = (v) => Math.min(PATTERN_COUNT - 1, Math.floor(v * PATTERN_COUNT / 256));
+const patternValue = (i) => Math.floor((i + 0.5) * 256 / PATTERN_COUNT);
+const isProgramMode = () => quarter(values[0]) >= 2;
+
+// --- sending ------------------------------------------------------------------
+function queue(ch, value) {
+  values = values.map((v, i) => (i === ch - 1 ? value : v));
+  pending.set(ch, value);
+}
+function flush() {
+  if (!isOpen) { pending.clear(); return; }
+  pending.forEach((value, ch) => ws.send(`${ch} ${value}`));
+  pending.clear();
+}
+function sendNow(ch, value) { queue(ch, value); flush(); render(); }
+
+// --- building the controls ----------------------------------------------------
+function segButtons(container, labels, onPick) {
+  return labels.map((label, i) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.addEventListener('click', () => onPick(i));
+    container.appendChild(b);
+    return b;
+  });
+}
+const modeButtons = segButtons($('modes'), MODES.map((m) => m[0]), (i) => sendNow(1, MODES[i][1]));
+const programButtons = segButtons($('programs'), ['1', '2', '3', '4'], (i) => sendNow(2, i * 64 + 32));
+const colorButtons = segButtons($('colorModes'), COLOR_MODES, (i) => sendNow(9, i * 64 + (values[8] % 64)));
+
+function setPattern(index) {
+  sendNow(2, patternValue(Math.max(0, Math.min(PATTERN_COUNT - 1, index))));
+}
+$('prevPattern').addEventListener('click', () => setPattern(patternIndex(values[1]) - 1));
+$('nextPattern').addEventListener('click', () => setPattern(patternIndex(values[1]) + 1));
+$('patternSlider').addEventListener('input', (e) => {
+  queue(2, patternValue(e.target.value - 1));
+  $('patternNum').textContent = e.target.value;
+});
+$('colorOffset').addEventListener('input', (e) => {
+  queue(9, quarter(values[8]) * 64 + Number(e.target.value));
+  $('colorOffsetValue').textContent = e.target.value;
+});
+
+const sliders = CHANNELS.map(([name, hint], i) => {
+  const ch = i + 1;
+  const row = document.createElement('div');
+  row.className = 'ch';
+  const head = document.createElement('div');
+  head.className = 'ch-head';
+  const title = document.createElement('span');
+  title.textContent = `CH${ch} ${name}`;
+  const valueLabel = document.createElement('b');
+  valueLabel.textContent = '0';
+  head.append(title, valueLabel);
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.min = 0;
+  slider.max = 255;
+  slider.value = 0;
+  slider.setAttribute('aria-label', `CH${ch} ${name}`);
+  const hintEl = document.createElement('div');
+  hintEl.className = 'hint';
+  hintEl.textContent = hint;
+  row.append(head, slider, hintEl);
+  $('channels').appendChild(row);
+  slider.addEventListener('input', () => {
+    draggingCh = ch;
+    queue(ch, Number(slider.value));
+    valueLabel.textContent = slider.value;
+  });
+  slider.addEventListener('change', () => { draggingCh = 0; render(); });
+  return { slider, valueLabel, hintEl };
+});
+
+// --- rendering ----------------------------------------------------------------
+function render() {
+  sliders.forEach(({ slider, valueLabel }, i) => {
+    if (i + 1 === draggingCh) return;
+    slider.value = values[i];
+    valueLabel.textContent = values[i];
+  });
+  modeButtons.forEach((b, i) => b.classList.toggle('on', quarter(values[0]) === i));
+  $('manualPattern').hidden = isProgramMode();
+  $('programPattern').hidden = !isProgramMode();
+  programButtons.forEach((b, i) => b.classList.toggle('on', quarter(values[1]) === i));
+  const pattern = patternIndex(values[1]) + 1;
+  $('patternNum').textContent = pattern;
+  $('patternSlider').value = pattern;
+  colorButtons.forEach((b, i) => b.classList.toggle('on', quarter(values[8]) === i));
+  $('colorOffset').value = values[8] % 64;
+  $('colorOffsetValue').textContent = values[8] % 64;
+}
+
+function applyConfig(msg) {
+  const ch7 = sliders[6];
+  ch7.slider.min = msg.clamp ? msg.ch7Min : 0;
+  ch7.slider.max = msg.clamp ? msg.ch7Max : 255;
+  ch7.hintEl.textContent = msg.clamp
+    ? `0–127 position · firmware limit ${msg.ch7Min}–${msg.ch7Max}`
+    : '0–127 position · 128–255 movement speed · CLAMP DISABLED';
+  $('clampOff').hidden = msg.clamp;
+  $('notMeasured').hidden = msg.measured || !msg.clamp;
+}
+
+function setStatus(text, kind) {
+  const el = $('status');
+  el.textContent = text;
+  el.className = `pill ${kind}`;
+  document.body.classList.toggle('offline', kind !== 'ok');
+}
+
+function showFailsafe(reason) {
+  const el = $('failsafe');
+  el.textContent = `Fail-safe (${reason}): firmware set every channel to 0.`;
+  el.hidden = false;
+  clearTimeout(failsafeTimer);
+  failsafeTimer = setTimeout(() => { el.hidden = true; }, FAILSAFE_BANNER_MS);
+}
+
+// --- connection ---------------------------------------------------------------
+function connect() {
+  if (document.hidden || ws) return;
+  setStatus('connecting…', '');
+  ws = new WebSocket(`ws://${location.hostname || '192.168.4.1'}:81/`);
+  ws.onopen = () => { isOpen = true; setStatus('connected', 'ok'); };
+  ws.onclose = () => {
+    isOpen = false;
+    ws = null;
+    pending.clear();
+    setStatus('disconnected: laser forced off', 'bad');
+    setTimeout(connect, RECONNECT_MS);
+  };
+  ws.onmessage = (event) => {
+    let msg;
+    try { msg = JSON.parse(event.data); } catch { return; }
+    if (msg.type === 'state' && Array.isArray(msg.ch) && msg.ch.length === CHANNELS.length) {
+      values = msg.ch.map(Number);
+      applyConfig(msg);
+      render();
+    } else if (msg.type === 'failsafe') {
+      showFailsafe(msg.reason);
+    }
+  };
+}
+
+// Leaving the page (app switch, screen lock) closes the socket, so the
+// firmware fail-safe turns the laser off right away instead of after a timeout.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && ws) ws.close();
+  else connect();
+});
+
+$('off').addEventListener('click', () => {
+  // Cancel any slider drag so a finger still on CH1 cannot re-queue it.
+  draggingCh = 0;
+  if (document.activeElement) document.activeElement.blur();
+  pending.delete(1);
+  if (isOpen) ws.send('off');
+  values = values.map((v, i) => (i === 0 ? 0 : v));
+  render();
+});
+$('reset').addEventListener('click', () => {
+  draggingCh = 0;
+  if (document.activeElement) document.activeElement.blur();
+  pending.clear();
+  if (isOpen) ws.send('0');
+  values = values.map(() => 0);
+  render();
+});
+
+setInterval(() => { if (isOpen) ws.send('hb'); }, HEARTBEAT_MS);
+setInterval(flush, FLUSH_MS);
+render();
+connect();
+</script>
+</body>
+</html>
