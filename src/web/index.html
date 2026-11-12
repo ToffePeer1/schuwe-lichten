@@ -1,319 +1,2213 @@
 <!doctype html>
-<html lang="en">
+<html lang="nl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0d0f14">
-<title>Laser Controller</title>
+<meta name="theme-color" content="#0a0a0a">
+<link rel="icon" href="data:,">
+<title>Laser</title>
 <style>
 :root {
-  --bg: #0d0f14; --card: #161a22; --raised: #1f2430; --line: #2a3140;
-  --text: #e8ebf1; --muted: #8e97aa; --accent: #3ddc97; --on-accent: #062014;
-  --warn: #f5b942; --danger: #ff4d4f; --danger-press: #c9363a; --radius: 14px;
+  color-scheme: dark;
+  --bg: #0a0a0a; --surface: #171717; --raised: #242424; --line: #2c2c2c; --well: #0d0d0d;
+  --text: #f5f2ea; --muted: rgba(245, 242, 234, .64); --label: rgba(245, 242, 234, .6); --faint: #777;
+  --amber: #ffb000; --amber-dim: #4a3300; --lcd: #241900; --amber-text: #ffd27a; --amber-bg: #2f2306;
+  --danger: #ff3b2f; --danger-press: #d42a20; --danger-text: #ffb4ad;
+  --paper: #f1ebdb; --ink: #1d1b17;
+  --desk: #121110; --desk-text: #ece5d3; --desk-dim: #7a7366;
+  --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-body {
-  margin: 0; background: var(--bg); color: var(--text);
-  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  padding: 12px 16px calc(112px + env(safe-area-inset-bottom));
-}
-main { max-width: 520px; margin: 0 auto; }
-header { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 12px; }
-h1 { font-size: 20px; margin: 0; }
-.pill { font-size: 13px; padding: 4px 10px; border-radius: 999px; background: var(--raised); color: var(--muted); }
-.pill.ok { background: rgba(61, 220, 151, .15); color: var(--accent); }
-.pill.bad { background: rgba(255, 77, 79, .15); color: var(--danger); }
-.banner { border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; font-size: 14px; }
-.banner.warn { background: rgba(245, 185, 66, .1); color: var(--warn); border: 1px solid rgba(245, 185, 66, .35); }
-.banner.danger { background: rgba(255, 77, 79, .12); color: var(--danger); border: 1px solid rgba(255, 77, 79, .45); font-weight: 600; }
 [hidden] { display: none !important; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; }
-.card h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
-.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-button { font: inherit; color: var(--text); background: var(--raised); border: 1px solid var(--line); border-radius: 10px; min-height: 48px; padding: 8px 4px; cursor: pointer; }
-.seg button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
-.stepper { display: grid; grid-template-columns: 56px 1fr 56px; gap: 8px; align-items: center; margin-bottom: 4px; }
-.stepper .num { text-align: center; font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.stepper button { font-size: 24px; }
-input[type=range] { width: 100%; height: 32px; margin: 2px 0; accent-color: var(--accent); }
-.label { display: flex; justify-content: space-between; font-size: 15px; margin-top: 10px; }
-.label b, .ch-head b { font-variant-numeric: tabular-nums; }
-.ch { padding: 10px 0 6px; border-top: 1px solid var(--line); }
-.ch:first-child { border-top: 0; padding-top: 0; }
-.ch-head { display: flex; justify-content: space-between; font-size: 15px; }
-.hint { font-size: 12px; color: var(--muted); }
-details summary { cursor: pointer; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); list-style: none; }
-details[open] summary { margin-bottom: 10px; }
-body.offline .controls { opacity: .35; pointer-events: none; }
-.offbar { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); background: linear-gradient(rgba(13, 15, 20, 0), var(--bg) 35%); }
-.offbar .inner { max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 8px; }
-#off { min-height: 72px; font-size: 26px; font-weight: 800; letter-spacing: .08em; background: var(--danger); border-color: var(--danger); color: #fff; }
-#off:active { background: var(--danger-press); }
-#reset { min-height: 72px; padding: 0 14px; font-size: 14px; color: var(--muted); }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 var(--sans); -webkit-text-size-adjust: 100%; overflow: hidden; overscroll-behavior: none;
+  -webkit-user-select: none; user-select: none; }
+input { -webkit-user-select: text; user-select: text; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; touch-action: manipulation; }
+button:disabled { cursor: default; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+p { margin: 0; }
+canvas { display: block; }
+
+/* ---- frame: main column + side panel ---- */
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 212px; grid-template-rows: minmax(0, 1fr); height: 100vh; height: 100dvh; }
+.main { grid-column: 1; grid-row: 1; position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 12px 12px max(18px, env(safe-area-inset-left)); }
+.side { grid-column: 2; grid-row: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px max(14px, env(safe-area-inset-right)) 10px 2px; }
+
+/* ---- header ---- */
+.top { flex: none; display: flex; align-items: center; gap: 6px 12px; min-height: 40px; min-width: 0; }
+.nav { display: flex; gap: 18px; min-width: 0; }
+.nav button { font: 800 20px/1 var(--sans); letter-spacing: -.02em; background: none; border: 0; padding: 10px 0; color: var(--faint); white-space: nowrap; }
+.nav button.on { color: var(--text); }
+.spacer { flex: 1; }
+.tabact { flex: none; font: 800 13px/1 var(--sans); background: var(--raised); color: var(--text); border: 0; border-radius: 12px; padding: 0 13px; min-height: 36px; white-space: nowrap; }
+.tabact.on { background: var(--text); color: var(--bg); }
+.conn { flex: none; display: inline-flex; align-items: center; gap: 6px; font: 800 10.5px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.conn::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.conn.ok { font-size: 0; letter-spacing: 0; gap: 0; }
+.conn.ok::before { background: var(--amber); box-shadow: 0 0 6px rgba(255, 176, 0, .7); }
+.conn.bad { color: var(--danger-text); }
+.conn.bad::before { background: var(--danger); }
+
+/* ---- banners ---- */
+.banners { flex: none; display: grid; gap: 6px; }
+.banner { font: 700 13px/1.3 var(--sans); padding: 8px 12px; border-radius: 12px; }
+.banner.danger { background: var(--danger); color: #fff; font-weight: 800; }
+.banner.warn { background: var(--amber-bg); color: var(--amber-text); box-shadow: inset 0 0 0 1px rgba(255, 176, 0, .45); }
+.banner a { color: inherit; font-weight: 800; white-space: nowrap; }
+
+/* ---- toast: floats over the header ---- */
+.toast { position: absolute; z-index: 30; top: 8px; left: max(12px, env(safe-area-inset-left)); right: 12px; display: flex; gap: 10px; align-items: flex-start;
+  border-radius: 14px; padding: 10px 12px; font-size: 13px; font-weight: 600; line-height: 1.35; background: #262626; color: var(--text);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .7); cursor: pointer; }
+.toast span { flex: 1; min-width: 0; }
+.toast button { background: none; border: 0; padding: 0 2px; font-weight: 800; opacity: .7; color: inherit; }
+.toast.error { background: #3a1311; color: var(--danger-text); box-shadow: inset 0 0 0 1px rgba(255, 59, 47, .6), 0 10px 28px rgba(0, 0, 0, .7); }
+.toast.warn { background: var(--amber-bg); color: var(--amber-text); box-shadow: inset 0 0 0 1px rgba(255, 176, 0, .5), 0 10px 28px rgba(0, 0, 0, .7); }
+.toast.ok { background: var(--paper); color: var(--ink); }
+.toast.stop { background: var(--danger); color: #fff; font-weight: 800; }
+
+/* ---- shared pieces ---- */
+.label { font: 800 10px/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--label); }
+.hint { font-size: 12px; line-height: 1.35; color: var(--muted); }
+.hint.warn { color: var(--amber-text); font-weight: 600; }
+.lcd { font-family: var(--mono); background: var(--lcd); color: var(--amber); border-radius: 4px; font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 0 0 1px var(--amber-dim), inset 0 2px 6px rgba(0, 0, 0, .6); text-shadow: 0 0 6px rgba(255, 176, 0, .5); }
+.btn { font: 700 14px/1.15 var(--sans); background: var(--raised); color: var(--text); border: 0; border-radius: 14px; padding: 10px 14px; min-height: 44px; white-space: nowrap; }
+.btn.light { background: var(--text); color: var(--bg); }
+.btn.red { background: var(--danger); color: #fff; }
+.btn:disabled { opacity: .32; }
+.btn:active:not(:disabled), .opt:active:not(:disabled), .play:active, .chip:active { transform: translateY(1px); }
+.field { font: 700 15px var(--sans); background: var(--raised); color: var(--text); border: 0; border-radius: 12px; padding: 0 12px; min-height: 44px; width: 100%; min-width: 0; }
+.field::placeholder { color: #8a857a; font-weight: 600; }
+.test { display: inline-block; font: 800 8.5px/1 var(--sans); letter-spacing: .08em; color: var(--amber); border: 1px solid currentColor; border-radius: 4px; padding: 2px 4px; margin-left: 6px; vertical-align: 1px; white-space: nowrap; }
+.slrow { display: flex; align-items: center; gap: 10px; font: 700 11px var(--sans); color: var(--muted); }
+.slrow .lcd { font-size: 15px; padding: 3px 6px; min-width: 44px; text-align: center; }
+input[type=range] { flex: 1; min-width: 0; height: 30px; margin: 0; accent-color: var(--amber); }
+
+/* ---- side panel ---- */
+.now { background: var(--surface); border-radius: 20px; padding: 11px 14px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.now .nm { font: 800 18px/1.15 var(--sans); letter-spacing: -.01em; margin-top: 2px; overflow-wrap: anywhere; }
+.now .mt { font-size: 11.5px; line-height: 1.35; color: var(--muted); overflow-wrap: anywhere; }
+.now .prog { display: flex; gap: 3px; margin-top: 8px; }
+.now .prog i { flex: 1; height: 5px; border-radius: 3px; background: #2e2e2e; position: relative; overflow: hidden; }
+.now .prog i.done { background: var(--text); }
+.now .prog i.cur::after { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--fill, 0%); background: var(--amber); box-shadow: 0 0 6px rgba(255, 176, 0, .6); }
+.now .sw { height: 6px; border-radius: 3px; margin-top: 9px; background: #2a2a2a; }
+.now.n-play { box-shadow: inset 0 0 0 2px var(--amber); }
+.now.n-sess { box-shadow: inset 0 0 0 2px var(--danger); }
+.now.n-stop { background: var(--danger); }
+.now.n-stop .label, .now.n-stop .mt { color: rgba(255, 255, 255, .85); }
+.big-off { flex: 1; min-height: 76px; font: 900 34px/1 var(--sans); letter-spacing: .06em; color: #fff; background: var(--danger); border: 0; border-radius: 24px; }
+.big-off:active { background: var(--danger-press); }
+.beheer { flex: none; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; font: 700 12.5px var(--sans); color: var(--muted); text-decoration: none; }
+.beheer::after { content: "›"; font-size: 15px; line-height: 1; }
+.beheer:active { color: var(--text); }
+
+/* ---- body + views ---- */
+.body { flex: 1; min-height: 0; position: relative; }
+.view { position: absolute; inset: 0; }
+.overlay { position: absolute; inset: 0; z-index: 5; background: var(--bg); }
+body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: none; }
+
+/* ---- presets ---- */
+.tiles { height: 100%; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: minmax(116px, calc(50% - 5px)); gap: 10px; align-content: start; }
+.tile { position: relative; overflow: hidden; border-radius: 20px; background: var(--surface); min-width: 0; }
+.tile canvas { position: absolute; left: 0; top: 0; width: 100%; height: calc(100% - 42px); pointer-events: none; }
+.tile .txt { position: absolute; left: 12px; right: 10px; bottom: 9px; pointer-events: none; }
+.tile .name, .tile .meta { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.tile .name { font: 800 15px/1.2 var(--sans); letter-spacing: -.01em; }
+.tile .meta { font-size: 11px; line-height: 1.35; color: var(--muted); }
+.tile .hit { position: absolute; inset: 0; width: 100%; background: none; border: 0; padding: 0; border-radius: 20px; }
+.tile.on { box-shadow: inset 0 0 0 3px var(--text); }
+.tile .badge { position: absolute; top: 10px; right: 10px; font: 800 10px/1 var(--sans); letter-spacing: .08em; background: var(--text); color: var(--bg); padding: 4px 6px; border-radius: 6px; pointer-events: none; }
+.tile .del { position: absolute; top: 8px; right: 8px; width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--danger); color: #fff; font: 900 15px/1 var(--sans); }
+.tile.editing { box-shadow: inset 0 0 0 2px #3a3a3a; }
+.tile .confirm { position: absolute; inset: 0; background: rgba(12, 12, 12, .94); display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 10px 12px; }
+.tile .confirm p { font: 800 14px/1.2 var(--sans); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tile .confirm div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tile .confirm .btn { min-height: 40px; padding: 8px 6px; font-size: 13px; }
+.tile.add { background: transparent; box-shadow: inset 0 0 0 2px #2c2c2c; border: 0; color: #b6b1a6; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font: 800 15px/1.2 var(--sans); }
+.tile.add small { font: 600 11px var(--sans); color: var(--faint); }
+.empty { grid-column: span 3; align-self: center; display: flex; flex-direction: column; gap: 6px; padding: 4px 8px; }
+.empty b { font: 800 18px/1.2 var(--sans); letter-spacing: -.01em; }
+
+/* ---- quick builder + save sheet (preview column + form) ---- */
+.builder, .sheet { display: grid; grid-template-columns: 160px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 10px 12px; }
+.prev { grid-row: 1 / span 2; position: relative; border-radius: 18px; background: var(--surface); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+.prev canvas { flex: 1; min-height: 0; width: 100%; }
+.prev .cap { padding: 0 12px 11px; display: flex; flex-direction: column; gap: 3px; }
+.prev .pn { font: 800 14px/1.2 var(--sans); overflow-wrap: anywhere; }
+.prev .st { font-size: 11.5px; line-height: 1.35; color: var(--muted); }
+.prev .st.live { color: var(--amber-text); }
+.bform { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.btabs { flex: none; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; background: var(--surface); border-radius: 14px; padding: 4px; }
+.btab { border: 0; background: none; border-radius: 10px; padding: 5px 7px; text-align: left; min-height: 42px; min-width: 0; color: var(--text); }
+.btab small { display: block; font: 800 8.5px/1.1 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--label); }
+.btab span { display: block; font: 800 12.5px/1.25 var(--sans); margin-top: 2px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.btab.on { background: var(--text); color: var(--bg); }
+.btab.on small { color: rgba(10, 10, 10, .55); }
+.bpane { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 8px; }
+.bfoot, .sfoot { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
+.cats { display: flex; flex-wrap: wrap; gap: 4px; }
+.cats .chip { font-size: 11px; padding: 0 8px; min-height: 30px; }
+.chip { font: 700 12px var(--sans); color: var(--text); background: var(--raised); border: 0; border-radius: 10px; padding: 0 10px; min-height: 32px; white-space: nowrap; }
+.chip.on { background: var(--text); color: var(--bg); }
+.pgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 6px; }
+.pcell { position: relative; border: 0; border-radius: 12px; background: var(--surface); height: 78px; padding: 0; min-width: 0; color: var(--muted); }
+.pcell canvas { position: absolute; left: 0; top: 2px; width: 100%; height: calc(100% - 30px); pointer-events: none; }
+.pcell span { position: absolute; left: 4px; right: 4px; bottom: 4px; font: 700 9.5px/1.15 var(--sans); text-align: center; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.pcell.on { box-shadow: inset 0 0 0 2px var(--text); color: var(--text); background: #222; }
+.opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 8px; }
+.opt { border: 0; border-radius: 16px; background: var(--surface); color: var(--text); text-align: left; padding: 10px 12px; min-height: 70px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.opt b { font: 800 14px/1.15 var(--sans); }
+.opt small { font-size: 11.5px; line-height: 1.3; color: var(--muted); }
+.opt .sw { height: 6px; border-radius: 3px; margin-top: auto; }
+.opt.on { background: var(--text); color: var(--bg); }
+.opt.on small { color: rgba(10, 10, 10, .66); }
+.opt:disabled { opacity: .35; }
+.pane-note { font-size: 12px; line-height: 1.35; color: var(--muted); }
+.sform { min-width: 0; display: flex; flex-direction: column; gap: 10px; justify-content: center; max-width: 440px; }
+.sform .ttl { font: 800 24px/1.1 var(--sans); letter-spacing: -.02em; }
+.sfoot { grid-template-columns: 1fr 1fr; }
+
+/* ---- shows ---- */
+.shows { height: 100%; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px; }
+.show { background: var(--surface); border-radius: 20px; padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; flex: none; }
+.show .sname { font: 800 18px/1.2 var(--sans); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.show .smeta { font-size: 12px; color: var(--muted); }
+.show.playing { box-shadow: inset 0 0 0 2px var(--amber); }
+.show.playing .smeta { color: var(--amber-text); }
+.acts { display: flex; gap: 8px; align-items: center; }
+.play { width: 50px; height: 50px; border-radius: 50%; border: 0; background: var(--text); color: var(--bg); font: 900 17px/1 var(--sans); padding: 0; }
+.play.stop { background: var(--amber); color: #1a1200; }
+.steplist { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.stepchip { display: flex; align-items: center; gap: 7px; background: var(--well); border-radius: 10px; padding: 3px 10px 3px 3px; box-shadow: inset 0 0 0 1px #262626; min-width: 0; max-width: 100%; }
+.stepchip canvas { width: 30px; height: 30px; flex: none; border-radius: 7px; }
+.stepchip span { font: 700 12px/1.2 var(--sans); overflow-wrap: anywhere; min-width: 0; }
+.stepchip b { font: 700 11px var(--mono); color: var(--amber); white-space: nowrap; }
+.stepchip.cur { box-shadow: inset 0 0 0 2px var(--amber); }
+.card { background: var(--surface); border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.card b { font: 800 18px/1.2 var(--sans); letter-spacing: -.01em; }
+
+/* ---- show editor ---- */
+.editor { display: flex; flex-direction: column; gap: 8px; }
+.edtop { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px; }
+.edinfo { flex: none; display: flex; align-items: baseline; gap: 10px; }
+.edsteps { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; }
+.srow { display: grid; grid-template-columns: 20px 40px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; background: var(--surface); border-radius: 14px; padding: 5px 6px 5px 10px; min-height: 52px; flex: none; }
+.srow .no { font: 700 12px var(--mono); color: var(--label); }
+.srow canvas { width: 40px; height: 40px; border-radius: 8px; background: var(--well); }
+.srow .nm { font: 800 14px/1.2 var(--sans); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.hold { display: grid; grid-template-columns: 36px 58px 10px 36px; gap: 4px; align-items: center; }
+.hold .unit { font: 700 11px var(--sans); color: var(--muted); }
+.hold input { font-size: 15px; text-align: center; min-height: 36px; border: 0; padding: 0 4px; width: 100%; min-width: 0; }
+.ib { width: 36px; min-height: 38px; border: 0; border-radius: 10px; background: var(--raised); color: var(--text); font: 800 15px/1 var(--sans); padding: 0; }
+.ib:disabled { opacity: .3; }
+.rowbtns { display: flex; gap: 4px; }
+.addstep { flex: none; border: 0; border-radius: 14px; background: transparent; box-shadow: inset 0 0 0 2px #2c2c2c; color: #b6b1a6; font: 800 14px var(--sans); min-height: 48px; }
+.picker { position: absolute; inset: 0; z-index: 2; background: var(--bg); display: flex; flex-direction: column; gap: 8px; }
+.pickhead { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pickgrid { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); grid-auto-rows: 96px; gap: 8px; align-content: start; }
+.pickgrid .tile { border: 0; padding: 0; color: inherit; text-align: left; }
+.pickgrid .tile canvas { height: calc(100% - 30px); }
+.pickgrid .tile .txt { bottom: 8px; }
+
+/* ---- lichttafel (desk) ---- */
+.desk { height: 100%; display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 3px; font-family: var(--mono); color: #d9d3c4; position: relative; }
+.strip { display: flex; flex-direction: column; align-items: center; min-height: 0; min-width: 0; padding: 5px 0 4px; border-radius: 8px; background: var(--desk); }
+.strip.wide { grid-column: span 2; }
+.strip .num { font-size: 9px; line-height: 1.2; color: var(--desk-dim); letter-spacing: .1em; }
+.strip .lbl { font: 700 9.5px/1.3 var(--mono); color: var(--desk-text); letter-spacing: .02em; background: none; border: 0; border-bottom: 1px dotted #6a6357; padding: 2px 3px; border-radius: 4px; white-space: nowrap; }
+.strip .lbl.open { background: var(--amber); color: #1a1200; border-bottom-color: transparent; }
+.strip .lcd { font-size: 15px; width: 44px; text-align: center; padding: 1px 0; margin: 4px 0 2px; }
+.smid { flex: 1; min-height: 0; width: 100%; display: flex; justify-content: center; gap: 4px; }
+.track { position: relative; flex: none; width: 46px; margin: 4px 0; touch-action: none; cursor: ns-resize; border-radius: 6px; }
+.track .slot { position: absolute; left: 50%; top: 6px; bottom: 6px; width: 6px; transform: translateX(-50%); background: #050505; border-radius: 3px; box-shadow: inset 0 1px 2px #000, 0 0 0 1px #2f2c27; }
+.track .zones { position: absolute; right: 1px; top: 6px; bottom: 6px; width: 4px; display: flex; flex-direction: column-reverse; gap: 1px; }
+.track .zones span { background: #3a352d; border-radius: 1px; }
+.track .zones span.cur { background: var(--amber); box-shadow: 0 0 4px rgba(255, 176, 0, .6); }
+.track .detent { position: absolute; left: 50%; width: 22px; height: 2px; margin-left: -11px; background: #4b453b; transform: translateY(50%); }
+.track .detent.fine { width: 12px; margin-left: -6px; height: 1px; background: #38332c; }
+.track .cap { position: absolute; left: 50%; width: 40px; height: 24px; transform: translate(-50%, 50%); background: linear-gradient(#55524b, #2c2a26 55%, #232120);
+  border-radius: 4px; box-shadow: 0 3px 4px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .18); pointer-events: none; }
+.track .cap::after { content: ""; position: absolute; left: 5px; right: 5px; top: 50%; height: 2px; margin-top: -1px; background: #f2ecdc; border-radius: 1px; }
+.strip.snap .cap::before { content: ""; position: absolute; left: -4px; top: 50%; margin-top: -3px; border: 3px solid transparent; border-left-color: var(--amber); }
+.strip .zone { font: 700 8.5px/1.2 var(--mono); color: var(--amber); letter-spacing: .02em; text-transform: uppercase; text-align: center; height: 21px; padding: 0 3px;
+  overflow-wrap: anywhere; overflow: hidden; width: 100%; }
+.strip.wide .track { width: 34px; }
+.power { flex: none; width: 46px; margin: 4px 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  padding: 8px 0; border-radius: 8px; border: 1px solid #2f2c27; background: #0b0b0b; color: var(--desk-dim); font: 700 10px/1.2 var(--mono); }
+.power .lamp { width: 18px; height: 18px; border-radius: 50%; background: #2a2620; box-shadow: inset 0 1px 2px #000; }
+.power .word { writing-mode: vertical-rl; transform: rotate(180deg); letter-spacing: .15em; font-size: 12px; }
+.power:not(.on) { border-color: #6a6357; color: var(--desk-text); }
+.power.on { border-color: var(--amber); color: var(--amber); }
+.power.on .lamp { background: var(--amber); box-shadow: 0 0 10px rgba(255, 176, 0, .8); }
+.strip.wide .track .cap { width: 30px; }
+.strip.wide .track .detent.fine { width: 10px; margin-left: -5px; }
+.pinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 4px 4px 4px 0; }
+.pinfo canvas { width: 100%; height: 58px; border-radius: 6px; background: var(--well); flex: none; }
+.pinfo .pnum { font: 700 13px/1.1 var(--mono); color: var(--amber); }
+.pinfo .pcat { font: 600 10px/1.25 var(--sans); color: var(--desk-dim); }
+.pstep { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+.pstep .ib { width: auto; min-height: 40px; font-size: 13px; background: #2a2723; color: var(--desk-text); }
+.tip { position: absolute; top: 40px; z-index: 6; width: 300px; max-height: calc(100% - 46px); overflow-y: auto; background: var(--paper); color: var(--ink); border-radius: 12px;
+  padding: 11px 13px 11px; box-shadow: 0 12px 30px rgba(0, 0, 0, .6); font-family: var(--sans); -webkit-user-select: text; user-select: text; }
+.tip h4 { margin: 0 0 4px; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tip h4 span { min-width: 0; overflow-wrap: anywhere; }
+.tip h4 button { flex: none; font: 800 14px var(--sans); background: none; border: 0; color: #6d675b; padding: 4px 6px; margin: -4px 0; }
+.tip p { margin: 0 0 6px; font-size: 12.5px; line-height: 1.4; }
+.tip ul { margin: 0 0 6px; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 12px; line-height: 1.35; }
+.tip li { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 6px; padding: 1px 4px; margin: 0 -4px; border-radius: 4px; }
+.tip li b { font: 700 11px/1.5 var(--mono); }
+.tip li.cur { background: #e2d7b9; }
+.tip .warn { font-size: 12px; line-height: 1.35; color: #8c2a1d; margin-bottom: 6px; }
+.tip .test { color: #9a6a00; }
+.tip .more { font: 700 12.5px var(--sans); background: var(--ink); color: var(--paper); border: 0; border-radius: 9px; padding: 8px 12px; margin-top: 2px; }
+
+/* ---- uitleg (guide) ---- */
+.guide { height: 100%; display: grid; grid-template-columns: 154px minmax(0, 1fr); gap: 10px; }
+.gnav { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.gnav button { flex: none; text-align: left; border: 0; background: none; color: var(--muted); font: 700 13px/1.2 var(--sans); padding: 7px 10px; border-radius: 10px; display: flex; gap: 8px; align-items: baseline; min-height: 32px; }
+.gnav button b { font: 700 10px var(--mono); color: var(--faint); min-width: 16px; }
+.gnav button.on { background: var(--surface); color: var(--text); }
+.gnav button.on b { color: var(--amber); }
+.garticle { min-height: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border-radius: 18px; padding: 14px 16px 16px; -webkit-user-select: text; user-select: text; }
+.garticle h3 { font: 800 21px/1.15 var(--sans); letter-spacing: -.02em; margin: 0 0 6px; }
+.garticle p { font-size: 13.5px; line-height: 1.45; color: rgba(245, 242, 234, .86); margin: 0 0 8px; }
+.garticle p b { color: var(--text); }
+.zl { display: grid; gap: 6px; margin: 4px 0 10px; }
+.zl div { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 10px; font-size: 13px; line-height: 1.4; }
+.zl b { font: 700 12px/1.55 var(--mono); color: var(--amber); }
+.illus { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; margin: 4px 0 12px; }
+.illus figure { margin: 0; background: var(--well); border-radius: 12px; overflow: hidden; }
+.illus canvas { width: 100%; height: 76px; }
+.illus figcaption { font: 600 11px/1.3 var(--sans); color: var(--muted); text-align: center; padding: 0 6px 7px; }
+.gwarn { font-size: 12.5px; line-height: 1.4; color: var(--amber-text); background: var(--amber-bg); border-radius: 10px; padding: 8px 10px; margin: 6px 0 8px; }
+.gnote { font-size: 12.5px; line-height: 1.4; color: var(--muted); margin: 0 0 6px; }
+
+/* ---- portrait / narrow: side panel becomes a bottom bar ---- */
+@media (max-width: 640px), (orientation: portrait) and (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .main { padding: 8px 14px 8px; }
+  .top { flex-wrap: wrap; }
+  .nav { gap: 16px; }
+  .nav button { font-size: 18px; padding: 8px 0; }
+  .side { grid-column: 1; grid-row: 2; flex-direction: row; flex-wrap: wrap; align-items: stretch; padding: 8px 14px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+  .now { flex: 1 1 100%; padding: 8px 12px; border-radius: 16px; }
+  .now .nm { font-size: 15px; }
+  .now .sw { display: none; }
+  .now .prog { margin-top: 5px; }
+  #saveBtn { flex: 1 1 0; }
+  .big-off { flex: 1.3 1 0; min-height: 56px; font-size: 26px; }
+  .beheer { flex: 0 0 auto; padding: 0 4px; }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 132px; }
+  .empty { grid-column: 1 / -1; }
+  .builder, .sheet { grid-template-columns: minmax(0, 1fr); grid-template-rows: 112px minmax(0, 1fr) auto; }
+  .prev { grid-row: 1; flex-direction: row; align-items: center; }
+  .prev canvas { flex: none; width: 112px; height: 100%; }
+  .prev .cap { flex: 1; padding: 8px 12px 8px 0; }
+  .btabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sform { justify-content: flex-start; }
+  .desk { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
+  .edtop { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .edtop .field { grid-column: 1 / -1; }
+  .srow { grid-template-columns: 18px 36px minmax(0, 1fr) auto; }
+  .srow .rowbtns { grid-column: 2 / -1; justify-content: flex-end; }
+  .guide { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .gnav { flex-direction: row; flex-wrap: wrap; overflow: visible; }
+  .gnav button { padding: 6px 8px; font-size: 12px; }
+}
 </style>
 </head>
 <body class="offline">
-<main>
-  <header>
-    <h1>Laser Controller</h1>
-    <span id="status" class="pill">connecting…</span>
-  </header>
+<div class="app">
+  <div class="main">
+    <header class="top">
+      <nav class="nav" id="nav" aria-label="Onderdelen">
+        <button type="button" data-tab="presets" class="on">Presets</button>
+        <button type="button" data-tab="shows">Shows</button>
+        <button type="button" data-tab="desk">Lichttafel</button>
+        <button type="button" data-tab="guide">Uitleg</button>
+      </nav>
+      <span class="spacer"></span>
+      <button type="button" class="tabact lockable" id="tabAction" hidden></button>
+      <span class="conn" id="conn" role="status">Verbinden…</span>
+    </header>
 
-  <div id="clampOff" class="banner danger" hidden>CH7 clamp DISABLED: stage 1 test build. Aim at a wall away from people.</div>
-  <div id="notMeasured" class="banner warn" hidden>CH7 limits are placeholders and have not been measured yet.</div>
-  <div id="failsafe" class="banner danger" hidden></div>
+    <div class="banners" id="banners" hidden>
+      <div class="banner danger" id="sessionBanner" role="status" hidden></div>
+      <div class="banner danger" id="stopBanner" role="status" hidden>Stopknop (IO0) ingedrukt: de laser blijft uit tot je hem loslaat.</div>
+      <div class="banner warn" id="uncalBanner" hidden><span id="uncalText"></span> <a href="/admin">Naar Beheer</a></div>
+      <div class="banner warn" id="libraryBanner" hidden>De opgeslagen presets en shows waren beschadigd en zijn leeggemaakt. Maak ze opnieuw.</div>
+    </div>
 
-  <div class="controls">
-    <section class="card">
-      <h2>Mode</h2>
-      <div id="modes" class="seg"></div>
-    </section>
+    <div class="toast" id="msg" role="status" aria-live="polite" hidden><span id="msgText"></span><button type="button" id="msgClose" aria-label="Melding sluiten">✕</button></div>
 
-    <section class="card">
-      <h2>Pattern</h2>
-      <div id="manualPattern">
-        <div class="stepper">
-          <button id="prevPattern" aria-label="Previous pattern">−</button>
-          <div class="num" id="patternNum">1</div>
-          <button id="nextPattern" aria-label="Next pattern">+</button>
+    <div class="body" id="body">
+      <section class="view" id="view-presets"><div class="tiles lockable" id="tiles"></div></section>
+      <section class="view" id="view-shows" hidden><div class="shows lockable" id="shows"></div></section>
+      <section class="view" id="view-desk" hidden><div class="desk lockable" id="desk" role="group" aria-label="Lichttafel"></div></section>
+      <section class="view" id="view-guide" hidden><div class="guide"><nav class="gnav" id="gnav" aria-label="Uitleg"></nav><article class="garticle" id="garticle"></article></div></section>
+
+      <section class="overlay builder" id="builder" hidden aria-label="Snelbouwer">
+        <div class="prev">
+          <canvas id="bCanvas"></canvas>
+          <div class="cap"><div class="pn" id="bLook">Kies een vorm</div><p class="st" id="bStatus"></p></div>
         </div>
-        <input type="range" id="patternSlider" min="1" max="51" value="1" aria-label="Pattern number">
-        <div class="hint">Manual mode: 51 patterns</div>
-      </div>
-      <div id="programPattern" hidden>
-        <div id="programs" class="seg"></div>
-        <div class="hint" style="margin-top:8px">Auto / sound mode: 4 programs</div>
-      </div>
-    </section>
+        <div class="bform lockable">
+          <div class="btabs" id="bTabs" role="tablist" aria-label="Onderdelen van de look"></div>
+          <div class="bpane" id="bPane"></div>
+        </div>
+        <div class="bfoot lockable">
+          <input class="field" id="bName" type="text" maxlength="32" autocomplete="off" enterkeyhint="done" aria-label="Naam van de preset">
+          <button type="button" class="btn" id="bCancel">Annuleren</button>
+          <button type="button" class="btn light" id="bSave">Opslaan</button>
+        </div>
+      </section>
 
-    <section class="card">
-      <h2>Color</h2>
-      <div id="colorModes" class="seg"></div>
-      <div class="label"><span>Variation</span><b id="colorOffsetValue">0</b></div>
-      <input type="range" id="colorOffset" min="0" max="63" value="0" aria-label="Color variation">
-    </section>
+      <section class="overlay sheet" id="sheet" hidden aria-label="Bewaar als preset">
+        <div class="prev">
+          <canvas id="sCanvas"></canvas>
+          <div class="cap"><div class="pn" id="sLook">–</div><p class="st" id="sLookMeta"></p></div>
+        </div>
+        <div class="sform lockable">
+          <div class="label">Bewaar als preset</div>
+          <div class="ttl">Hoe heet deze look?</div>
+          <input class="field" id="sName" type="text" maxlength="32" autocomplete="off" enterkeyhint="done" aria-label="Naam van de preset">
+          <p class="hint" id="sHint"></p>
+          <div class="sfoot">
+            <button type="button" class="btn" id="sCancel">Annuleren</button>
+            <button type="button" class="btn light" id="sSave">Opslaan</button>
+          </div>
+        </div>
+      </section>
 
-    <section class="card">
-      <details open>
-        <summary>All channels</summary>
-        <div id="channels"></div>
-      </details>
-    </section>
+      <section class="overlay editor" id="editor" hidden aria-label="Show bewerken">
+        <div class="edtop lockable">
+          <input class="field" id="eName" type="text" maxlength="32" autocomplete="off" enterkeyhint="done" placeholder="Naam van de show" aria-label="Naam van de show">
+          <button type="button" class="btn" id="eCancel">Annuleren</button>
+          <button type="button" class="btn" id="eDelete">Verwijderen</button>
+          <button type="button" class="btn light" id="eSave">Opslaan</button>
+        </div>
+        <div class="edinfo"><span class="label" id="eCount">0 stappen</span><span class="hint" id="eTotal"></span></div>
+        <div class="edsteps lockable" id="eSteps"></div>
+        <div class="picker" id="ePicker" hidden>
+          <div class="pickhead"><span class="label">Kies de preset voor de nieuwe stap</span><button type="button" class="btn" id="ePickBack">Terug</button></div>
+          <div class="pickgrid" id="ePickGrid"></div>
+        </div>
+      </section>
+    </div>
   </div>
-</main>
 
-<div class="offbar">
-  <div class="inner">
-    <button id="off">OFF</button>
-    <button id="reset" title="Set every channel to 0">All 0</button>
-  </div>
+  <aside class="side">
+    <div class="now" id="now">
+      <div class="label" id="nowLabel">Laser</div>
+      <div class="nm" id="nowName">–</div>
+      <div class="mt" id="nowMeta">Verbinden…</div>
+      <div class="prog" id="nowProg" hidden></div>
+      <div class="sw" id="nowSwatch"></div>
+    </div>
+    <button type="button" class="btn lockable" id="saveBtn">＋ Bewaar als preset</button>
+    <button type="button" class="big-off" id="offBtn">UIT</button>
+    <a class="beheer" id="adminLink" href="/admin">Beheer</a>
+  </aside>
 </div>
 
 <script>
 'use strict';
-const CHANNELS = [
-  ['Mode', '0–63 off · 64–127 manual · 128–191 auto · 192–255 sound'],
-  ['Pattern', 'manual: 51 patterns · auto/sound: 4 programs'],
-  ['Rotation', '0–127 angle · 128–191 forward · 192–255 reverse'],
-  ['Horizontal flip', '0–127 position · 128–255 flip speed'],
-  ['Vertical flip', '0–127 position · 128–255 flip speed'],
-  ['Horizontal position', '0–127 position · 128–255 movement speed'],
-  ['Vertical position', 'clamped in firmware'],
-  ['Size', '0–63 fixed (higher = smaller) · 64–127 zoom in · 128–191 zoom out · 192–255 zoom speed'],
-  ['Color', '0–63 mono · 64–127 mixing · 128–191 mono auto · 192–255 auto'],
-  ['Dots / lines', '0–127 dots and lines · 128–255 dots only'],
-];
-const MODES = [['Off', 0], ['Manual', 96], ['Auto', 160], ['Sound', 224]];
-const COLOR_MODES = ['Mono', 'Mix', 'Mono auto', 'Auto'];
-const PATTERN_COUNT = 51;
-const HEARTBEAT_MS = 250;
-const FLUSH_MS = 50;
-const RECONNECT_MS = 1000;
-const FAILSAFE_BANNER_MS = 5000;
+// Main phone page (/). The firmware enforces every safety rule on every frame (CH7/CH6
+// clamp, no auto/sound, no laser before calibration, every stop); this page makes
+// presets, shows and the desk easy. It never re-sends anything after a reconnect, and
+// closing the socket when the page is hidden only frees a slot: the laser keeps running.
 
+// --- constants ------------------------------------------------------------------------
+const CH_COUNT = 10;
+const PATTERN_COUNT = 51;
+const MODE_ON = 96;             // CH1 manual (64-127); auto/sound (128-255) no longer exists
+const MODE_ON_MIN = 64;
+const RAW_MAX = 255;
+const POS_MAX = 127;
+const PRESET_SLOTS = 32;
+const SHOW_SLOTS = 16;
+const MAX_STEPS = 24;
+const HOLD_MIN = 1;             // tenths of a second
+const HOLD_MAX = 6000;
+const DEFAULT_HOLD = 50;
+const NAME_MAX_BYTES = 32;
+const FLUSH_MS = 60;
+const RECONNECT_MS = 1000;
+const RECONNECT_MAX_MS = 5000;  // back off while the 8 slots are full or the ESP32 is gone
+const PING_MS = 2000;           // after this long without a message, ask '?'
+const STALE_MS = 6000;          // no message for this long: the link is dead (e.g. the phone left the WiFi)
+const OFF_CONFIRM_MS = 1500;    // UIT must show up as CH1 < 64 in a state within this time
+const LOCAL_HOLD_MS = 600;      // ignore echoed values this long after a local change
+const LIB_WAIT_MS = 1500;       // ask with 'lib' if no library arrived after connecting
+const PENDING_MS = 5000;
+const CONFIRM_MS = 4000;
+const TICK_MS = 250;
+const FRAME_MS = 33;
+const TRACK_INSET = 6;
+const MSG_MS = { ok: 4000, warn: 7000, error: 7000, stop: 8000 };
+const HOLD_STEPS = [5, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 100, 120, 150, 200, 250, 300, 400, 500, 600, 900, 1200, 1800, 2400, 3000, 4200, 6000];
+const CATEGORIES = ['Vormen', 'Lijnen', 'Bogen en golven', 'Figuren', 'Cijfers', 'Zoomcirkels'];
+const LASER = ['#ff4646', '#46ff74', '#4d82ff', '#ffe04d', '#46f0ff', '#ff55ff', '#ffffff'];
+const TAU = Math.PI * 2;
+const CANVAS_MONO = '700 14px ui-monospace, Menlo, Consolas, monospace';
+
+const CHANNELS = [
+  { key: 'MODUS', name: 'Modus' },
+  { key: 'PATROON', name: 'Patroon' },
+  { key: 'ROTATIE', name: 'Rotatie' },
+  { key: 'SPIEG-H', name: 'Spiegelen horizontaal' },
+  { key: 'SPIEG-V', name: 'Spiegelen verticaal' },
+  { key: 'POS-H', name: 'Positie horizontaal' },
+  { key: 'POS-V', name: 'Positie verticaal' },
+  { key: 'GROOTTE', name: 'Grootte' },
+  { key: 'KLEUR', name: 'Kleur' },
+  { key: 'PUNTEN', name: 'Lijnen of punten' },
+];
+// Zone bars and short labels for the desk faders that run over 0-255 (by channel number).
+const ZONES = {
+  3: [[0, 127, 'Hoek'], [128, 191, 'Draait →'], [192, 255, 'Draait ←']],
+  4: [[0, 127, 'Stand'], [128, 255, 'Spiegelt']],
+  5: [[0, 127, 'Stand'], [128, 255, 'Spiegelt']],
+  6: [[0, 0, 'Midden'], [1, 127, 'Links'], [128, 255, 'Beweegt']],
+  8: [[0, 63, 'Vast'], [64, 127, 'Groeit'], [128, 191, 'Krimpt'], [192, 255, 'Pulseert']],
+  9: [[0, 63, 'Mix'], [64, 127, 'Mix 2'], [128, 191, 'Wisselt'], [192, 255, 'Alle kleuren']],
+  10: [[0, 127, 'Lijnen'], [128, 255, 'Punten']],
+};
+
+// Quick builder. Values follow the user's hardware test (2026-10-23), not the manual.
+const COLORS = [
+  { label: 'Mix', short: 'Mix', text: 'Meerdere kleuren tegelijk. De schuif kiest de mix.', swatch: 'linear-gradient(90deg, #ff4646 0 33%, #46ff74 33% 66%, #4d82ff 66%)' },
+  { label: 'Eén kleur, wisselend', short: 'Wisselend', text: 'Steeds één kleur, die wisselt.', swatch: 'linear-gradient(90deg, #46ff74 0 25%, #4d82ff 25% 50%, #ff4646 50% 75%, #ffe04d 75%)', value: 160 },
+  { label: 'Alle kleuren', short: 'Alle', text: 'Alle kleuren door elkaar, wisselend.', swatch: 'linear-gradient(90deg, #f44, #fd4, #4f7, #4ef, #48f, #f5f)', value: 224 },
+];
+const MOVES = [
+  { label: 'Stil', text: 'Staat stil.', ch: { 3: 0, 4: 0 } },
+  { label: 'Draaien', text: 'Draait rond.', ch: { 3: 140, 4: 0 } },
+  { label: 'Spiegelen', text: 'Klapt steeds om, links en rechts.', ch: { 3: 0, 4: 180 } },
+  { label: 'Pulseren', text: 'Wordt steeds groter en kleiner.', ch: { 3: 0, 4: 0, 8: 220 } },
+];
+const PULSE = 3;
+const SIZES = [{ label: 'Groot', value: 4 }, { label: 'Middel', value: 20 }, { label: 'Klein', value: 40 }];
+const HEIGHTS = [{ label: 'Hoog' }, { label: 'Midden' }, { label: 'Laag' }];
+const DOTS = [{ label: 'Lijnen', base: 0, text: 'Doorgetrokken lijnen.' }, { label: 'Punten', base: 128, text: 'Alleen puntjes.' }];
+const BTABS = [
+  ['vorm', 'Vorm', (b) => (b.pattern ? `#${b.pattern}` : 'Kies')],
+  ['kleur', 'Kleur', (b) => COLORS[b.color].short],
+  ['beweging', 'Beweging', (b) => MOVES[b.move].label],
+  ['grootte', 'Grootte', (b) => (b.move === PULSE ? 'Pulseert' : SIZES[b.size].label)],
+  ['hoogte', 'Hoogte', (b) => HEIGHTS[b.height].label],
+  ['lijnen', 'Lijnen', (b) => DOTS[b.dots].label],
+];
+
+const ERROR_TEXT = {
+  'bad-command': 'De laser begreep die opdracht niet.',
+  'not-admin': 'Daarvoor moet je ingelogd zijn op Beheer.',
+  'serial-only': 'Dat kan alleen via de USB-kabel (seriële console).',
+  'calibration-busy': 'Er loopt een kalibratie of debugsessie: de bediening is vergrendeld. Met UIT stop je die altijd.',
+  'not-owner': 'Een ander apparaat bedient die sessie.',
+  'stop-held': 'De stopknop (IO0) is ingedrukt. Laat hem eerst los.',
+  'auto-blocked': 'Die modus is uitgeschakeld: hij negeert de hoogtegrens.',
+  'not-calibrated': 'De laser kan pas aan na het instellen van de hoogtegrens (Beheer).',
+  'wrong-phase': 'Dat kan niet in deze stap.',
+  'need-worst-case-look': 'Markeren kan alleen in Ruit of Draaien.',
+  'need-both-marks': 'Markeer eerst de laagste en de hoogste stand.',
+  'need-horizontal-marks': 'Markeer ook links en rechts, of zet de zijgrens uit.',
+  'equal-ends': 'De twee standen zijn gelijk.',
+  'bad-pin': 'Pincode klopt niet.',
+  'locked': 'Te veel verkeerde pincodes. Wacht even.',
+  'not-calibrating': 'Er loopt geen kalibratie of debugsessie.',
+  'save-failed': 'Opslaan is mislukt, er is niets veranderd. Probeer het opnieuw.',
+  'bad-slot': 'Die plek bestaat niet.',
+  'empty-slot': 'Die plek is leeg: misschien heeft iemand anders hem net verwijderd.',
+  'bad-name': 'Die naam kan niet: 1 tot 32 tekens, zonder " of \\.',
+  'bad-steps': 'De show klopt niet: 1 tot 24 stappen, elk met een bestaande preset en 0,1 tot 600 seconden.',
+  'preset-in-use': 'Deze preset zit in een show. Haal hem daar eerst uit.',
+};
+const STOP_TEXT = {
+  'button': 'Stopknop (IO0) ingedrukt: de laser is uit.',
+  'off': 'UIT ingedrukt: de laser is uit.',
+  'blackout': 'Alles is op 0 gezet: de laser is uit.',
+  'calibration-stopped': 'Kalibratie of debugsessie gestopt: de laser is uit.',
+  'calibration-timeout': 'Kalibratie of debugsessie gestopt (verbinding weg): de laser is uit.',
+  'calibration-owner-left': 'Kalibratie of debugsessie gestopt (telefoon weg): de laser is uit.',
+  'address-changed': 'DMX-adres gewijzigd: de laser is uit. De hoogtegrens moet opnieuw worden ingesteld.',
+  'calibration-saved': 'Nieuwe hoogtegrens opgeslagen: de laser is uit.',
+  'debug-stopped': 'Debugsessie gestopt: de laser is uit.',
+};
+
+// --- helpers ------------------------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
-const pending = new Map();
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+};
+const button = (cls, text, onClick, label) => {
+  const b = el('button', cls, text);
+  b.type = 'button';
+  if (label) b.setAttribute('aria-label', label);
+  if (onClick) b.addEventListener('click', onClick);
+  return b;
+};
+const now = () => performance.now();
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const clampInt = (v, lo, hi) => clamp(Math.round(Number(v) || 0), lo, hi);
+const pad2 = (v) => String(v).padStart(2, '0');
+const pad3 = (v) => String(v).padStart(3, '0');
+const patternValue = (n) => Math.floor((n - 0.5) * 256 / PATTERN_COUNT);
+const patternNumber = (v) => Math.min(PATTERN_COUNT, Math.floor(v * PATTERN_COUNT / 256) + 1);
+const PATTERN_VALUES = Array.from({ length: PATTERN_COUNT }, (_, k) => patternValue(k + 1));
+const fmtSec = (t) => {
+  const s = t / 10;
+  if (s < 60) return `${String(Math.round(s * 10) / 10).replace('.', ',')} s`;
+  const r = Math.round(s % 60);
+  return `${Math.floor(s / 60)}:${pad2(r)} min`;
+};
+const fmtSecInput = (t) => String(t / 10).replace('.', ',');
+const quote = (name) => `‘${name}’`;
+const listText = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} en ${items[items.length - 1]}`);
+const encoder = new TextEncoder();
+// What the firmware accepts as a name: 1-32 bytes of UTF-8, no control characters, " or \.
+function cleanName(raw) {
+  const text = String(raw || '').replace(/[\u0000-\u001f\u007f"\\]/g, '').replace(/\s+/g, ' ').trim();
+  let out = '';
+  for (const c of text) {
+    if (encoder.encode(out + c).length > NAME_MAX_BYTES) break;
+    out += c;
+  }
+  return out.trim();
+}
+
+// --- state ----------------------------------------------------------------------------------
 let ws = null;
 let isOpen = false;
-let values = new Array(CHANNELS.length).fill(0);
-let draggingCh = 0;
-let failsafeTimer = 0;
+let st = null;                   // last state message (normalised)
+let stAt = 0;                    // when it arrived (for the show countdown)
+let lib = { presets: new Map(), shows: new Map() };
+let libSeen = false;
+let libTimer = 0;
+let lastMsgAt = 0;               // any message proves the link is alive
+let reconnectMs = RECONNECT_MS;
+let offTimer = 0;
+let patterns = null;             // [{number, name, category, duplicateOf, strokes, box, points}]
+let patternsLoading = false;
+let pending = null;              // a library command waiting for its library echo
+let msgTimer = 0;
+let deskStrips = [];
+let deskSig = '';
+let animId = 0;
+let lastFrame = 0;
+const local = new Map();         // channel -> { v, at }: changed here, not yet echoed
+const dragging = new Set();
+const outbox = new Map();
+const thumbs = new Set();        // { cv, draw } redrawn on resize and when a view appears
+const ui = {
+  tab: 'presets', editing: false, confirmSlot: null, builder: null, sheet: false, editor: null,
+  tipCh: null, guide: 'basis', deleteArmed: 0,
+};
 
-// --- value mapping ------------------------------------------------------------
-const quarter = (v) => Math.min(3, Math.floor(v / 64));
-const patternIndex = (v) => Math.min(PATTERN_COUNT - 1, Math.floor(v * PATTERN_COUNT / 256));
-const patternValue = (i) => Math.floor((i + 0.5) * 256 / PATTERN_COUNT);
-const isProgramMode = () => quarter(values[0]) >= 2;
+const limits = () => (st ? st.limits : { ch7: [0, POS_MAX], ch6: { on: true, range: [0, POS_MAX] }, calibrated: false });
+const isCalibrated = () => !!(st && st.limits.calibrated);
+const canDrive = () => isOpen && !!st && !st.cal && !st.stopHeld;
+const canEdit = () => isOpen && !!st && !st.cal;
+const presetList = () => [...lib.presets.values()].sort((a, b) => a.slot - b.slot);
+const showList = () => [...lib.shows.values()].sort((a, b) => a.slot - b.slot);
+const freeSlot = (map, count) => { for (let s = 1; s <= count; s += 1) if (!map.has(s)) return s; return 0; };
+const presetName = (slot) => (lib.presets.has(slot) ? lib.presets.get(slot).name : `Preset ${slot}`);
+const showName = (slot) => (lib.shows.has(slot) ? lib.shows.get(slot).name : `Show ${slot}`);
+const showsUsing = (slot) => showList().filter((s) => s.steps.some(([p]) => p === slot));
+const totalHold = (steps) => steps.reduce((n, [, t]) => n + t, 0);
 
-// --- sending ------------------------------------------------------------------
-function queue(ch, value) {
-  values = values.map((v, i) => (i === ch - 1 ? value : v));
-  pending.set(ch, value);
+// --- patterns and drawing ----------------------------------------------------------------------
+function patternInfo(n) { return patterns ? patterns[n - 1] || null : null; }
+function patternName(n) { const p = patternInfo(n); return p ? p.name : `Patroon ${n}`; }
+function pickablePatterns(category) {
+  if (!patterns) return Array.from({ length: PATTERN_COUNT }, (_, k) => ({ number: k + 1, name: `Patroon ${k + 1}` })).filter((p) => p.number !== 48);
+  return patterns.filter((p) => !p.duplicateOf && (!category || p.category === category));
+}
+
+function prepPatterns(json) {
+  const list = json && Array.isArray(json.patterns) ? json.patterns : [];
+  if (list.length !== PATTERN_COUNT) return null;
+  return list.map((p, k) => {
+    const strokes = (Array.isArray(p.strokes) ? p.strokes : []).filter((s) => Array.isArray(s) && s.length)
+      .map((s) => s.filter((pt) => Array.isArray(pt) && pt.length === 2).map(([x, y]) => [Number(x) || 0, Number(y) || 0]));
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, points = 0;
+    strokes.forEach((s) => s.forEach(([x, y]) => {
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); points += 1;
+    }));
+    const box = points ? { bx: (x0 + x1) / 2, by: (y0 + y1) / 2, half: Math.max(0.08, (x1 - x0) / 2, (y1 - y0) / 2) } : { bx: 0, by: 0, half: 1 };
+    return {
+      number: k + 1, name: String(p.name || `Patroon ${k + 1}`), category: String(p.category || ''),
+      duplicateOf: Number(p.duplicateOf) || 0, strokes, box, points: Math.max(1, points),
+    };
+  });
+}
+
+async function loadPatterns() {
+  if (patterns || patternsLoading) return;
+  patternsLoading = true;
+  try {
+    const response = await fetch('/patterns.json');
+    if (response.ok) patterns = prepPatterns(await response.json());
+  } catch (e) {
+    patterns = null;   // retried on the next connection; the page works with numbers meanwhile
+  }
+  patternsLoading = false;
+  if (patterns) { rebuildAll(); render(); }
+}
+
+function fitCanvas(cv) {
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (!w || !h) return null;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = Math.round(w * dpr), H = Math.round(h * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  return { ctx, w, h };
+}
+
+// Colour along the drawing, following CH9 (the laser can't hold one fixed colour).
+function painter(v, t) {
+  if (v >= 192) {
+    const shift = t * 50;
+    return (k, n, x) => `hsl(${Math.round(((x * 300 + shift) % 360) / 20) * 20} 100% 62%)`;
+  }
+  if (v >= 128) { const c = LASER[(1 + Math.floor(t * 0.9)) % 6]; return () => c; }
+  const base = Math.floor(v / 9) + (v >= 64 ? 3 : 0);
+  const set = [LASER[base % 6], LASER[(base + 2) % 6], LASER[(base + 4) % 6]];
+  return (k, n) => set[Math.floor(k / Math.max(1, n / 6)) % 3];
+}
+function sizeScale(v, t, animate) {
+  if (v < 64) return 1 - (v / 63) * 0.72;
+  if (!animate) return v < 192 ? 0.62 : 0.72;
+  if (v < 128) return 0.25 + 0.75 * ((t * 0.5) % 1);
+  if (v < 192) return 1 - 0.75 * ((t * 0.5) % 1);
+  return 0.62 + 0.33 * Math.sin(t * 3.2);
+}
+// 0-127 is an angle: 64 turns #1 Vierkant into the Ruit (user's test); 128-255 spins.
+function angleOf(v, t, animate) {
+  if (v < 128) return (v / 64) * (Math.PI / 4);
+  return animate ? (v < 192 ? 1 : -1) * t * 1.6 : 0;
+}
+const flipOf = (v, t, animate) => (v >= 128 && animate ? Math.cos(t * 2.4) : 1);
+
+function drawDots(ctx, pts, paint, k0, total, w, r, gap) {
+  const dot = (x, y, k) => {
+    const c = paint(k, total, x / w);
+    ctx.fillStyle = c;
+    ctx.shadowColor = c;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
+  };
+  dot(pts[0][0], pts[0][1], k0);
+  let since = 0;
+  for (let i = 1; i < pts.length; i += 1) {
+    const [x0, y0] = pts[i - 1];
+    const [x1, y1] = pts[i];
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    let pos = gap - since;
+    while (pos <= len) { const f = len ? pos / len : 0; dot(x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, k0 + i); pos += gap; }
+    since = len - (pos - gap);
+  }
+}
+function drawLines(ctx, pts, paint, k0, total, w) {
+  let color = null;
+  for (let i = 1; i < pts.length; i += 1) {
+    const c = paint(k0 + i, total, pts[i][0] / w);
+    if (c !== color) {
+      if (color) ctx.stroke();
+      color = c;
+      ctx.strokeStyle = c;
+      ctx.shadowColor = c;
+      ctx.beginPath();
+      ctx.moveTo(pts[i - 1][0], pts[i - 1][1]);
+    }
+    ctx.lineTo(pts[i][0], pts[i][1]);
+  }
+  if (color) ctx.stroke();
+}
+
+// Draws a look (10 channels) from the user's own drawing of its pattern.
+function drawLook(cv, ch, opt = {}) {
+  const fit = fitCanvas(cv);
+  if (!fit) return;
+  const { ctx, w, h } = fit;
+  const n = patternNumber(ch[1]);
+  const p = patternInfo(n);
+  if (!p || !p.points) {
+    ctx.fillStyle = 'rgba(245, 242, 234, .3)';
+    ctx.font = CANVAS_MONO;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(opt.placeholder || `#${n}`, w / 2, h / 2);
+    return;
+  }
+  const t = opt.t || 0;
+  const anim = !!opt.animate;
+  const size = sizeScale(ch[7], t, anim);
+  const R = Math.min(w, h) * 0.5 * (opt.fill || 0.8) * (opt.flatSize ? 1 - (1 - size) * 0.45 : size);  // thumbnails stay legible
+  const a = angleOf(ch[2], t, anim);
+  const fx = flipOf(ch[3], t, anim);
+  const fy = flipOf(ch[4], t * 0.8, anim);
+  const ca = Math.cos(a), sa = Math.sin(a);
+  const spins = anim && ch[2] >= 128;
+  const fitR = R * (spins ? Math.SQRT1_2 : 1 / (Math.abs(ca) + Math.abs(sa)));
+  const { bx, by, half } = p.box;
+  const map = ([x, y]) => {
+    const qx = ((x - bx) / half) * fx, qy = ((y - by) / half) * fy;
+    return [w / 2 + fitR * (qx * ca - qy * sa), h / 2 + fitR * (qx * sa + qy * ca)];
+  };
+  const paint = painter(ch[8], t);
+  const lw = opt.line || Math.max(1.3, Math.min(w, h) / 55);
+  const dots = ch[9] >= 128;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  if (ch[0] < MODE_ON_MIN && !opt.ignoreMode) ctx.globalAlpha = 0.3;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.shadowBlur = opt.glow == null ? lw * 3 : opt.glow;
+  let k = 0;
+  p.strokes.forEach((stroke) => {
+    const pts = stroke.map(map);
+    if (dots || pts.length === 1) drawDots(ctx, pts, paint, k, p.points, w, lw * (dots ? 0.85 : 1.1), dots ? Math.max(4.5, lw * 3.4) : Infinity);
+    else drawLines(ctx, pts, paint, k, p.points, w);
+    k += stroke.length;
+  });
+  ctx.restore();
+}
+
+function addThumb(cv, draw) {
+  const entry = { cv, draw };
+  thumbs.add(entry);
+  return entry;
+}
+// Redraws every canvas that is on screen (after a rebuild, a resize or a tab switch).
+function redrawThumbs() {
+  thumbs.forEach((entry) => {
+    if (!entry.cv.isConnected) { thumbs.delete(entry); return; }
+    entry.draw();
+  });
+}
+let redrawQueued = false;
+function queueRedraw() {
+  if (redrawQueued) return;
+  redrawQueued = true;
+  requestAnimationFrame(() => { redrawQueued = false; redrawThumbs(); });
+}
+
+// Short words for a look: "#21 Ster · draait · punten".
+function lookWords(ch, withPattern = true) {
+  const words = [];
+  if (withPattern) words.push(patternName(patternNumber(ch[1])));
+  if (ch[2] >= 128) words.push('draait');
+  if (ch[3] >= 128 || ch[4] >= 128) words.push('spiegelt');
+  if (ch[7] >= 192) words.push('pulseert');
+  else if (ch[7] >= 64) words.push('zoomt');
+  if (ch[9] >= 128) words.push('punten');
+  if (ch[0] < MODE_ON_MIN) words.push('laser uit');
+  return words.join(' · ');
+}
+function colorSwatch(v) {
+  if (v >= 192) return COLORS[2].swatch;
+  if (v >= 128) return COLORS[1].swatch;
+  return COLORS[0].swatch;
+}
+
+// --- sending ----------------------------------------------------------------------------------
+function send(text) {
+  if (!isOpen) {
+    showMsg('Geen verbinding met de laser. Staat hij aan, gebruik dan de stopknop (IO0) of de schakelaar van de laser zelf.', 'error');
+    return false;
+  }
+  ws.send(text);
+  return true;
+}
+function sendChannel(ch, v) {
+  setLocal(ch, v);
+  outbox.delete(ch);
+  return send(`${ch} ${v}`);
 }
 function flush() {
-  if (!isOpen) { pending.clear(); return; }
-  pending.forEach((value, ch) => ws.send(`${ch} ${value}`));
-  pending.clear();
+  if (!isOpen) { outbox.clear(); return; }
+  outbox.forEach((v, ch) => ws.send(`${ch} ${v}`));
+  outbox.clear();
 }
-function sendNow(ch, value) { queue(ch, value); flush(); render(); }
-
-// --- building the controls ----------------------------------------------------
-function segButtons(container, labels, onPick) {
-  return labels.map((label, i) => {
-    const b = document.createElement('button');
-    b.textContent = label;
-    b.addEventListener('click', () => onPick(i));
-    container.appendChild(b);
-    return b;
+function setLocal(ch, v) { local.set(ch, { v, at: now() }); }
+function valueOf(ch) {
+  const mine = local.get(ch);
+  if (mine) return mine.v;
+  return st ? st.ch[ch - 1] : 0;
+}
+function currentLook() { return Array.from({ length: CH_COUNT }, (_, k) => valueOf(k + 1)); }
+function dropStaleLocal() {
+  local.forEach((entry, ch) => {
+    if (!dragging.has(ch) && !outbox.has(ch) && now() - entry.at > LOCAL_HOLD_MS) local.delete(ch);
   });
 }
-const modeButtons = segButtons($('modes'), MODES.map((m) => m[0]), (i) => sendNow(1, MODES[i][1]));
-const programButtons = segButtons($('programs'), ['1', '2', '3', '4'], (i) => sendNow(2, i * 64 + 32));
-const colorButtons = segButtons($('colorModes'), COLOR_MODES, (i) => sendNow(9, i * 64 + (values[8] % 64)));
+function clearLocal() { local.clear(); dragging.clear(); outbox.clear(); }
+// A preset load or a show step replaces the look: drop local values not under a finger.
+function releaseLocal() { local.forEach((_, ch) => { if (!dragging.has(ch) && !outbox.has(ch)) local.delete(ch); }); }
+const playKey = (s) => (s && s.play ? `${s.play.show}:${s.play.step}` : '');
 
-function setPattern(index) {
-  sendNow(2, patternValue(Math.max(0, Math.min(PATTERN_COUNT - 1, index))));
+function setPending(p) { pending = { ...p, at: now() }; }
+
+// --- toast ---------------------------------------------------------------------------------------
+function showMsg(text, kind) {
+  $('msgText').textContent = text;
+  $('msg').className = `toast ${kind || ''}`;
+  $('msg').hidden = false;
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(hideMsg, MSG_MS[kind] || MSG_MS.warn);
 }
-$('prevPattern').addEventListener('click', () => setPattern(patternIndex(values[1]) - 1));
-$('nextPattern').addEventListener('click', () => setPattern(patternIndex(values[1]) + 1));
-$('patternSlider').addEventListener('input', (e) => {
-  queue(2, patternValue(e.target.value - 1));
-  $('patternNum').textContent = e.target.value;
-});
-$('colorOffset').addEventListener('input', (e) => {
-  queue(9, quarter(values[8]) * 64 + Number(e.target.value));
-  $('colorOffsetValue').textContent = e.target.value;
-});
+function hideMsg() { $('msg').hidden = true; }
 
-const sliders = CHANNELS.map(([name, hint], i) => {
-  const ch = i + 1;
-  const row = document.createElement('div');
-  row.className = 'ch';
-  const head = document.createElement('div');
-  head.className = 'ch-head';
-  const title = document.createElement('span');
-  title.textContent = `CH${ch} ${name}`;
-  const valueLabel = document.createElement('b');
-  valueLabel.textContent = '0';
-  head.append(title, valueLabel);
-  const slider = document.createElement('input');
+// --- header, banners, side panel -----------------------------------------------------------------------
+function renderHeader() {
+  [...$('nav').children].forEach((b) => {
+    b.classList.toggle('on', b.dataset.tab === ui.tab);
+    b.setAttribute('aria-current', b.dataset.tab === ui.tab ? 'page' : 'false');
+  });
+  const act = $('tabAction');
+  const overlay = ui.builder || ui.sheet || ui.editor;
+  let label = '';
+  if (isOpen && !overlay && ui.tab === 'presets' && lib.presets.size) label = ui.editing ? 'Klaar' : 'Bewerken';
+  if (isOpen && !overlay && ui.tab === 'shows') label = '＋ Nieuwe show';
+  act.hidden = !label;
+  act.textContent = label;
+  act.classList.toggle('on', ui.tab === 'presets' && ui.editing);
+  act.disabled = ui.tab === 'shows' && (!lib.presets.size || !freeSlot(lib.shows, SHOW_SLOTS));
+}
+
+function renderBanners() {
+  const session = !!(st && st.cal);
+  const debug = session && st.cal.phase === 'debug';
+  $('sessionBanner').hidden = !session;
+  $('sessionBanner').textContent = debug ? 'DEBUG: geen begrenzing. De bediening is vergrendeld; UIT werkt altijd.'
+    : 'KALIBRATIE: begrenzing aangepast. De bediening is vergrendeld; UIT werkt altijd.';
+  $('stopBanner').hidden = !(st && st.stopHeld);
+  $('uncalBanner').hidden = !st || st.limits.calibrated || session;
+  $('uncalText').textContent = st && st.settingsReset
+    ? 'De instellingen waren beschadigd en zijn gewist. De laser kan pas aan na het instellen van de hoogtegrens.'
+    : 'De laser kan pas aan na het instellen van de hoogtegrens.';
+  $('libraryBanner').hidden = !(st && st.libraryReset);
+  $('banners').hidden = [...$('banners').children].every((b) => b.hidden);
+}
+
+function setNow(label, name, meta, cls) {
+  $('nowLabel').textContent = label;
+  $('nowName').textContent = name;
+  $('nowMeta').textContent = meta;
+  $('now').className = `now ${cls || ''}`;
+}
+function playInfo() {
+  if (!st || !st.play) return null;
+  const show = lib.shows.get(st.play.show);
+  const steps = show ? show.steps : [];
+  const step = clamp(st.play.step, 0, Math.max(0, st.play.steps - 1));
+  const hold = steps[step] ? steps[step][1] * 100 : 0;
+  const left = Math.max(0, st.play.holdLeftMs - (now() - stAt));
+  return { show, step, steps: st.play.steps, hold, left, presetSlot: steps[step] ? steps[step][0] : 0 };
+}
+function renderSide() {
+  const prog = $('nowProg');
+  prog.hidden = true;
+  $('nowSwatch').hidden = true;
+  if (!isOpen || !st) { setNow('Laser', 'Geen verbinding', 'Zit deze telefoon op de wifi Laser-Controller?'); return; }
+  if (st.stopHeld) { setNow('Stopknop', 'IO0 ingedrukt', 'De laser blijft uit tot je hem loslaat.', 'n-stop'); return; }
+  if (st.cal) {
+    const debug = st.cal.phase === 'debug';
+    setNow(debug ? 'Debug' : 'Kalibratie', 'Bediening vergrendeld', 'Met UIT stop je hem altijd.', 'n-sess');
+    return;
+  }
+  const ch = currentLook();
+  const play = playInfo();
+  if (play) {
+    setNow('Show loopt', play.show ? play.show.name : showName(st.play.show),
+      `Stap ${play.step + 1}/${play.steps}: ${presetName(play.presetSlot)} · nog ${Math.ceil(play.left / 1000)} s`, 'n-play');
+    renderProgress(prog, play);
+  } else if (ch[0] < MODE_ON_MIN) {
+    const start = ui.tab === 'desk' ? 'Tik ZET AAN bij Modus, of kies een preset.' : 'Tik een preset om te starten.';
+    setNow('Nu', 'Laser uit', isCalibrated() ? start : 'Eerst de hoogtegrens instellen (Beheer).');
+  } else if (st.preset != null && lib.presets.has(st.preset)) {
+    setNow('Nu', presetName(st.preset), `Preset · ${lookWords(ch)}`);
+  } else {
+    setNow('Nu', 'Eigen instelling', lookWords(ch));
+  }
+  if (ch[0] >= MODE_ON_MIN) {
+    $('nowSwatch').hidden = false;
+    $('nowSwatch').style.background = colorSwatch(ch[8]);
+  }
+}
+function renderProgress(prog, play) {
+  prog.hidden = false;
+  if (prog.children.length !== play.steps) {
+    prog.textContent = '';
+    for (let k = 0; k < play.steps; k += 1) prog.append(el('i'));
+  }
+  [...prog.children].forEach((seg, k) => {
+    seg.className = k < play.step ? 'done' : k === play.step ? 'cur' : '';
+    if (k === play.step) seg.style.setProperty('--fill', `${play.hold ? clamp(100 - (play.left / play.hold) * 100, 0, 100) : 0}%`);
+  });
+}
+
+// --- presets ---------------------------------------------------------------------------------------
+function rebuildTiles() {
+  const host = $('tiles');
+  host.textContent = '';
+  const list = presetList();
+  list.forEach((p) => host.append(makeTile(p)));
+  if (!ui.editing && list.length < PRESET_SLOTS) {
+    const add = button('tile add', null, openBuilder, 'Nieuwe preset maken');
+    add.id = 'addTile';
+    add.append(document.createTextNode('＋ Nieuw'), el('small', '', 'Snelbouwer'));
+    host.append(add);
+  }
+  if (!list.length) {
+    const empty = el('div', 'empty');
+    empty.append(el('b', '', 'Nog geen presets'),
+      el('p', 'hint', 'Maak er een met ＋ Nieuw, of stel de laser in op de Lichttafel en tik ＋ Bewaar als preset.'));
+    host.append(empty);
+  }
+  refreshTiles();
+  queueRedraw();
+}
+function makeTile(p) {
+  const tile = el('div', `tile${ui.editing ? ' editing' : ''}`);
+  tile.dataset.slot = p.slot;
+  const cv = el('canvas');
+  const txt = el('div', 'txt');
+  txt.append(el('div', 'name', p.name), el('div', 'meta', lookWords(p.ch)));
+  const hit = button('hit', null, () => onTileTap(p.slot), ui.editing ? `${p.name} verwijderen` : `${p.name} starten`);
+  const badge = el('span', 'badge', 'NU');
+  badge.hidden = true;
+  tile.append(cv, txt, hit, badge);
+  addThumb(cv, () => drawLook(cv, p.ch, { fill: 0.86, flatSize: true }));
+  if (ui.editing) {
+    tile.append(button('del', '✕', () => askDelete(p.slot), `${p.name} verwijderen`));
+    if (ui.confirmSlot === p.slot) tile.append(makeConfirm(p));
+  }
+  return tile;
+}
+function makeConfirm(p) {
+  const box = el('div', 'confirm');
+  const waiting = pending && pending.kind === 'preset-delete' && pending.slot === p.slot;
+  box.append(el('p', '', `${quote(p.name)} verwijderen?`));
+  const row = el('div');
+  const yes = button('btn red', waiting ? 'Bezig…' : 'Verwijder', () => deletePreset(p));
+  yes.disabled = !!waiting;
+  row.append(yes, button('btn', 'Nee', () => { ui.confirmSlot = null; rebuildTiles(); }));
+  box.append(row);
+  return box;
+}
+function refreshTiles() {
+  const active = st && !st.cal ? st.preset : null;
+  $('tiles').querySelectorAll('.tile[data-slot]').forEach((t) => {
+    const on = !ui.editing && Number(t.dataset.slot) === active;
+    t.classList.toggle('on', on);
+    t.querySelector('.badge').hidden = !on;
+  });
+}
+function onTileTap(slot) {
+  if (ui.editing) { askDelete(slot); return; }
+  if (!canDrive()) return;
+  releaseLocal();
+  send(`preset load ${slot}`);
+}
+function askDelete(slot) {
+  ui.confirmSlot = slot;
+  rebuildTiles();
+}
+function deletePreset(p) {
+  const users = showsUsing(p.slot);
+  if (send(`preset delete ${p.slot}`)) setPending({ kind: 'preset-delete', slot: p.slot, name: p.name, users: users.map((s) => s.name) });
+  rebuildTiles();
+}
+function setEditing(on) {
+  ui.editing = on;
+  ui.confirmSlot = null;
+  rebuildTiles();
+  render();
+}
+
+// --- quick builder -------------------------------------------------------------------------------------
+function heightValue(index) {
+  const [low, high] = limits().ch7;
+  if (index === 0) return high;
+  if (index === 2) return low;
+  return Math.round((low + high) / 2);
+}
+function builderLook(b) {
+  const ch = [MODE_ON, patternValue(b.pattern || 1), 0, 0, 0, 0, heightValue(b.height), SIZES[b.size].value,
+    b.color === 0 ? b.mix : COLORS[b.color].value, DOTS[b.dots].base + b.speed];
+  Object.entries(MOVES[b.move].ch).forEach(([k, v]) => { ch[Number(k) - 1] = v; });
+  return ch;
+}
+function suggestName(b) {
+  return cleanName(`${patternName(b.pattern || 1)}, ${COLORS[b.color].short.toLowerCase()}`);
+}
+function openBuilder() {
+  if (!canEdit()) return;
+  const first = pickablePatterns(CATEGORIES[0])[0];
+  ui.builder = {
+    pattern: null, cat: first && first.category ? first.category : '', tab: 'vorm',
+    color: 0, mix: 0, move: 0, size: 1, height: 1, dots: 0, speed: 0, live: false,
+  };
+  $('bName').value = '';
+  ui.editing = false;
+  ui.confirmSlot = null;
+  renderBuilder(true);
+  render();
+}
+function closeBuilder() {
+  ui.builder = null;
+  $('builder').hidden = true;
+  render();
+}
+// Sends what differs from the laser now. CH1 = 96 only because the user tapped a choice
+// (rule 5), and last, so the look is complete before the laser switches on.
+// Only a choice tap may switch the laser on (rule 5). After someone pressed UIT,
+// releasing a slider or Opslaan must not quietly undo that.
+function applyBuilder(b, mayTurnOn) {
+  if (!b.pattern || !canDrive()) return;
+  const want = builderLook(b);
+  for (let ch = 2; ch <= CH_COUNT; ch += 1) if (want[ch - 1] !== valueOf(ch)) sendChannel(ch, want[ch - 1]);
+  if (mayTurnOn && isCalibrated() && valueOf(1) < MODE_ON_MIN) sendChannel(1, MODE_ON);
+  ui.builder = { ...ui.builder, live: true };
+}
+function choose(change) {
+  const b = { ...ui.builder, ...change };
+  ui.builder = b;
+  applyBuilder(b, true);
+  renderBuilder();
+}
+// Sliders: the moved channel goes out throttled; releasing applies the whole look.
+function slideBuilder(change, ch, value, done) {
+  ui.builder = { ...ui.builder, ...change };
+  if (ui.builder.pattern && canDrive() && ui.builder.live) {
+    setLocal(ch, value);
+    outbox.set(ch, value);
+  }
+  if (done) { flush(); applyBuilder(ui.builder, false); }
+  renderBuilderHead();
+}
+
+function renderBuilder(reset) {
+  const b = ui.builder;
+  $('builder').hidden = !b;
+  if (!b) return;
+  renderBuilderHead();
+  renderBuilderPane();
+  if (reset) $('bPane').scrollTop = 0;
+  startAnim();
+}
+function renderBuilderHead() {
+  const b = ui.builder;
+  const tabs = $('bTabs');
+  tabs.textContent = '';
+  BTABS.forEach(([key, label, value]) => {
+    const t = button(`btab${b.tab === key ? ' on' : ''}`, null, () => { ui.builder = { ...ui.builder, tab: key }; renderBuilder(true); });
+    t.dataset.tab = key;
+    t.setAttribute('role', 'tab');
+    t.setAttribute('aria-selected', String(b.tab === key));
+    t.append(el('small', '', label), el('span', '', value(b)));
+    tabs.append(t);
+  });
+  $('bLook').textContent = b.pattern ? `#${b.pattern} ${patternName(b.pattern)}` : 'Kies een vorm';
+  const [text, live] = builderStatus(b);
+  $('bStatus').textContent = text;
+  $('bStatus').className = `st${live ? ' live' : ''}`;
+  $('bName').placeholder = b.pattern ? suggestName(b) : 'Naam';
+  $('bSave').disabled = !canSaveBuilder(b);
+}
+function builderStatus(b) {
+  if (!isOpen) return ['Geen verbinding met de laser.', false];
+  if (st && st.cal) return ['Er loopt een kalibratie of debugsessie: even wachten.', false];
+  if (st && st.stopHeld) return ['De stopknop (IO0) is ingedrukt.', false];
+  if (!isCalibrated()) return ['De hoogtegrens is nog niet ingesteld: de laser blijft uit, en opslaan kan pas daarna.', false];
+  if (!b.pattern) return ['Er gaat pas iets naar de laser als je een vorm kiest.', false];
+  if (!freeSlot(lib.presets, PRESET_SLOTS)) return ['Alle 32 plekken zijn vol. Verwijder eerst een preset.', false];
+  if (valueOf(1) < MODE_ON_MIN) return ['De laser is uit. Tik een keuze om hem weer aan te zetten; daarna kun je opslaan.', false];
+  return ['Live op de laser. Elke keuze zie je meteen.', true];
+}
+function canSaveBuilder(b) {
+  return !!b.pattern && canDrive() && isCalibrated() && valueOf(1) >= MODE_ON_MIN && !!freeSlot(lib.presets, PRESET_SLOTS) &&
+    !pending;
+}
+function renderBuilderPane() {
+  const b = ui.builder;
+  const pane = $('bPane');
+  pane.textContent = '';
+  const panes = { vorm: paneShape, kleur: paneColor, beweging: paneMove, grootte: paneSize, hoogte: paneHeight, lijnen: paneDots };
+  panes[b.tab](pane, b);
+  queueRedraw();
+}
+function optionCards(pane, items, current, onPick, describe) {
+  const grid = el('div', 'opts');
+  items.forEach((item, k) => {
+    const o = button(`opt${current === k ? ' on' : ''}`, null, () => onPick(k));
+    o.dataset.opt = k;
+    o.setAttribute('aria-pressed', String(current === k));
+    o.append(el('b', '', item.label));
+    const text = describe ? describe(item, k) : item.text;
+    if (text) o.append(el('small', '', text));
+    if (item.swatch) { const sw = el('span', 'sw'); sw.style.background = item.swatch; o.append(sw); }
+    grid.append(o);
+  });
+  pane.append(grid);
+  return grid;
+}
+function paneShape(pane, b) {
+  if (patterns) {
+    const cats = el('div', 'cats');
+    CATEGORIES.forEach((c) => {
+      const chip = button(`chip${b.cat === c ? ' on' : ''}`, c, () => { ui.builder = { ...ui.builder, cat: c }; renderBuilderPane(); $('bPane').scrollTop = 0; });
+      chip.dataset.cat = c;
+      cats.append(chip);
+    });
+    pane.append(cats);
+  } else {
+    pane.append(el('p', 'pane-note', 'De tekeningen laden nog; kies zolang op nummer.'));
+  }
+  const grid = el('div', 'pgrid');
+  pickablePatterns(patterns ? b.cat : '').forEach((p) => {
+    const cell = button(`pcell${b.pattern === p.number ? ' on' : ''}`, null, () => choose({ pattern: p.number }), `#${p.number} ${p.name}`);
+    cell.dataset.pattern = p.number;
+    const cv = el('canvas');
+    cell.append(cv, el('span', '', p.name));
+    grid.append(cell);
+    const look = [MODE_ON, patternValue(p.number), 0, 0, 0, 0, 0, 0, 0, 0];
+    addThumb(cv, () => drawLook(cv, look, { fill: 0.78, glow: 3 }));
+  });
+  pane.append(grid);
+}
+function paneColor(pane, b) {
+  optionCards(pane, COLORS, b.color, (k) => choose({ color: k }));
+  if (b.color !== 0) return;
+  const row = el('div', 'slrow');
+  const lcd = el('span', 'lcd', pad3(b.mix));
+  lcd.id = 'mixLcd';
+  const slider = el('input');
   slider.type = 'range';
   slider.min = 0;
-  slider.max = 255;
-  slider.value = 0;
-  slider.setAttribute('aria-label', `CH${ch} ${name}`);
-  const hintEl = document.createElement('div');
-  hintEl.className = 'hint';
-  hintEl.textContent = hint;
-  row.append(head, slider, hintEl);
-  $('channels').appendChild(row);
-  slider.addEventListener('input', () => {
-    draggingCh = ch;
-    queue(ch, Number(slider.value));
-    valueLabel.textContent = slider.value;
-  });
-  slider.addEventListener('change', () => { draggingCh = 0; render(); });
-  return { slider, valueLabel, hintEl };
-});
+  slider.max = 63;
+  slider.value = b.mix;
+  slider.id = 'mixSlider';
+  slider.setAttribute('aria-label', 'Welke mix (kanaal 9, 0 tot 63)');
+  const move = (done) => { const v = clampInt(slider.value, 0, 63); lcd.textContent = pad3(v); slideBuilder({ mix: v }, 9, v, done); };
+  slider.addEventListener('input', () => move(false));
+  slider.addEventListener('change', () => move(true));
+  row.append(el('span', '', 'Mix'), slider, lcd);
+  pane.append(row, el('p', 'pane-note', 'Een vaste losse kleur kan deze laser niet: 0–63 geeft steeds een mix van kleuren.'));
+}
+function paneMove(pane, b) {
+  optionCards(pane, MOVES, b.move, (k) => choose({ move: k }));
+  pane.append(el('p', 'pane-note', 'Draaien en spiegelen gebruiken een vaste snelheid; fijner afstellen kan op de Lichttafel.'));
+}
+function paneSize(pane, b) {
+  const grid = optionCards(pane, SIZES, b.size, (k) => choose({ size: k }), (s) => `Kanaal 8 op ${s.value}.`);
+  if (b.move === PULSE) {
+    grid.querySelectorAll('.opt').forEach((o) => { o.disabled = true; });
+    pane.append(el('p', 'pane-note', 'Pulseren regelt de grootte zelf. Kies een andere beweging om een vaste grootte te kiezen.'));
+  } else {
+    pane.append(el('p', 'pane-note', 'Een hogere waarde is kleiner: zo werkt deze laser.'));
+  }
+}
+function paneHeight(pane, b) {
+  const [low, high] = limits().ch7;
+  optionCards(pane, HEIGHTS, b.height, (k) => choose({ height: k }),
+    (item, k) => `Kanaal 7 op ${heightValue(k)}${k === 0 ? ' (hoogste stand)' : k === 2 ? ' (laagste stand)' : ''}.`);
+  pane.append(el('p', 'pane-note', isCalibrated()
+    ? `Binnen jouw hoogtegrens (${low} tot ${high}). De ESP32 houdt hem daar altijd binnen.`
+    : 'Er is nog geen hoogtegrens ingesteld.'));
+}
+function paneDots(pane, b) {
+  optionCards(pane, DOTS, b.dots, (k) => choose({ dots: k }));
+  const row = el('div', 'slrow');
+  const lcd = el('span', 'lcd', pad3(DOTS[b.dots].base + b.speed));
+  lcd.id = 'speedLcd';
+  const slider = el('input');
+  slider.type = 'range';
+  slider.min = 0;
+  slider.max = POS_MAX;
+  slider.value = b.speed;
+  slider.id = 'speedSlider';
+  slider.setAttribute('aria-label', 'Snelheid: links snel, rechts langzaam');
+  const move = (done) => {
+    const v = clampInt(slider.value, 0, POS_MAX);
+    const value = DOTS[ui.builder.dots].base + v;
+    lcd.textContent = pad3(value);
+    slideBuilder({ speed: v }, 10, value, done);
+  };
+  slider.addEventListener('input', () => move(false));
+  slider.addEventListener('change', () => move(true));
+  row.append(el('span', '', 'Snel'), slider, el('span', '', 'Langzaam'), lcd);
+  pane.append(row, el('p', 'pane-note', 'Hoe hoger kanaal 10 binnen lijnen of punten, hoe langzamer de laser tekent.'));
+}
+function saveBuilder() {
+  const b = ui.builder;
+  if (!b || !canSaveBuilder(b)) return;
+  const name = cleanName($('bName').value) || suggestName(b);
+  const slot = freeSlot(lib.presets, PRESET_SLOTS);
+  if (!name) { showMsg(ERROR_TEXT['bad-name'], 'error'); return; }
+  flush();
+  applyBuilder(b, false);   // the save stores the live look, so it must be complete (it is on: canSaveBuilder)
+  if (send(`preset save ${slot} ${name}`)) setPending({ kind: 'preset-save', slot, name, from: 'builder' });
+  renderBuilderHead();
+}
 
-// --- rendering ----------------------------------------------------------------
+// --- "＋ Bewaar als preset" ------------------------------------------------------------------------------
+function openSheet() {
+  if (!canEdit()) return;
+  if (!freeSlot(lib.presets, PRESET_SLOTS)) { showMsg('Alle 32 plekken zijn vol. Verwijder eerst een preset.', 'warn'); return; }
+  ui.sheet = true;
+  ui.builder = null;
+  ui.editor = null;
+  $('sName').value = '';
+  render();
+  if (!window.matchMedia('(pointer: coarse)').matches) $('sName').focus();
+}
+function closeSheet() { ui.sheet = false; render(); }
+function renderSheet() {
+  $('sheet').hidden = !ui.sheet;
+  if (!ui.sheet) return;
+  const ch = currentLook();
+  const n = patternNumber(ch[1]);
+  $('sLook').textContent = `#${n} ${patternName(n)}`;
+  $('sLookMeta').textContent = lookWords(ch, false) || 'Zoals de laser nu staat.';
+  $('sName').placeholder = cleanName(patternName(n));
+  const slot = freeSlot(lib.presets, PRESET_SLOTS);
+  $('sHint').textContent = ch[0] < MODE_ON_MIN
+    ? 'Let op: de laser staat uit, dus deze preset is donker. Handig als pauze in een show.'
+    : `Bewaart alle 10 kanalen zoals de laser nu staat${slot ? `, op plek ${slot} van ${PRESET_SLOTS}` : ''}.`;
+  $('sHint').className = `hint${ch[0] < MODE_ON_MIN ? ' warn' : ''}`;
+  $('sSave').disabled = !canEdit() || !slot || !!pending;
+  startAnim();
+}
+function saveSheet() {
+  const slot = freeSlot(lib.presets, PRESET_SLOTS);
+  if (!slot || !canEdit()) return;
+  const name = cleanName($('sName').value) || cleanName($('sName').placeholder);
+  if (!name) { showMsg(ERROR_TEXT['bad-name'], 'error'); return; }
+  flush();
+  if (send(`preset save ${slot} ${name}`)) setPending({ kind: 'preset-save', slot, name, from: 'sheet' });
+  renderSheet();
+}
+
+// --- shows ------------------------------------------------------------------------------------------
+function rebuildShows() {
+  const host = $('shows');
+  host.textContent = '';
+  const list = showList();
+  if (!list.length) {
+    const card = el('div', 'card');
+    card.append(el('b', '', 'Nog geen shows'),
+      el('p', 'hint', 'Een show speelt presets na elkaar af, elk zo lang als jij wilt, en begint dan opnieuw. De ESP32 speelt hem zelf: je telefoon mag op slot of weg.'));
+    const add = button('btn light', '＋ Nieuwe show', () => openEditor(null));
+    add.disabled = !lib.presets.size;
+    card.append(add);
+    if (!lib.presets.size) card.append(el('p', 'hint', 'Maak eerst een paar presets.'));
+    host.append(card);
+  }
+  list.forEach((s) => host.append(makeShowCard(s)));
+  refreshShows();
+  queueRedraw();
+}
+function makeShowCard(s) {
+  const card = el('div', 'show');
+  card.dataset.show = s.slot;
+  const info = el('div');
+  info.append(el('div', 'sname', s.name), el('div', 'smeta', ''));
+  const acts = el('div', 'acts');
+  const edit = button('btn', 'Bewerken', () => openEditor(s.slot), `${s.name} bewerken`);
+  edit.dataset.edit = s.slot;
+  const play = button('play', '▶', () => togglePlay(s.slot));
+  play.dataset.play = s.slot;
+  acts.append(edit, play);
+  const chips = el('div', 'steplist');
+  s.steps.forEach(([p, t], k) => {
+    const chip = el('div', 'stepchip');
+    chip.dataset.step = k;
+    const cv = el('canvas');
+    chip.append(cv, el('span', '', presetName(p)), el('b', '', fmtSec(t)));
+    chips.append(chip);
+    const preset = lib.presets.get(p);
+    if (preset) addThumb(cv, () => drawLook(cv, preset.ch, { fill: 0.86, glow: 2, line: 1.3, flatSize: true }));
+  });
+  card.append(info, acts, chips);
+  return card;
+}
+function refreshShows() {
+  const play = playInfo();
+  $('shows').querySelectorAll('.show').forEach((card) => {
+    const slot = Number(card.dataset.show);
+    const s = lib.shows.get(slot);
+    const playing = !!play && st.play.show === slot;
+    card.classList.toggle('playing', playing);
+    const btn = card.querySelector('.play');
+    btn.textContent = playing ? '■' : '▶';
+    btn.classList.toggle('stop', playing);
+    btn.setAttribute('aria-label', playing ? `${s ? s.name : 'Show'} stoppen` : `${s ? s.name : 'Show'} afspelen`);
+    card.querySelectorAll('.stepchip').forEach((c) => c.classList.toggle('cur', playing && Number(c.dataset.step) === play.step));
+    const meta = card.querySelector('.smeta');
+    if (playing) meta.textContent = `Speelt · stap ${play.step + 1}/${play.steps} · nog ${Math.ceil(play.left / 1000)} s`;
+    else if (s) meta.textContent = `${s.steps.length} ${s.steps.length === 1 ? 'stap' : 'stappen'} · ${fmtSec(totalHold(s.steps))} per ronde · blijft lopen zonder telefoon`;
+  });
+}
+function togglePlay(slot) {
+  if (!canDrive()) return;
+  releaseLocal();
+  if (st.play && st.play.show === slot) send('show stop');
+  else send(`show play ${slot}`);
+}
+
+// --- show editor ------------------------------------------------------------------------------------
+function openEditor(slot) {
+  if (!canEdit()) return;
+  const s = slot != null ? lib.shows.get(slot) : null;
+  if (slot == null && !freeSlot(lib.shows, SHOW_SLOTS)) { showMsg('Alle 16 plekken voor shows zijn vol. Verwijder eerst een show.', 'warn'); return; }
+  ui.editor = { slot: s ? s.slot : null, steps: s ? s.steps.map(([p, t]) => [p, t]) : [], picker: !s };
+  clearTimeout(ui.deleteArmed);
+  ui.deleteArmed = 0;
+  ui.sheet = false;
+  ui.builder = null;
+  $('eName').value = s ? s.name : '';
+  render();
+  renderEditor();
+}
+function closeEditor() { ui.editor = null; render(); }
+function setSteps(steps) { ui.editor = { ...ui.editor, steps }; renderEditor(); }
+function stepHold(t, dir) {
+  if (dir > 0) return HOLD_STEPS.find((v) => v > t) || HOLD_MAX;
+  return [...HOLD_STEPS].reverse().find((v) => v < t) || HOLD_MIN;
+}
+function parseHold(text, fallback) {
+  const n = Number(String(text).replace(',', '.').replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return clampInt(n * 10, HOLD_MIN, HOLD_MAX);
+}
+function renderEditor() {
+  const e = ui.editor;
+  $('editor').hidden = !e;
+  if (!e) return;
+  const host = $('eSteps');
+  host.textContent = '';
+  e.steps.forEach(([p, t], k) => host.append(makeStepRow(p, t, k, e.steps.length)));
+  const add = button('addstep', '＋ Stap toevoegen', () => { ui.editor = { ...ui.editor, picker: true }; renderEditor(); });
+  add.id = 'eAdd';
+  add.disabled = e.steps.length >= MAX_STEPS;
+  host.append(add);
+  renderEditorHead();
+  renderPicker();
+  queueRedraw();
+}
+function renderEditorHead() {
+  const e = ui.editor;
+  const n = e.steps.length;
+  $('eCount').textContent = `${n} ${n === 1 ? 'stap' : 'stappen'}${n >= MAX_STEPS ? ' (maximum)' : ''}`;
+  $('eTotal').textContent = n ? `${fmtSec(totalHold(e.steps))} per ronde, daarna begint hij opnieuw.` : 'Voeg minstens één stap toe.';
+  $('eDelete').hidden = e.slot == null;
+  $('eDelete').textContent = ui.deleteArmed ? 'Zeker? Tik nog eens' : 'Verwijderen';
+  $('eDelete').className = `btn${ui.deleteArmed ? ' red' : ''}`;
+  $('eSave').disabled = !n || !canEdit() || !!pending;
+}
+function makeStepRow(p, t, k, count) {
+  const row = el('div', 'srow');
+  row.dataset.k = k;
+  const cv = el('canvas');
+  const preset = lib.presets.get(p);
+  row.append(el('span', 'no', String(k + 1)), cv, el('div', 'nm', preset ? preset.name : `Preset ${p} (weg)`));
+  if (preset) addThumb(cv, () => drawLook(cv, preset.ch, { fill: 0.84, glow: 2, line: 1.3, flatSize: true }));
+  const hold = el('div', 'hold');
+  const input = el('input', 'lcd');
+  input.type = 'text';
+  input.inputMode = 'decimal';
+  input.value = fmtSecInput(t);
+  input.setAttribute('aria-label', `Stap ${k + 1}: seconden`);
+  const update = (value) => setSteps(ui.editor.steps.map((s, i) => (i === k ? [s[0], value] : s)));
+  input.addEventListener('change', () => update(parseHold(input.value, t)));
+  input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') input.blur(); });
+  hold.append(button('ib', '−', () => update(stepHold(t, -1)), `Stap ${k + 1} korter`), input, el('span', 'unit', 's'),
+    button('ib', '+', () => update(stepHold(t, 1)), `Stap ${k + 1} langer`));
+  const btns = el('div', 'rowbtns');
+  const swap = (a, b) => setSteps(ui.editor.steps.map((s, i) => (i === a ? ui.editor.steps[b] : i === b ? ui.editor.steps[a] : s)));
+  const up = button('ib', '↑', () => swap(k, k - 1), `Stap ${k + 1} omhoog`);
+  up.disabled = k === 0;
+  up.dataset.up = k;
+  const down = button('ib', '↓', () => swap(k, k + 1), `Stap ${k + 1} omlaag`);
+  down.disabled = k === count - 1;
+  const remove = button('ib', '✕', () => setSteps(ui.editor.steps.filter((_, i) => i !== k)), `Stap ${k + 1} weghalen`);
+  btns.append(up, down, remove);
+  row.append(hold, btns);
+  return row;
+}
+function renderPicker() {
+  const e = ui.editor;
+  $('ePicker').hidden = !e.picker;
+  if (!e.picker) return;
+  const grid = $('ePickGrid');
+  grid.textContent = '';
+  presetList().forEach((p) => {
+    const tile = button('tile', null, () => {
+      const last = ui.editor.steps[ui.editor.steps.length - 1];
+      ui.editor = { ...ui.editor, picker: false, steps: [...ui.editor.steps, [p.slot, last ? last[1] : DEFAULT_HOLD]] };
+      renderEditor();
+      const list = $('eSteps');
+      list.scrollTop = list.scrollHeight;
+    }, `${p.name} als stap toevoegen`);
+    tile.dataset.pick = p.slot;
+    const cv = el('canvas');
+    const txt = el('div', 'txt');
+    txt.append(el('div', 'name', p.name), el('div', 'meta', lookWords(p.ch)));
+    tile.append(cv, txt);
+    grid.append(tile);
+    addThumb(cv, () => drawLook(cv, p.ch, { fill: 0.86, flatSize: true }));
+  });
+}
+function saveShow() {
+  const e = ui.editor;
+  if (!e || !e.steps.length || !canEdit()) return;
+  const slot = e.slot != null ? e.slot : freeSlot(lib.shows, SHOW_SLOTS);
+  if (!slot) { showMsg('Alle 16 plekken voor shows zijn vol.', 'warn'); return; }
+  const name = cleanName($('eName').value) || `Show ${slot}`;
+  const steps = e.steps.map(([p, t]) => `${p}:${t}`).join(',');
+  if (send(`show save ${slot} ${steps} ${name}`)) setPending({ kind: 'show-save', slot, name });
+  renderEditor();
+}
+function deleteShow() {
+  const e = ui.editor;
+  if (!e || e.slot == null) return;
+  if (!ui.deleteArmed) {
+    ui.deleteArmed = setTimeout(() => { ui.deleteArmed = 0; if (ui.editor) renderEditor(); }, CONFIRM_MS);
+    renderEditor();
+    return;
+  }
+  clearTimeout(ui.deleteArmed);
+  ui.deleteArmed = 0;
+  if (send(`show delete ${e.slot}`)) setPending({ kind: 'show-delete', slot: e.slot, name: showName(e.slot) });
+  renderEditor();
+}
+
+// --- lichttafel (desk) ---------------------------------------------------------------------------------
+// A fader is either a list of snap values or a range [from (bottom) .. to (top)].
+function faderSpec(i) {
+  const L = limits();
+  if (i === 0) return { steps: [0, MODE_ON] };
+  if (i === 1) return { steps: PATTERN_VALUES };
+  if (i === 6) return { from: L.ch7[0], to: L.ch7[1] };   // bottom = the low end, also when low > high
+  if (i === 5 && L.ch6.on) return { from: Math.min(...L.ch6.range), to: Math.max(...L.ch6.range) };
+  return { from: 0, to: RAW_MAX };
+}
+function nearestStep(steps, v) {
+  let best = 0;
+  steps.forEach((s, k) => { if (Math.abs(s - v) < Math.abs(steps[best] - v)) best = k; });
+  return best;
+}
+function valueToPos(spec, v) {
+  if (spec.steps) return spec.steps.length > 1 ? nearestStep(spec.steps, v) / (spec.steps.length - 1) : 0;
+  if (spec.from === spec.to) return 0;
+  return clamp((v - spec.from) / (spec.to - spec.from), 0, 1);
+}
+function posToValue(spec, p) {
+  const q = clamp(p, 0, 1);
+  if (spec.steps) return spec.steps[Math.round(q * (spec.steps.length - 1))];
+  return Math.round(spec.from + q * (spec.to - spec.from));
+}
+function zoneIndex(ch, v) { return (ZONES[ch] || []).findIndex(([a, b]) => v >= a && v <= b); }
+function zoneText(i, v) {
+  const ch = i + 1;
+  const L = limits();
+  if (ch === 1) return v >= MODE_ON_MIN ? 'Aan' : 'Uit';
+  if (ch === 2) return patternName(patternNumber(v));
+  if (ch === 7) {
+    if (!L.calibrated) return 'Geen grens';
+    if (v === L.ch7[0]) return 'Laagst';
+    if (v === L.ch7[1]) return 'Hoogst';
+    return 'Hoogte';
+  }
+  if (ch === 6 && L.ch6.on) return v === 0 ? 'Midden' : 'Links';
+  const zone = (ZONES[ch] || [])[zoneIndex(ch, v)];
+  let text = zone ? zone[2] : '';
+  if (ch === 10) { const s = v % 128; text += s < 43 ? ' · snel' : s < 86 ? ' · middel' : ' · traag'; }
+  return text;
+}
+function buildDesk() {
+  const desk = $('desk');
+  dragging.clear();   // the old tracks are gone, so their pointerup will never come
+  desk.textContent = '';
+  deskStrips = CHANNELS.map((c, i) => buildStrip(desk, c, i));
+  const L = limits();
+  deskSig = JSON.stringify([L.ch6.on, L.calibrated]);
+  renderTip();
+}
+function buildStrip(desk, c, i) {
+  if (i === 0) return buildPowerStrip(desk, c);
+  const ch = i + 1;
+  const spec = faderSpec(i);
+  const strip = el('div', `strip${spec.steps ? ' snap' : ''}${i === 1 ? ' wide' : ''}`);
+  strip.dataset.ch = ch;
+  const lbl = button('lbl', c.key, (e) => { e.stopPropagation(); toggleTip(i); }, `${c.name}: uitleg`);
+  const lcd = el('div', 'lcd', '000');
+  const mid = el('div', 'smid');
+  const track = el('div', 'track');
+  track.tabIndex = 0;
+  track.setAttribute('role', 'slider');
+  track.setAttribute('aria-label', `Kanaal ${ch}: ${c.name}`);
+  track.setAttribute('aria-orientation', 'vertical');
+  track.append(el('div', 'slot'));
+  let zoneEls = [];
+  if (spec.steps) {
+    spec.steps.forEach((_, k) => {
+      const d = el('div', `detent${spec.steps.length > 8 ? ' fine' : ''}`);
+      d.style.bottom = `calc(${TRACK_INSET}px + (100% - ${2 * TRACK_INSET}px) * ${k / (spec.steps.length - 1)})`;
+      track.append(d);
+    });
+  } else if (spec.from === 0 && spec.to === RAW_MAX && ZONES[ch]) {
+    const zones = el('div', 'zones');
+    ZONES[ch].forEach(([a, b]) => { const z = el('span'); z.style.flex = String(b - a + 1); zones.append(z); });
+    track.append(zones);
+    zoneEls = [...zones.children];
+  }
+  const cap = el('div', 'cap');
+  track.append(cap);
+  mid.append(track);
+  let info = null;
+  if (i === 1) {
+    info = el('div', 'pinfo');
+    const cv = el('canvas');
+    const steps = el('div', 'pstep');
+    steps.append(button('ib', '▼', () => stepPattern(-1), 'Vorig patroon'), button('ib', '▲', () => stepPattern(1), 'Volgend patroon'));
+    info.append(cv, el('div', 'pnum', ''), el('div', 'pcat', ''), steps);
+    mid.append(info);
+    addThumb(cv, () => drawLook(cv, [MODE_ON, valueOf(2), 0, 0, 0, 0, 0, 0, 0, 0], { fill: 0.8, glow: 3 }));
+  }
+  const zone = el('div', 'zone');
+  strip.append(el('div', 'num', pad2(ch)), lbl, lcd, mid, zone);
+  desk.append(strip);
+  bindTrack(track, i);
+  return { i, strip, lbl, lcd, track, cap, zone, zoneEls, info, shownPattern: 0 };
+}
+// CH1 has only two useful values (0 = uit, 96 = aan), so it is a switch you tap, not a fader you drag.
+function buildPowerStrip(desk, c) {
+  const strip = el('div', 'strip');
+  strip.dataset.ch = 1;
+  const lbl = button('lbl', c.key, (e) => { e.stopPropagation(); toggleTip(0); }, `${c.name}: uitleg`);
+  const lcd = el('div', 'lcd', '000');
+  const mid = el('div', 'smid');
+  const power = button('power', null, togglePower, 'Laser aan of uit');
+  power.append(el('span', 'lamp'), el('span', 'word', 'UIT'));
+  mid.append(power);
+  const zone = el('div', 'zone');
+  strip.append(el('div', 'num', '01'), lbl, lcd, mid, zone);
+  desk.append(strip);
+  return { i: 0, strip, lbl, lcd, power, zone, zoneEls: [], info: null, shownPattern: 0 };
+}
+// An explicit tap (rule 5). deskSet refuses "aan" before calibration and shows why.
+function togglePower() {
+  deskSet(0, valueOf(1) >= MODE_ON_MIN ? 0 : MODE_ON);
+}
+function bindTrack(track, i) {
+  const fromPointer = (e) => {
+    const r = track.getBoundingClientRect();
+    const p = 1 - (e.clientY - r.top - TRACK_INSET) / (r.height - 2 * TRACK_INSET);
+    deskSet(i, posToValue(faderSpec(i), p));
+  };
+  track.addEventListener('pointerdown', (e) => {
+    if (!canDrive()) return;
+    track.setPointerCapture(e.pointerId);
+    dragging.add(i + 1);
+    fromPointer(e);
+  });
+  track.addEventListener('pointermove', (e) => { if (track.hasPointerCapture(e.pointerId)) fromPointer(e); });
+  const end = (e) => {
+    if (track.hasPointerCapture(e.pointerId)) track.releasePointerCapture(e.pointerId);
+    dragging.delete(i + 1);
+    flush();
+  };
+  track.addEventListener('pointerup', end);
+  track.addEventListener('pointercancel', end);
+  track.addEventListener('keydown', (e) => {
+    const spec = faderSpec(i);
+    const v = valueOf(i + 1);
+    const delta = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 }[e.key];
+    let next = null;
+    if (e.key === 'Home') next = posToValue(spec, 0);
+    else if (e.key === 'End') next = posToValue(spec, 1);
+    else if (delta && spec.steps) next = spec.steps[clamp(nearestStep(spec.steps, v) + Math.sign(delta) * (Math.abs(delta) > 1 ? 5 : 1), 0, spec.steps.length - 1)];
+    else if (delta) {
+      const dir = spec.to >= spec.from ? 1 : -1;
+      next = clamp(v + delta * dir, Math.min(spec.from, spec.to), Math.max(spec.from, spec.to));
+    }
+    if (next == null) return;
+    e.preventDefault();
+    deskSet(i, next);
+    flush();
+  });
+}
+// The ▲▼ buttons step through the patterns, skipping the duplicate #48.
+function stepPattern(dir) {
+  let n = patternNumber(valueOf(2));
+  do { n = clamp(n + dir, 1, PATTERN_COUNT); } while (patternInfo(n) && patternInfo(n).duplicateOf && n > 1 && n < PATTERN_COUNT);
+  deskSet(1, patternValue(n));
+  flush();
+}
+function deskSet(i, v) {
+  if (!canDrive()) return;
+  const ch = i + 1;
+  if (ch === 1 && v >= MODE_ON_MIN && !isCalibrated()) {
+    showMsg(ERROR_TEXT['not-calibrated'], 'warn');
+    refreshDesk();
+    return;
+  }
+  if (v === valueOf(ch)) return;
+  if (ch === 1) sendChannel(1, v);
+  else { setLocal(ch, v); outbox.set(ch, v); }
+  refreshDesk();
+  renderSide();
+}
+function refreshDesk() {
+  if (!deskStrips.length) return;
+  deskStrips.forEach((s) => {
+    const ch = s.i + 1;
+    const v = valueOf(ch);
+    if (s.power) {
+      const isOn = v >= MODE_ON_MIN;
+      s.lcd.textContent = pad3(v);
+      s.zone.textContent = zoneText(s.i, v);
+      s.power.classList.toggle('on', isOn);
+      s.power.setAttribute('aria-pressed', String(isOn));
+      s.power.querySelector('.word').textContent = isOn ? 'AAN' : 'ZET AAN';  // off: say what a tap does
+      s.lbl.classList.toggle('open', ui.tipCh === s.i);
+      return;
+    }
+    const spec = faderSpec(s.i);
+    const pos = valueToPos(spec, v);
+    s.lcd.textContent = pad3(v);
+    s.cap.style.bottom = `calc(${TRACK_INSET}px + (100% - ${2 * TRACK_INSET}px) * ${pos})`;
+    s.zone.textContent = zoneText(s.i, v);
+    const zi = zoneIndex(ch, v);
+    s.zoneEls.forEach((z, k) => z.classList.toggle('cur', k === zi));
+    s.track.setAttribute('aria-valuemin', String(spec.steps ? spec.steps[0] : Math.min(spec.from, spec.to)));
+    s.track.setAttribute('aria-valuemax', String(spec.steps ? spec.steps[spec.steps.length - 1] : Math.max(spec.from, spec.to)));
+    s.track.setAttribute('aria-valuenow', String(v));
+    s.track.setAttribute('aria-valuetext', `${v}, ${zoneText(s.i, v)}`);
+    s.lbl.classList.toggle('open', ui.tipCh === s.i);
+    if (s.info) {
+      const n = patternNumber(v);
+      const p = patternInfo(n);
+      s.info.querySelector('.pnum').textContent = `#${n}`;
+      s.info.querySelector('.pcat').textContent = p ? p.category : '';
+      if (s.shownPattern !== n) { s.shownPattern = n; drawLook(s.info.querySelector('canvas'), [MODE_ON, v, 0, 0, 0, 0, 0, 0, 0, 0], { fill: 0.8, glow: 3 }); }
+    }
+  });
+  const tip = $('tip');
+  if (tip && ui.tipCh != null) {
+    const g = guideFor(ui.tipCh);
+    const v = valueOf(ui.tipCh + 1);
+    tip.querySelectorAll('li').forEach((li, k) => {
+      const z = g.zones[k];
+      li.classList.toggle('cur', !!z && v >= z.lo && v <= z.hi);
+    });
+  }
+}
+function toggleTip(i) {
+  ui.tipCh = ui.tipCh === i ? null : i;
+  renderTip();
+  refreshDesk();
+}
+function renderTip() {
+  const old = $('tip');
+  if (old) old.remove();
+  if (ui.tipCh == null || ui.tab !== 'desk' || !deskStrips.length) return;
+  const i = ui.tipCh;
+  const g = guideFor(i);
+  const tip = el('div', 'tip');
+  tip.id = 'tip';
+  tip.setAttribute('role', 'dialog');
+  tip.setAttribute('aria-label', `Uitleg ${CHANNELS[i].name}`);
+  const h = el('h4');
+  h.append(el('span', '', `${CHANNELS[i].key} · ${CHANNELS[i].name}`), button('', '✕', () => toggleTip(i), 'Uitleg sluiten'));
+  tip.append(h, el('p', '', g.what));
+  tip.append(zoneList(g.zones, 'ul', 'li'));
+  (g.warn ? [g.warn] : []).forEach((w) => tip.append(el('div', 'warn', `⚠ ${w}`)));
+  (g.notes || []).forEach(([text, isTest]) => { const p = el('p', '', text); if (isTest) p.append(el('span', 'test', 'TESTEN')); tip.append(p); });
+  tip.append(button('more', 'Meer in Uitleg →', () => { ui.guide = `ch${i + 1}`; switchTab('guide'); }));
+  const desk = $('desk');
+  desk.append(tip);
+  const strip = deskStrips[i].strip;
+  const width = tip.offsetWidth;
+  const left = clamp(strip.offsetLeft + strip.offsetWidth / 2 - 40, 0, Math.max(0, desk.clientWidth - width));
+  tip.style.left = `${left}px`;
+}
+function zoneList(zones, tag, itemTag) {
+  const list = el(tag, tag === 'div' ? 'zl' : '');
+  zones.forEach((z) => {
+    const item = el(itemTag);
+    const text = el('span', '', z.t);
+    if (z.test) text.append(el('span', 'test', 'TESTEN'));
+    item.append(el('b', '', z.r), text);
+    list.append(item);
+  });
+  return list;
+}
+
+// --- uitleg (guide) ------------------------------------------------------------------------------------
+// Per channel: what it does, zones [range, text, TESTEN], warnings and notes. Real
+// behaviour from the user's hardware test (2026-10-23); unconfirmed claims say TESTEN.
+function zone(lo, hi, r, t, test) { return { lo, hi, r, t, test: !!test }; }
+function guideFor(i) {
+  const L = limits();
+  const [low, high] = L.ch7;
+  const flip = (axis, as) => ({
+    what: `Spiegelt het patroon ${axis}. Tussenstanden lijken in 3D om een ${as} as te draaien.`,
+    zones: [zone(0, 127, '0–127', 'Vaste stand.', true), zone(128, 255, '128–255', 'Blijft spiegelen; hoger = sneller (volgens de handleiding).', true)],
+  });
+  const side = L.ch6.on
+    ? (Math.min(...L.ch6.range) === 0 && Math.max(...L.ch6.range) === POS_MAX
+      ? 'De zijgrens staat op volle breedte (0–127): de schuif loopt over 0–127 en de automatische beweging is geblokkeerd.'
+      : `De schuif loopt over jouw zijgrens: ${Math.min(...L.ch6.range)} tot ${Math.max(...L.ch6.range)}.`)
+    : 'Er is geen zijgrens: de schuif loopt over 0–255.';
+  const table = [
+    { what: 'Zet de laser aan of uit: tik op de schakelaar. Zo zet je hem ook weer aan na UIT, zonder eerst een preset te kiezen.',
+      zones: [zone(0, 63, '0–63', 'Uit: donker.'), zone(64, 127, '64–127', 'Aan (handmatig): de andere kanalen bepalen wat je ziet. De schakelaar zet 96.'),
+        zone(128, 255, '128–255', 'Automatisch en geluid: uitgeschakeld. Daar negeert de laser de hoogtegrens, dus de ESP32 stuurt dan 0.')],
+      notes: [['Aan kan pas als de hoogtegrens is ingesteld (Beheer).', false]] },
+    { what: 'Welke vorm de laser tekent. Er zijn 51 patronen, ongeveer elke 5 stappen een volgende (#1 = 0–4). De namen en tekeningen zijn van jou.',
+      zones: [zone(0, 255, '0–255', 'De schuif klikt van patroon naar patroon.')],
+      notes: [['#48 is precies hetzelfde als #47, en staat daarom niet in de kiezers. Geen enkel patroon beweegt uit zichzelf.', false]] },
+    { what: 'Draait het patroon, zoals een wijzer van de klok.',
+      zones: [zone(0, 127, '0–127', 'Vaste hoek. Op 64 wordt #1 Vierkant een ruit.'), zone(128, 191, '128–191', 'Draait rond, de ene kant op.', true),
+        zone(192, 255, '192–255', 'Draait rond, de andere kant op.', true)],
+      warn: 'Gedraaid komt het patroon lager dan recht. Daarom meet je de hoogtegrens met de ruit of draaiend.',
+      notes: [['Of een hogere waarde sneller draait, is nog niet getest.', true]] },
+    flip('links↔rechts', 'staande'),
+    flip('boven↔onder', 'liggende'),
+    { what: 'Schuift het hele patroon opzij.',
+      zones: [zone(0, 0, '0', 'Midden: geen verschuiving.'), zone(1, 127, '1–127', 'Alleen naar links; hoger = verder.'),
+        zone(128, 255, '128–255', 'Beweegt zelf heen en weer, ook naar rechts. Geblokkeerd zolang de zijgrens aan staat.')],
+      notes: [[side, false], ['Handmatig naar rechts is nog niet gevonden (misschien samen met horizontaal spiegelen).', true]] },
+    { what: L.calibrated
+      ? `Schuift het patroon omhoog en omlaag. De schuif beslaat alleen jouw veilige bereik: onderaan ${low} (laagste stand), bovenaan ${high} (hoogste stand).`
+      : 'Schuift het patroon omhoog en omlaag. Er is nog geen hoogtegrens ingesteld, dus de laser kan nog niet aan.',
+      zones: [zone(0, 64, '0–64', 'Positie. Op 64 staat hij hoog (daar begint de kalibratie).'), zone(65, 127, '65–127', 'Doet iets anders; wat precies is nog onbekend.', true),
+        zone(128, 255, '128–255', 'Beweegt zelf op en neer: altijd geblokkeerd.')],
+      warn: 'De ESP32 houdt de straal altijd binnen de grens, ook in presets en shows. De grens stel je per locatie in onder Beheer.',
+      notes: L.calibrated && low > high ? [['Bij jouw opstelling is een hoger getal lager.', false]] : [] },
+    { what: 'Hoe groot het patroon is.',
+      zones: [zone(0, 63, '0–63', 'Vaste grootte. Hoger = KLEINER: 0 is het grootst.'), zone(64, 127, '64–127', 'Groeit steeds van klein naar groot.', true),
+        zone(128, 191, '128–191', 'Krimpt steeds van groot naar klein.', true), zone(192, 255, '192–255', 'Pulseert: steeds groter en kleiner (zoomsnelheid).', true)],
+      notes: [['De zoomcirkels (#17, #29 en #30) veranderen alleen van grootte met dit kanaal.', false]] },
+    { what: 'De kleur. Eén vaste losse kleur kiezen kan deze laser niet.',
+      zones: [zone(0, 63, '0–63', 'Mix: meerdere kleuren tegelijk. De waarde kiest de mix.'), zone(64, 127, '64–127', 'Volgens de handleiding ook mengen; het verschil met 0–63 is nog onbekend.', true),
+        zone(128, 191, '128–191', 'Eén kleur tegelijk, die steeds wisselt.'), zone(192, 255, '192–255', 'Alle kleuren, steeds wisselend.')],
+      notes: [['Of de waarde binnen 128–255 de wisselsnelheid regelt, is nog niet getest.', true]] },
+    { what: 'Doorgetrokken lijnen of alleen puntjes, en hoe snel de laser tekent.',
+      zones: [zone(0, 127, '0–127', 'Lijnen. 0 is het snelst; hoger = langzamer.'), zone(128, 255, '128–255', 'Alleen punten. 128 is het snelst; hoger = langzamer.')] },
+  ];
+  return table[i];
+}
+const GUIDE_INTRO = {
+  basis: { title: 'Zo werkt het', parts: [
+    ['Je telefoon praat via ', { b: 'de wifi van de ESP32' }, ' met de ESP32. Die stuurt de laser 40 keer per seconde aan via de DMX-kabel: 10 kanalen, vanaf adres 1.'],
+    [{ b: 'Presets' }, ' zijn opgeslagen looks van alle 10 kanalen. Tik een tegel en de laser laat hem zien. Een nieuwe maak je met ＋ Nieuw (de snelbouwer), of stel de laser in op de Lichttafel en tik ＋ Bewaar als preset.'],
+    [{ b: 'Shows' }, ' spelen presets na elkaar, elk zo lang als jij wilt, en beginnen dan opnieuw. De ESP32 speelt de show zelf: je telefoon mag op slot, naar een andere app of van de wifi.'],
+    [{ b: 'Lichttafel' }, ': alle 10 kanalen met de hand. Tik op een naam voor uitleg. Een schuif bewegen neemt het over van een lopende show.'],
+    [{ b: 'Beheer' }, ' (met pincode): de hoogtegrens instellen, kanalen uitproberen in Debug, het DMX-adres en de pincode.'],
+    [{ test: true }, ' betekent: nog niet op de echte laser bevestigd. Probeer het uit in Beheer → Debug.'],
+  ] },
+  veilig: { title: 'Veiligheid', parts: [
+    [{ b: 'UIT' }, ' zet de laser meteen uit, vanaf elke telefoon, ook tijdens een show, kalibratie of debugsessie.'],
+    ['De stopknop ', { b: 'IO0' }, ' op de ESP32 doet hetzelfde zonder telefoon. Zolang je hem inhoudt blijft alles uit; loslaten zet niets terug aan.'],
+    ['De ESP32 houdt de straal binnen de hoogtegrens en de zijgrens, ook in presets en shows, in elk DMX-pakket opnieuw.'],
+    ['Zonder ingestelde grens kan de laser niet aan. Na een herstart is hij uit, en een show start nooit vanzelf.'],
+    ['De automatische en geluidsmodus van de laser zijn uitgeschakeld: die negeren de hoogtegrens.'],
+  ], warn: 'IO0 is een handige stop, geen noodstop. De echte uitknop is de schakelaar van de laser zelf. Richt de laser nooit op mensen.' },
+};
+// Example looks for the guide pictures: [caption, channels].
+const look = (n, extra) => { const ch = [MODE_ON, patternValue(n), 0, 0, 0, 0, 0, 0, 0, 0]; Object.entries(extra || {}).forEach(([k, v]) => { ch[Number(k) - 1] = v; }); return ch; };
+const GUIDE_PICTURES = {
+  ch2: [['#21 Ster', look(21)], ['#25 Hart', look(25, { 9: 30 })], ['#49 Zigzag', look(49, { 9: 50 })]],
+  ch3: [['0: recht', look(1)], ['64: ruit', look(1, { 3: 64 })]],
+  ch8: [['0: groot', look(2)], ['30', look(2, { 8: 30 })], ['60: klein', look(2, { 8: 60 })]],
+  ch9: [['Mix', look(22, { 9: 20 })], ['Eén kleur, wisselend', look(22, { 9: 160 })], ['Alle kleuren', look(22, { 9: 224 })]],
+  ch10: [['Lijnen', look(2)], ['Punten', look(2, { 10: 128 })]],
+};
+function guideTopics() {
+  const short = ['Modus', 'Patroon', 'Rotatie', 'Spiegelen H', 'Spiegelen V', 'Positie H', 'Positie V', 'Grootte', 'Kleur', 'Lijnen / punten'];
+  return [['basis', '', 'Zo werkt het'], ['veilig', '', 'Veiligheid'], ...short.map((label, i) => [`ch${i + 1}`, String(i + 1), label])];
+}
+function renderGuide() {
+  const nav = $('gnav');
+  nav.textContent = '';
+  guideTopics().forEach(([id, num, label]) => {
+    const b = button(ui.guide === id ? 'on' : '', null, () => { ui.guide = id; renderGuide(); $('garticle').scrollTop = 0; });
+    b.dataset.topic = id;
+    b.append(el('b', '', num), document.createTextNode(label));
+    nav.append(b);
+  });
+  const art = $('garticle');
+  art.textContent = '';
+  const intro = GUIDE_INTRO[ui.guide];
+  if (intro) {
+    art.append(el('h3', '', intro.title));
+    intro.parts.forEach((parts) => art.append(richText(parts)));
+    if (intro.warn) art.append(el('div', 'gwarn', `⚠ ${intro.warn}`));
+    return;
+  }
+  const i = Number(ui.guide.slice(2)) - 1;
+  const g = guideFor(i);
+  art.append(el('h3', '', `CH${i + 1} · ${CHANNELS[i].name}`), el('p', '', g.what));
+  const pics = GUIDE_PICTURES[ui.guide];
+  if (pics) {
+    const row = el('div', 'illus');
+    pics.forEach(([caption, ch]) => {
+      const fig = el('figure');
+      const cv = el('canvas');
+      fig.append(cv, el('figcaption', '', caption));
+      row.append(fig);
+      addThumb(cv, () => drawLook(cv, ch, { fill: 0.78 }));
+    });
+    art.append(row);
+  }
+  art.append(zoneList(g.zones, 'div', 'div'));
+  if (g.warn) art.append(el('div', 'gwarn', `⚠ ${g.warn}`));
+  (g.notes || []).forEach(([text, isTest]) => { const p = el('p', 'gnote', text); if (isTest) p.append(el('span', 'test', 'TESTEN')); art.append(p); });
+  queueRedraw();
+}
+function richText(parts) {
+  const p = el('p');
+  parts.forEach((part) => {
+    if (typeof part === 'string') p.append(document.createTextNode(part));
+    else if (part.b) p.append(el('b', '', part.b));
+    else if (part.test) p.append(el('span', 'test', 'TESTEN'));
+  });
+  return p;
+}
+
+// --- rendering --------------------------------------------------------------------------------------
+function switchTab(tab) {
+  ui.tab = tab;
+  ui.builder = null;
+  ui.sheet = false;
+  ui.editor = null;
+  ui.editing = false;
+  ui.confirmSlot = null;
+  ui.tipCh = null;
+  if (tab === 'presets') rebuildTiles();
+  if (tab === 'guide') renderGuide();
+  render();
+  renderTip();
+  queueRedraw();
+}
+function rebuildAll() {
+  rebuildTiles();
+  rebuildShows();
+  buildDesk();
+  renderGuide();
+  if (ui.builder) renderBuilder();
+  if (ui.editor) renderEditor();
+}
 function render() {
-  sliders.forEach(({ slider, valueLabel }, i) => {
-    if (i + 1 === draggingCh) return;
-    slider.value = values[i];
-    valueLabel.textContent = values[i];
+  document.body.classList.toggle('offline', !isOpen || !st);
+  document.body.classList.toggle('locked', !!(st && (st.cal || st.stopHeld)));
+  ['presets', 'shows', 'desk', 'guide'].forEach((t) => { $(`view-${t}`).hidden = ui.tab !== t; });
+  renderHeader();
+  renderBanners();
+  renderSide();
+  refreshTiles();
+  refreshShows();
+  refreshDesk();
+  $('builder').hidden = !ui.builder;
+  if (ui.builder) renderBuilderHead();
+  renderSheet();
+  $('editor').hidden = !ui.editor;
+  if (ui.editor) renderEditorHead();   // the rows are rebuilt only when the show changes (keeps input focus)
+  startAnim();
+}
+
+// Animated preview while the builder or the save sheet is open (about 30 frames per second).
+function needsAnim() { return !document.hidden && (!!ui.builder || ui.sheet); }
+function animate(ts) {
+  animId = 0;
+  if (!needsAnim()) return;
+  if (ts - lastFrame >= FRAME_MS) {
+    lastFrame = ts;
+    const t = ts / 1000;
+    if (ui.builder && ui.builder.pattern) drawLook($('bCanvas'), builderLook(ui.builder), { t, animate: true, fill: 0.84, ignoreMode: true });
+    else if (ui.builder) drawPlaceholder($('bCanvas'));
+    if (ui.sheet) drawLook($('sCanvas'), currentLook(), { t, animate: true, fill: 0.84 });
+  }
+  animId = requestAnimationFrame(animate);
+}
+// An empty preview: a quiet dashed outline where the shape will appear.
+function drawPlaceholder(cv) {
+  const fit = fitCanvas(cv);
+  if (!fit) return;
+  const { ctx, w, h } = fit;
+  ctx.strokeStyle = 'rgba(245, 242, 234, .18)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 7]);
+  ctx.beginPath();
+  ctx.arc(w / 2, h / 2, Math.min(w, h) * 0.3, 0, TAU);
+  ctx.stroke();
+}
+function startAnim() { if (!animId && needsAnim()) animId = requestAnimationFrame(animate); }
+
+// --- incoming messages -----------------------------------------------------------------------------------
+function normState(m) {
+  const pair = (v, d) => (Array.isArray(v) && v.length === 2 ? v.map((x) => clampInt(x, 0, RAW_MAX)) : d);
+  const l = m.limits && typeof m.limits === 'object' ? m.limits : {};
+  const h = l.ch6 && typeof l.ch6 === 'object' ? l.ch6 : {};
+  const p = m.play && typeof m.play === 'object' ? m.play : null;
+  return {
+    ch: m.ch.slice(0, CH_COUNT).map((v) => clampInt(v, 0, RAW_MAX)),
+    limits: { ch7: pair(l.ch7, [0, POS_MAX]), ch6: { on: !!h.on, range: pair(h.range, [0, POS_MAX]) }, calibrated: !!l.calibrated },
+    stopHeld: !!m.stopHeld,
+    cal: m.cal && typeof m.cal === 'object' ? { phase: String(m.cal.phase || '') } : null,
+    preset: Number.isInteger(m.preset) ? m.preset : null,
+    play: p ? { show: Number(p.show), step: Math.max(0, Number(p.step) || 0), steps: Math.max(1, Number(p.steps) || 1), holdLeftMs: Math.max(0, Number(p.holdLeftMs) || 0) } : null,
+    libraryReset: !!m.libraryReset,
+    settingsReset: !!m.settingsReset,
+  };
+}
+function normLibrary(m) {
+  const presets = new Map();
+  const shows = new Map();
+  (Array.isArray(m.presets) ? m.presets : []).forEach((p) => {
+    const slot = Number(p && p.slot);
+    if (!Number.isInteger(slot) || !Array.isArray(p.ch) || p.ch.length < CH_COUNT) return;
+    presets.set(slot, { slot, name: String(p.name || `Preset ${slot}`), ch: p.ch.slice(0, CH_COUNT).map((v) => clampInt(v, 0, RAW_MAX)) });
   });
-  modeButtons.forEach((b, i) => b.classList.toggle('on', quarter(values[0]) === i));
-  $('manualPattern').hidden = isProgramMode();
-  $('programPattern').hidden = !isProgramMode();
-  programButtons.forEach((b, i) => b.classList.toggle('on', quarter(values[1]) === i));
-  const pattern = patternIndex(values[1]) + 1;
-  $('patternNum').textContent = pattern;
-  $('patternSlider').value = pattern;
-  colorButtons.forEach((b, i) => b.classList.toggle('on', quarter(values[8]) === i));
-  $('colorOffset').value = values[8] % 64;
-  $('colorOffsetValue').textContent = values[8] % 64;
+  (Array.isArray(m.shows) ? m.shows : []).forEach((s) => {
+    const slot = Number(s && s.slot);
+    if (!Number.isInteger(slot) || !Array.isArray(s.steps)) return;
+    const steps = s.steps.filter((x) => Array.isArray(x) && x.length >= 2).map(([p, t]) => [Number(p), clampInt(t, HOLD_MIN, HOLD_MAX)]);
+    shows.set(slot, { slot, name: String(s.name || `Show ${slot}`), steps });
+  });
+  return { presets, shows };
 }
 
-function applyConfig(msg) {
-  const ch7 = sliders[6];
-  ch7.slider.min = msg.clamp ? msg.ch7Min : 0;
-  ch7.slider.max = msg.clamp ? msg.ch7Max : 255;
-  ch7.hintEl.textContent = msg.clamp
-    ? `0–127 position · firmware limit ${msg.ch7Min}–${msg.ch7Max}`
-    : '0–127 position · 128–255 movement speed · CLAMP DISABLED';
-  $('clampOff').hidden = msg.clamp;
-  $('notMeasured').hidden = msg.measured || !msg.clamp;
+function onState(msg) {
+  if (!Array.isArray(msg.ch) || msg.ch.length < CH_COUNT) return;
+  const before = st;
+  st = normState(msg);
+  stAt = now();
+  if (before && (before.preset !== st.preset || playKey(before) !== playKey(st))) releaseLocal();
+  dropStaleLocal();
+  if (st.cal || st.stopHeld) {
+    clearLocal();
+    if (ui.tipCh != null) { ui.tipCh = null; renderTip(); }
+  }
+  const L = st.limits;
+  if (deskStrips.length && JSON.stringify([L.ch6.on, L.calibrated]) !== deskSig) buildDesk();
+  if (!before || before.preset !== st.preset || !!before.cal !== !!st.cal) refreshTiles();
+  if (ui.tab === 'guide' && (!before || JSON.stringify(before.limits) !== JSON.stringify(L))) renderGuide();
+  render();
+}
+function onLibrary(msg) {
+  lib = normLibrary(msg);
+  libSeen = true;
+  clearTimeout(libTimer);
+  resolvePending();
+  if (ui.confirmSlot != null && !lib.presets.has(ui.confirmSlot)) ui.confirmSlot = null;
+  if (ui.editing && !lib.presets.size) ui.editing = false;
+  rebuildTiles();
+  rebuildShows();
+  render();
+}
+function resolvePending() {
+  if (!pending) return;
+  const { kind, slot, name, from } = pending;
+  const done = {
+    'preset-save': () => lib.presets.has(slot) && lib.presets.get(slot).name === name,
+    'preset-delete': () => !lib.presets.has(slot),
+    'show-save': () => lib.shows.has(slot) && lib.shows.get(slot).name === name,
+    'show-delete': () => !lib.shows.has(slot),
+  }[kind];
+  if (!done || !done()) return;
+  pending = null;
+  if (kind === 'preset-save') {
+    if (from === 'builder') ui.builder = null;
+    if (from === 'sheet') ui.sheet = false;
+    showMsg(`${quote(name)} is bewaard als preset.`, 'ok');
+  } else if (kind === 'preset-delete') {
+    ui.confirmSlot = null;
+    showMsg(`${quote(name)} is verwijderd.`, 'ok');
+  } else if (kind === 'show-save') {
+    ui.editor = null;
+    showMsg(`Show ${quote(name)} is bewaard.`, 'ok');
+  } else {
+    ui.editor = null;
+    showMsg(`Show ${quote(name)} is verwijderd.`, 'ok');
+  }
+}
+function onStop(msg) {
+  const reason = String(msg.reason || '');
+  showMsg(STOP_TEXT[reason] || `De laser is gestopt (${reason}).`, reason === 'calibration-saved' ? 'ok' : 'stop');
+  clearLocal();
+}
+function errorText(code) {
+  if (code === 'preset-in-use' && pending && pending.kind === 'preset-delete') {
+    const users = pending.users && pending.users.length ? pending.users : showsUsing(pending.slot).map((s) => s.name);
+    if (users.length) return `${quote(pending.name)} zit nog in ${users.length === 1 ? 'de show' : 'de shows'} ${listText(users.map(quote))}. Haal hem daar eerst uit.`;
+  }
+  return ERROR_TEXT[code] || `Fout van de laser: ${code}`;
+}
+function onError(msg) {
+  const code = String(msg.code || '');
+  showMsg(errorText(code), 'error');
+  if (pending) {
+    if (pending.kind === 'preset-delete') ui.confirmSlot = null;
+    pending = null;
+    rebuildTiles();
+  }
+  if (code === 'empty-slot' || code === 'preset-in-use') send('lib');
+  clearLocal();
+  if (isOpen) ws.send('?');   // resync: undo optimistic values
+  render();
+}
+function onMessage(data) {
+  lastMsgAt = Date.now();
+  let msg;
+  try { msg = JSON.parse(data); } catch (e) { return; }
+  if (!msg || typeof msg !== 'object') return;
+  if (msg.type === 'state') onState(msg);
+  else if (msg.type === 'library') onLibrary(msg);
+  else if (msg.type === 'stop') onStop(msg);
+  else if (msg.type === 'error') onError(msg);
 }
 
-function setStatus(text, kind) {
-  const el = $('status');
-  el.textContent = text;
-  el.className = `pill ${kind}`;
-  document.body.classList.toggle('offline', kind !== 'ok');
+// --- connection ---------------------------------------------------------------------------------------
+function setConn(text, kind) {
+  $('conn').textContent = text;
+  $('conn').className = `conn ${kind}`;
+  $('conn').title = text;
 }
-
-function showFailsafe(reason) {
-  const el = $('failsafe');
-  el.textContent = `Fail-safe (${reason}): firmware set every channel to 0.`;
-  el.hidden = false;
-  clearTimeout(failsafeTimer);
-  failsafeTimer = setTimeout(() => { el.hidden = true; }, FAILSAFE_BANNER_MS);
-}
-
-// --- connection ---------------------------------------------------------------
 function connect() {
   if (document.hidden || ws) return;
-  setStatus('connecting…', '');
-  ws = new WebSocket(`ws://${location.hostname || '192.168.4.1'}:81/`);
-  ws.onopen = () => { isOpen = true; setStatus('connected', 'ok'); };
-  ws.onclose = () => {
-    isOpen = false;
-    ws = null;
-    pending.clear();
-    setStatus('disconnected: laser forced off', 'bad');
-    setTimeout(connect, RECONNECT_MS);
+  setConn('Verbinden…', '');
+  const sock = new WebSocket(`ws://${location.hostname || '192.168.4.1'}:81/`);
+  ws = sock;
+  sock.onopen = () => {
+    isOpen = true;
+    lastMsgAt = Date.now();
+    reconnectMs = RECONNECT_MS;
+    setConn('Verbonden', 'ok');
+    libSeen = false;
+    clearTimeout(libTimer);
+    libTimer = setTimeout(() => { if (isOpen && !libSeen) ws.send('lib'); }, LIB_WAIT_MS);
+    loadPatterns();
+    render();
   };
-  ws.onmessage = (event) => {
-    let msg;
-    try { msg = JSON.parse(event.data); } catch { return; }
-    if (msg.type === 'state' && Array.isArray(msg.ch) && msg.ch.length === CHANNELS.length) {
-      values = msg.ch.map(Number);
-      applyConfig(msg);
-      render();
-    } else if (msg.type === 'failsafe') {
-      showFailsafe(msg.reason);
-    }
-  };
+  sock.onclose = () => lostConnection(sock);
+  sock.onmessage = (event) => { if (ws === sock) onMessage(event.data); };
 }
-
-// Leaving the page (app switch, screen lock) closes the socket, so the
-// firmware fail-safe turns the laser off right away instead of after a timeout.
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden && ws) ws.close();
-  else connect();
-});
-
-$('off').addEventListener('click', () => {
-  // Cancel any slider drag so a finger still on CH1 cannot re-queue it.
-  draggingCh = 0;
-  if (document.activeElement) document.activeElement.blur();
-  pending.delete(1);
-  if (isOpen) ws.send('off');
-  values = values.map((v, i) => (i === 0 ? 0 : v));
+// Forget a socket at once. A dead or closing socket can take long to fire onclose,
+// and sending on it silently drops the data, so the page must not wait for that.
+function lostConnection(sock) {
+  if (ws !== sock) return;
+  ws = null;
+  isOpen = false;
+  st = null;
+  pending = null;
+  clearTimeout(libTimer);
+  clearLocal();   // nothing queued survives a reconnect
+  setConn('Geen verbinding', 'bad');
   render();
+  setTimeout(connect, reconnectMs);
+  reconnectMs = Math.min(reconnectMs * 2, RECONNECT_MAX_MS);
+}
+function dropSocket() {
+  const sock = ws;
+  if (!sock) return;
+  lostConnection(sock);
+  try { sock.close(); } catch (e) { /* already closed */ }
+}
+// The ESP32 only sends when something changes, so a quiet link is probed with '?'.
+function checkLink() {
+  if (!isOpen) return;
+  const quietMs = Date.now() - lastMsgAt;
+  if (quietMs > STALE_MS) dropSocket();
+  else if (quietMs > PING_MS) {
+    ws.send('?');
+    if (!libSeen) ws.send('lib');   // the first request may have been lost too
+  }
+}
+// Closing on hide only frees the slot; the laser and a running show keep going (rule 3).
+function closeSocket() { dropSocket(); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) closeSocket(); else { connect(); startAnim(); } });
+window.addEventListener('pagehide', closeSocket);
+window.addEventListener('pageshow', () => connect());
+
+// --- wiring -----------------------------------------------------------------------------------------
+[...$('nav').children].forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+$('tabAction').addEventListener('click', () => {
+  if (ui.tab === 'presets') setEditing(!ui.editing);
+  else if (ui.tab === 'shows') openEditor(null);
 });
-$('reset').addEventListener('click', () => {
-  draggingCh = 0;
+$('msg').addEventListener('click', hideMsg);
+$('offBtn').addEventListener('click', () => {
   if (document.activeElement) document.activeElement.blur();
-  pending.clear();
-  if (isOpen) ws.send('0');
-  values = values.map(() => 0);
-  render();
+  clearLocal();
+  if (!send('off')) return;
+  clearTimeout(offTimer);
+  offTimer = setTimeout(() => {
+    if (!st || st.ch[0] >= MODE_ON_MIN) {
+      showMsg('De laser heeft UIT niet bevestigd. Gebruik de stopknop (IO0) of de schakelaar van de laser zelf.', 'error');
+    }
+  }, OFF_CONFIRM_MS);
+});
+$('saveBtn').addEventListener('click', openSheet);
+$('bCancel').addEventListener('click', closeBuilder);
+$('bSave').addEventListener('click', saveBuilder);
+$('bName').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveBuilder(); });
+$('sCancel').addEventListener('click', closeSheet);
+$('sSave').addEventListener('click', saveSheet);
+$('sName').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveSheet(); });
+$('eCancel').addEventListener('click', closeEditor);
+$('eSave').addEventListener('click', saveShow);
+$('eDelete').addEventListener('click', deleteShow);
+$('ePickBack').addEventListener('click', () => {
+  if (!ui.editor) return;
+  if (!ui.editor.steps.length && ui.editor.slot == null) { closeEditor(); return; }
+  ui.editor = { ...ui.editor, picker: false };
+  renderEditor();
+});
+$('body').addEventListener('click', (e) => {
+  if (ui.tipCh != null && !e.target.closest('.tip') && !e.target.closest('.lbl')) { ui.tipCh = null; renderTip(); refreshDesk(); }
+});
+let resizeTimer = 0;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { renderTip(); redrawThumbs(); deskStrips.forEach((s) => { s.shownPattern = 0; }); refreshDesk(); }, 120);
 });
 
-setInterval(() => { if (isOpen) ws.send('hb'); }, HEARTBEAT_MS);
 setInterval(flush, FLUSH_MS);
+setInterval(checkLink, PING_MS / 2);
+setInterval(() => {
+  dropStaleLocal();
+  if (pending && now() - pending.at > PENDING_MS) {
+    pending = null;
+    showMsg('De laser gaf geen antwoord. Kijk of het gelukt is.', 'warn');
+    render();
+  }
+  if (st && st.play) { renderSide(); refreshShows(); }
+}, TICK_MS);
+rebuildAll();
 render();
 connect();
 </script>

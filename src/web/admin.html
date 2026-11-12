@@ -1,0 +1,1257 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="icon" href="data:,">
+<title>Laser beheer</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #0a0a0a; --surface: #171717; --raised: #242424; --line: #2c2c2c;
+  --text: #f5f2ea; --muted: rgba(245, 242, 234, .64); --label: rgba(245, 242, 234, .6); --faint: #777;
+  --amber: #ffb000; --amber-dim: #4a3300; --lcd: #241900; --amber-text: #ffd27a;
+  --danger: #ff3b2f; --danger-press: #d42a20; --danger-text: #ffb4ad;
+  --paper: #f1ebdb; --ink: #1d1b17;
+  --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 var(--sans); -webkit-text-size-adjust: 100%; overflow: hidden; }
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; touch-action: manipulation; }
+button:disabled { cursor: default; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+p { margin: 0; }
+
+/* ---- frame: main column + side panel (status, session buttons, UIT) ---- */
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 212px; grid-template-rows: minmax(0, 1fr); height: 100vh; height: 100dvh; }
+.main { grid-column: 1; grid-row: 1; position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px;
+  padding: 10px 12px 12px max(18px, env(safe-area-inset-left)); }
+.scroller { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; }
+.scroller > section { flex: 1 0 auto; }
+.side { grid-column: 2; grid-row: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px max(14px, env(safe-area-inset-right)) 12px 2px; }
+
+/* ---- header: fixed height, never wraps in landscape ---- */
+.top { flex: none; display: flex; align-items: center; gap: 6px 14px; height: 40px; min-width: 0; }
+.back { flex: none; display: inline-flex; align-items: center; min-height: 40px; padding: 0 4px 0 0; font: 700 14px var(--sans); color: var(--muted); text-decoration: none; }
+.back:active { color: var(--text); }
+.nav { display: flex; gap: 18px; min-width: 0; }
+.nav button { font: 800 20px/1 var(--sans); letter-spacing: -.02em; background: none; border: 0; padding: 8px 0; margin: 0; color: var(--faint); white-space: nowrap; }
+.nav button.on { color: var(--text); }
+.toptitle { font: 800 20px/1 var(--sans); letter-spacing: -.02em; color: var(--faint); white-space: nowrap; }
+.sessbanner { font: 800 13px/1.15 var(--sans); background: var(--danger); color: #fff; padding: 8px 12px; border-radius: 10px; white-space: nowrap; min-width: 0; }
+.spacer { flex: 1; }
+.conn { flex: none; display: inline-flex; align-items: center; gap: 6px; font: 800 10.5px/1 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.conn::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+.conn.ok::before { background: var(--amber); box-shadow: 0 0 6px rgba(255, 176, 0, .7); }
+.conn.bad { color: var(--danger-text); }
+.conn.bad::before { background: var(--danger); }
+
+/* ---- shared pieces ---- */
+.label { font: 800 10px/1.2 var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--label); }
+.num { font-family: var(--mono); font-weight: 700; color: var(--amber); font-variant-numeric: tabular-nums; }
+.lcd { font-family: var(--mono); background: var(--lcd); color: var(--amber); border-radius: 6px; font-variant-numeric: tabular-nums;
+  box-shadow: inset 0 0 0 1px var(--amber-dim), inset 0 2px 8px rgba(0, 0, 0, .6); text-shadow: 0 0 8px rgba(255, 176, 0, .5); }
+.hint { font-size: 12px; line-height: 1.35; color: var(--muted); }
+.hint.warn { color: var(--amber-text); font-weight: 600; }
+.card { background: var(--surface); border-radius: 18px; padding: 12px 14px; min-width: 0; }
+.btn { font: 700 14px/1.15 var(--sans); background: var(--raised); color: var(--text); border: 0; border-radius: 14px; padding: 11px 14px; min-height: 44px; }
+.btn.light { background: var(--text); color: var(--bg); }
+.btn.big { min-height: 52px; font-size: 16px; font-weight: 800; }
+.btn:disabled { opacity: .32; }
+.btn:active:not(:disabled), .mark:active:not(:disabled), .stepbtn:active, .tile:active { transform: translateY(1px); }
+.big-off { flex: 1; min-height: 76px; font: 900 34px/1 var(--sans); letter-spacing: .06em; color: #fff; background: var(--danger); border: 0; border-radius: 24px; }
+.big-off:active { background: var(--danger-press); }
+.stepper { display: grid; grid-template-columns: 46px 46px minmax(0, 1fr) 46px 46px; gap: 6px; }
+.stepbtn { font: 800 16px var(--sans); background: var(--raised); color: var(--text); border: 0; border-radius: 12px; min-height: 50px; padding: 0; }
+.stepper .lcd { font-size: 38px; line-height: 1; display: flex; align-items: center; justify-content: center; min-width: 0; }
+.slider-row { display: flex; align-items: center; gap: 8px; font: 700 10.5px var(--mono); color: var(--muted); }
+input[type=range] { flex: 1; min-width: 0; height: 28px; margin: 0; accent-color: var(--amber); }
+.fixed2 { min-height: calc(2 * 1.35em); }
+
+/* ---- toast: floats over the header, so it never pushes the layout down ---- */
+.toast { position: absolute; z-index: 20; top: 8px; left: max(12px, env(safe-area-inset-left)); right: 12px; display: flex; gap: 10px; align-items: flex-start;
+  border-radius: 14px; padding: 10px 12px; font-size: 13px; font-weight: 600; line-height: 1.35; background: #262626; color: var(--text);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .7); cursor: pointer; }
+.toast span { flex: 1; min-width: 0; }
+.toast button { background: none; border: 0; padding: 0 2px; font-weight: 800; opacity: .7; color: inherit; }
+.toast.error { background: #3a1311; color: var(--danger-text); box-shadow: inset 0 0 0 1px rgba(255, 59, 47, .6), 0 10px 28px rgba(0, 0, 0, .7); }
+.toast.warn { background: #2f2306; color: var(--amber-text); box-shadow: inset 0 0 0 1px rgba(255, 176, 0, .5), 0 10px 28px rgba(0, 0, 0, .7); }
+.toast.ok { background: var(--paper); color: var(--ink); }
+.toast.stop { background: var(--danger); color: #fff; font-weight: 800; }
+
+/* ---- side panel ---- */
+.now { background: var(--surface); border-radius: 20px; padding: 11px 14px; }
+.now .nm { font-size: 18px; font-weight: 800; line-height: 1.15; margin-top: 3px; letter-spacing: -.01em; }
+.now .mt { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.now.sess { box-shadow: inset 0 0 0 2px var(--danger); }
+.now.stop { background: var(--danger); }
+.now.stop .label, .now.stop .mt { color: rgba(255, 255, 255, .85); }
+.sessbox { display: grid; gap: 8px; }
+
+/* ---- connecting + login + busy ---- */
+.center { margin: auto 0; display: grid; gap: 8px; max-width: 460px; }
+.bigtitle { font: 800 34px/1.05 var(--sans); letter-spacing: -.03em; margin: 0; }
+.lead { font-size: 14px; color: var(--muted); }
+.lead b { color: var(--text); }
+.login { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: center; }
+.login form { display: grid; gap: 10px; }
+.pin { font: 800 28px/1 var(--mono); letter-spacing: .3em; text-align: center; background: var(--raised); color: var(--amber); caret-color: var(--amber);
+  border: 0; border-radius: 16px; padding: 14px 10px; width: 100%; min-width: 0; }
+.pin::placeholder { color: #5a5348; letter-spacing: .3em; }
+.note { min-height: 36px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.note.error { color: var(--danger-text); }
+
+/* ---- Kalibratie: overview ---- */
+.ov { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 10px; align-content: start; }
+.hero { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; }
+.words { font-size: 21px; font-weight: 800; letter-spacing: -.015em; line-height: 1.2; }
+.words .note2, .v .note2 { display: block; font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: 0; margin-top: 4px; }
+.pair { white-space: nowrap; }
+.ovside { display: grid; gap: 10px; align-content: start; }
+.fact .v { font-size: 16px; font-weight: 800; margin-top: 4px; line-height: 1.25; }
+.startcard { display: flex; flex-direction: column; gap: 10px; }
+
+/* ---- Kalibratie: adjust ---- */
+.bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex: none; }
+.seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; background: var(--surface); border-radius: 14px; padding: 4px; }
+.seg button { font: 800 13px var(--sans); background: none; color: var(--muted); border: 0; border-radius: 10px; padding: 0 14px; min-height: 36px; white-space: nowrap; }
+.seg button.on { background: var(--text); color: var(--bg); }
+.toggle { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 0; border-radius: 14px; padding: 4px 4px 4px 12px; min-height: 44px; font: 800 13px var(--sans); }
+.toggle .st { font: 800 10.5px/1 var(--sans); letter-spacing: .08em; padding: 9px 8px; border-radius: 10px; background: var(--raised); color: var(--muted); min-width: 40px; text-align: center; }
+.toggle.on .st { background: var(--text); color: var(--bg); }
+.sessgrid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 10px; align-items: stretch; }
+.calview { display: flex; flex-direction: column; gap: 8px; }
+.axiscard { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; }
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tab { display: flex; justify-content: space-between; align-items: center; gap: 6px; background: var(--raised); color: var(--muted); border: 0; border-radius: 12px; padding: 5px 6px 5px 12px; font: 800 12.5px var(--sans); min-height: 40px; white-space: nowrap; }
+.tab .lcd { font-size: 15px; padding: 3px 6px; }
+.tab.on { background: var(--text); color: var(--bg); }
+.tab:disabled { opacity: .35; }
+.axis { display: flex; flex-direction: column; gap: 6px; }
+.marks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mark { display: flex; align-items: center; justify-content: space-between; gap: 6px; text-align: left; background: var(--text); color: var(--bg); border: 0;
+  border-radius: 14px; padding: 5px 6px 5px 11px; min-height: 48px; font: 800 12px/1.15 var(--sans); }
+.mark b { font: 700 15px var(--mono); background: var(--lcd); color: var(--amber); border-radius: 6px; padding: 5px; min-width: 40px; text-align: center; flex: none; }
+.mark:disabled { background: var(--raised); color: var(--muted); }
+.sumcard { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; }
+.sumrows { display: grid; gap: 3px; }
+.srow { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-height: 22px; font-size: 13px; font-weight: 700; }
+.srow > span { color: var(--muted); font-weight: 600; white-space: nowrap; }
+.srow b { font: 700 15px var(--mono); color: var(--amber); white-space: nowrap; }
+.srow b.todo { font: 600 12.5px var(--sans); color: var(--faint); }
+.srow b.words { font: 800 13px var(--sans); color: var(--text); letter-spacing: 0; }
+.snote { font-size: 11.5px; line-height: 1.3; color: var(--muted); min-height: calc(2 * 1.3em); }
+.snote.warn { color: var(--amber-text); font-weight: 600; }
+.actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 6px; margin-top: auto; }
+.actions .btn { padding: 8px 6px; min-height: 50px; }
+
+/* ---- Kalibratie: check ---- */
+.checkcard { display: flex; flex-direction: column; gap: 8px; }
+.stepname { font: 800 18px/1.2 var(--sans); letter-spacing: -.01em; min-height: calc(2 * 1.2em); }
+.prog { display: flex; gap: 3px; }
+.prog i { flex: 1; height: 5px; border-radius: 3px; background: #2e2e2e; }
+.prog i.done { background: var(--text); }
+.prog i.cur { background: var(--amber); box-shadow: 0 0 6px rgba(255, 176, 0, .6); }
+.question { font: 800 21px/1.15 var(--sans); letter-spacing: -.02em; }
+.answer { display: flex; flex-direction: column; gap: 8px; }
+
+/* ---- Debug ---- */
+.dbgintro { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 10px; align-content: start; }
+.dbgintro .hero .btn { margin-top: auto; }
+.chlist { display: grid; gap: 5px; font-size: 12.5px; line-height: 1.35; color: var(--muted); margin-top: 6px; }
+.chlist > div { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 6px; }
+.chlist b { font-family: var(--mono); color: var(--amber); font-weight: 700; }
+.dbgview { display: flex; flex-direction: column; gap: 10px; }
+.tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.tile { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; gap: 2px 4px; text-align: left;
+  background: var(--surface); color: var(--text); border: 0; border-radius: 12px; padding: 6px 6px 6px 9px; min-height: 52px; }
+.tile .tn { font: 800 10px/1 var(--sans); letter-spacing: .1em; color: var(--label); }
+.tile .tl { grid-column: 1 / -1; font: 800 12.5px/1.1 var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .lcd { font-size: 16px; padding: 2px 5px; grid-row: 1; grid-column: 2; }
+.tile.on { background: var(--text); color: var(--bg); }
+.tile.on .tn { color: rgba(10, 10, 10, .6); }
+.editor { display: flex; flex-direction: column; gap: 7px; padding: 10px 12px; }
+.edhead { display: flex; align-items: baseline; gap: 10px; }
+.edname { font: 800 16px/1.2 var(--sans); letter-spacing: -.01em; }
+
+/* ---- Instellingen ---- */
+.set { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.set .card { display: flex; flex-direction: column; gap: 8px; }
+.setcol { display: grid; gap: 10px; }
+.set .v { font-size: 15px; font-weight: 800; line-height: 1.25; }
+.field { font: 700 16px var(--sans); background: var(--raised); color: var(--text); border: 0; border-radius: 12px; padding: 9px 12px; width: 100%; min-width: 0; }
+.field::placeholder { color: #8a857a; font-weight: 600; font-size: 13px; }
+.row { display: flex; gap: 8px; }
+.row .field { flex: 1; }
+
+#wake { position: absolute; left: -100%; top: -100%; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* ---- portrait / narrow: side panel becomes a bottom bar, grids stack ---- */
+@media (max-width: 640px), (orientation: portrait) and (max-width: 900px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .main { padding: 10px 16px 10px; }
+  .top { height: auto; flex-wrap: wrap; }
+  .top .spacer { order: 1; }
+  .top .conn { order: 2; }
+  .nav, .sessbanner, .toptitle { order: 3; flex-basis: 100%; }
+  .nav button { font-size: 18px; }
+  .sessbanner { white-space: normal; }
+  .side { grid-column: 1; grid-row: 2; flex-direction: row; flex-wrap: wrap; padding: 8px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+  .now { flex: 1 1 100%; display: flex; align-items: baseline; gap: 10px; padding: 8px 14px; border-radius: 16px; }
+  .now .nm { font-size: 15px; margin: 0; }
+  .now .mt { margin: 0 0 0 auto; text-align: right; }
+  .sessbox { flex: 1 1 100%; grid-auto-flow: column; grid-auto-columns: 1fr; }
+  .big-off { flex: 1 1 auto; min-height: 60px; font-size: 28px; }
+  .ov, .set, .login, .sessgrid, .dbgintro { grid-template-columns: minmax(0, 1fr); }
+  .login { align-items: start; gap: 18px; }
+  .tiles { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="main">
+    <header class="top">
+      <a class="back" id="backLink" href="/">← Terug</a>
+      <nav class="nav" id="nav" aria-label="Onderdelen" hidden>
+        <button type="button" data-tab="kalibratie" class="on">Kalibratie</button>
+        <button type="button" data-tab="debug">Debug</button>
+        <button type="button" data-tab="instellingen">Instellingen</button>
+      </nav>
+      <span class="toptitle" id="topTitle">Beheer</span>
+      <span class="sessbanner" id="sessBanner" role="status" hidden></span>
+      <span class="spacer"></span>
+      <span class="conn" id="conn">Verbinden…</span>
+    </header>
+
+    <div class="toast" id="msg" role="status" aria-live="polite" hidden><span id="msgText"></span><button type="button" id="msgClose" aria-label="Melding sluiten">✕</button></div>
+
+    <div class="scroller" id="scroller">
+      <!-- not connected / logging in again -->
+      <section id="view-connecting" class="center">
+        <div class="label">Laser · beheer</div>
+        <h2 class="bigtitle" id="connectingTitle">Verbinden…</h2>
+        <p class="lead" id="connectingText">Zit deze telefoon op de wifi <b>Laser-Controller</b>?</p>
+      </section>
+
+      <!-- login -->
+      <section id="view-login" class="login" hidden>
+        <div class="center">
+          <div class="label">Laser · beheer</div>
+          <h2 class="bigtitle">Pincode</h2>
+          <p class="lead">Hier stel je de hoogtegrens in en test je de kanalen. De pincode wordt niet op deze telefoon bewaard.</p>
+        </div>
+        <form id="loginForm" autocomplete="off" novalidate>
+          <input class="pin" id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" placeholder="••••••" aria-label="Pincode (6 tot 8 cijfers)">
+          <button class="btn light big" id="loginBtn" type="submit">Inloggen</button>
+          <div class="note" id="loginNote" aria-live="polite"></div>
+        </form>
+      </section>
+
+      <!-- Kalibratie, no session -->
+      <section id="view-overview" hidden>
+        <div class="ov">
+          <div class="card hero">
+            <div class="label">Hoogtegrens</div>
+            <div class="words" id="limitWords">–</div>
+            <p class="hint" id="limitSub"></p>
+          </div>
+          <div class="ovside">
+            <div class="card fact"><div class="label">Zijgrens</div><div class="v" id="hWords">–</div></div>
+            <div class="card startcard">
+              <p class="hint">De laser gaat meteen aan: patroon #1 als ruit, op hoogte 64, zonder zijverschuiving. Laat deze pagina open: wegklikken stopt de kalibratie.</p>
+              <button type="button" class="btn light big" id="calStartBtn">Kalibratie starten</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Kalibratie: adjust -->
+      <section id="view-adjust" class="calview" hidden>
+        <div class="bar">
+          <div class="seg" id="lookSeg" role="group" aria-label="Vorm">
+            <button type="button" data-look="square">Vierkant</button>
+            <button type="button" data-look="diamond">Ruit</button>
+            <button type="button" data-look="spin">Draaien</button>
+          </div>
+          <button type="button" class="toggle" id="hBtn" aria-pressed="true">Zijgrens <span class="st" id="hState">AAN</span></button>
+        </div>
+        <div class="sessgrid">
+          <div class="card axiscard">
+            <div class="tabs" role="tablist">
+              <button type="button" class="tab on" id="tab7" data-axis="7">Hoogte · CH7 <span class="lcd" id="tabVal7">064</span></button>
+              <button type="button" class="tab" id="tab6" data-axis="6">Zijkant · CH6 <span class="lcd" id="tabVal6">000</span></button>
+            </div>
+            <div id="axisHost"></div>
+            <p class="hint fixed2" id="lookHint"></p>
+          </div>
+          <div class="card sumcard">
+            <div class="label">Wordt opgeslagen</div>
+            <div id="summary"></div>
+            <div class="actions">
+              <button type="button" class="btn" id="checkBtn" disabled>Controleren</button>
+              <button type="button" class="btn light" id="saveBtn" disabled>Opslaan</button>
+            </div>
+            <p class="hint fixed2" id="saveHint"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Kalibratie: optional check round -->
+      <section id="view-check" hidden>
+        <div class="sessgrid">
+          <div class="card checkcard">
+            <div class="label">Controle (optioneel)</div>
+            <div class="stepname" id="checkStep">–</div>
+            <div class="prog" id="checkProg"></div>
+            <p class="hint">De laser loopt de breedste patronen af op de laagste stand, draaiend. Kijk naar de onderkant<span id="checkSides" hidden> en de zijkanten</span>.</p>
+            <div id="checkSummary"></div>
+          </div>
+          <div class="card answer">
+            <div class="question">Blijft alles boven de grens?</div>
+            <button type="button" class="btn light big" id="checkSaveBtn">Opslaan</button>
+            <button type="button" class="btn big" id="redoBtn">Terug: bijstellen</button>
+            <p class="hint">Opslaan kan op elk moment. Zakt een patroon onder de grens, ga dan terug en markeer hoger.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Debug, no session -->
+      <section id="view-debug-idle" hidden>
+        <div class="dbgintro">
+          <div class="card hero">
+            <div class="label">Debug</div>
+            <div class="words">Alle 10 kanalen rechtstreeks</div>
+            <p class="hint">Zonder enige begrenzing, ook niet in de hoogte. Alles begint op 0. Richt de laser op een muur, niet op mensen.</p>
+            <p class="hint">Stopt met UIT of 0 vanaf elk apparaat, met de stopknop, of als je wegklikt of de verbinding wegvalt.</p>
+            <button type="button" class="btn light big" id="dbgStartBtn">Debug starten</button>
+          </div>
+          <div class="card">
+            <div class="label">Wat we al weten</div>
+            <div class="chlist" id="dbgFacts"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Debug session -->
+      <section id="view-debug" class="dbgview" hidden>
+        <div class="tiles" id="dbgTiles" role="group" aria-label="Kanalen"></div>
+        <div class="card editor">
+          <div class="edhead"><span class="label" id="edCh">CH1</span><span class="edname" id="edName">–</span></div>
+          <p class="hint fixed2" id="edNote"></p>
+          <div class="stepper" id="dbgStepper"></div>
+          <div class="slider-row"><span>0</span><input type="range" id="dbgSlider" min="0" max="255" value="0" aria-label="Waarde 0 tot 255"><span>255</span></div>
+        </div>
+      </section>
+
+      <!-- Instellingen -->
+      <section id="view-settings" class="set" hidden>
+        <div class="setcol">
+          <div class="card">
+            <div class="label">Opgeslagen grens</div>
+            <div class="v" id="setLimitWords">–</div>
+            <div class="v" id="setHWords">–</div>
+          </div>
+          <button type="button" class="btn" id="logoutBtn">Uitloggen</button>
+        </div>
+        <div class="card">
+          <div class="label">DMX-adres</div>
+          <div class="v">Nu <span class="num" id="addrNow">–</span></div>
+          <div class="row">
+            <input class="field" id="addrInput" type="number" inputmode="numeric" min="1" max="503" aria-label="Nieuw DMX-adres (1 tot 503)">
+            <button type="button" class="btn" id="addrBtn">Wijzigen</button>
+          </div>
+          <p class="hint">Zet het adres op de laser zelf ook zo. Na een wijziging gaat de laser uit en moet je opnieuw kalibreren.</p>
+        </div>
+        <div class="card">
+          <div class="label">Pincode wijzigen</div>
+          <input class="field" id="pinOld" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="Huidige pincode" aria-label="Huidige pincode">
+          <input class="field" id="pinNew" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="Nieuwe pincode" aria-label="Nieuwe pincode (6 tot 8 cijfers)">
+          <input class="field" id="pinNew2" type="password" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="Nieuwe nog een keer" aria-label="Nieuwe pincode herhalen">
+          <button type="button" class="btn" id="pinBtn">Pincode wijzigen</button>
+          <p class="hint">6 tot 8 cijfers.</p>
+        </div>
+      </section>
+
+      <!-- a session runs on another device -->
+      <section id="view-busy" class="center" hidden>
+        <div class="label" id="busyLabel">Kalibratie</div>
+        <h2 class="bigtitle">Loopt op een ander apparaat</h2>
+        <p class="lead">Alleen dat apparaat (of de USB-console) kan deze sessie bedienen. Met <b>UIT</b> stop je hem altijd.</p>
+      </section>
+    </div>
+  </div>
+
+  <aside class="side">
+    <div class="now" id="now">
+      <div class="label" id="nowLabel">Laser</div>
+      <div class="nm" id="nowName">–</div>
+      <div class="mt" id="nowMeta">Geen verbinding</div>
+    </div>
+    <div class="sessbox" id="sessBox" hidden>
+      <button type="button" class="btn" id="allZeroBtn" hidden>Alles 0</button>
+      <button type="button" class="btn" id="sessStopBtn">Stoppen</button>
+    </div>
+    <button type="button" class="big-off" id="offBtn">UIT</button>
+  </aside>
+</div>
+
+<!-- Keeps the screen awake during a session (NoSleep.js technique; the Wake Lock API needs HTTPS). -->
+<video id="wake" muted playsinline loop preload="auto" aria-hidden="true" tabindex="-1">
+  <source type="video/webm" src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAAHGEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHGTbuMU6uEElTDZ1OsggETTbuMU6uEHFO7a1OsggGw7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmoCrXsYMPQkBNgIRMYXZmV0GETGF2ZkSJiECfQAAAAAAAFlSua8iuAQAAAAAAAD/XgQFzxYgAAAAAAAAAAZyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhDuaygDgkLCBELqBEJqBAlWwhFW5gQESVMNn0HNzzWPAi2PFiAAAAAAAAAABZ8iYRaOHRU5DT0RFUkSHi0xhdmMgbGlidnB4Z8ihRaOIRFVSQVRJT05Eh5MwMDowMDowMi4wMDAwMDAwMDAAH0O2dcPngQCjo4EAAIAQAgCdASoQABAAAEcIhYWImYSIAgIADA1gAP7/q1CAo5mBA+gAsQEAARAQABgAMD/0DAAAAP7/q1CAHFO7a5G7j7OBALeK94EB8YIBaPCBAw==">
+  <source type="video/mp4" src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAMGbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAB9AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAlV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAB9AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAfQAAAAAAABAAAAAAHNbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABeG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAThzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABDExhdmMgbGlieDI2NAAAAAAAAAAAAAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAe/+EAFmdCwB7ZHsBEAAADAAQAAAMACDxYuSABAAVoy4PLIAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAABwAAAAAAAAABhzdHRzAAAAAAAAAAEAAAACAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAACAAAAAQAAABxzdHN6AAAAAAAAAAAAAAACAAAAEgAAAAoAAAAUc3RjbwAAAAAAAAABAAADNgAAAD11ZHRhAAAANW1ldGEAAAAAAAAAIWhkbHIAAAAAAAAAAG1kaXJhcHBsAAAAAAAAAAAAAAAACGlsc3QAAAAIZnJlZQAAACRtZGF0AAAADmWIhAW///8PRQABT3+AAAAABkGaOAr6gA==">
+</video>
+
+<script>
+'use strict';
+// Admin page (/admin). The firmware enforces every limit and every session exit;
+// this page only makes calibration and debugging hard to get wrong. The PIN lives
+// in a JS variable for automatic re-login after a reconnect, never in storage.
+
+const HB_MS = 1000;
+const RECONNECT_MS = 1000;
+const FLUSH_MS = 60;
+const LOCAL_HOLD_MS = 600;   // ignore echoed values this long after a local change
+const WAKE_GRACE_MS = 3000;  // keep the wake video while "cal start"/"dbg start" is answered
+const MSG_MS = { ok: 5000, warn: 9000, error: 9000, stop: 9000 };
+const POS_MAX = 127;
+const RAW_MAX = 255;
+const FULL_WIDTH = [0, POS_MAX];
+const ADDR_MIN = 1;
+const ADDR_MAX = 503;
+const PIN_RE = /^[0-9]{6,8}$/;
+const NUDGES = [-10, -1, 1, 10];
+const WORST_CASE_LOOKS = ['diamond', 'spin'];
+
+// Real behaviour from the user's hardware test (2026-10-23); the manual is not reliable.
+const DEBUG_CHANNELS = [
+  ['Modus', 'Modus', '0–63 uit · 64–127 aan (handmatig) · 128–255: de laser stuurt zichzelf en negeert de hoogtegrens.'],
+  ['Patroon', 'Patroon', '51 patronen over 0–255: ongeveer elke 5 stappen het volgende (#1 = 0–4).'],
+  ['Rotatie', 'Rotatie', '0–127 hoek (64 maakt van het vierkant een ruit) · 128–191 draait vooruit · 192–255 achteruit.'],
+  ['Spiegel H', 'Horizontaal spiegelen', '0–127 stand · 128–255 spiegelt steeds, hoger = sneller (volgens de handleiding).'],
+  ['Spiegel V', 'Verticaal spiegelen', '0–127 stand · 128–255 spiegelt steeds, hoger = sneller (volgens de handleiding).'],
+  ['Zijkant', 'Horizontale positie', '0 = midden. 0–127 schuift alleen naar links. Alleen 128–255 (beweegt zelf) gaat ook naar rechts.'],
+  ['Hoogte', 'Verticale positie', '64 = hoog. Boven 64 doet hij iets anders (nog onbekend). 128–255 beweegt zelf.'],
+  ['Grootte', 'Grootte', '0–63 vast, hoger = kleiner · 64–127 zoomt groter · 128–191 zoomt kleiner · 192–255 zoomsnelheid.'],
+  ['Kleur', 'Kleur', 'Geen vaste enkele kleur: 0–63 is gemengd. Losse kleuren alleen bij 128–255, en die wisselen steeds.'],
+  ['Snelheid', 'Lijnen / punten · snelheid', '0–127 lijnen · 128–255 punten. Hoger = langzamer bewegen.'],
+];
+const DEBUG_FACTS = [
+  [3, '64 maakt van #1 een ruit, en die komt lager.'],
+  [6, 'Schuift handmatig alleen naar links (0 = midden).'],
+  [7, 'Doet boven 64 iets anders; 64 = hoog.'],
+  [9, 'Kan geen vaste enkele kleur kiezen.'],
+  [10, 'Lijnen of punten; hoger = langzamer.'],
+];
+
+const ERROR_TEXT = {
+  'bad-command': 'De laser begreep die opdracht niet.',
+  'not-admin': 'Je bent niet (meer) ingelogd. Log opnieuw in.',
+  'serial-only': 'Dat kan alleen via de USB-kabel (seriële console).',
+  'calibration-busy': 'Er loopt al een kalibratie of debugsessie. Wacht tot die klaar is, of druk op UIT.',
+  'not-owner': 'Een ander apparaat bedient deze sessie.',
+  'stop-held': 'De stopknop (IO0) is ingedrukt. Laat hem eerst los.',
+  'auto-blocked': 'Die modus is uitgeschakeld: hij negeert de hoogtegrens.',
+  'not-calibrated': 'De laser kan pas aan als de hoogtegrens is ingesteld. Kalibreer eerst.',
+  'wrong-phase': 'Dat kan niet in deze stap.',
+  'need-worst-case-look': 'Markeren kan alleen in Ruit of Draaien: gedraaid komt het patroon lager dan het rechte vierkant.',
+  'need-both-marks': 'Markeer eerst zowel de laagste als de hoogste stand.',
+  'need-horizontal-marks': 'Markeer ook links en rechts, of zet de zijgrens uit.',
+  'equal-ends': 'De twee standen zijn gelijk. Kies twee verschillende standen.',
+  'bad-pin': 'Pincode klopt niet, of de nieuwe pincode is geen 6 tot 8 cijfers.',
+  'locked': 'Te veel verkeerde pincodes. Wacht even en probeer het opnieuw.',
+  'not-calibrating': 'Er loopt geen kalibratie of debugsessie (meer).',
+  'save-failed': 'Opslaan is mislukt. De oude grens blijft gelden. Probeer het opnieuw.',
+};
+const STOP_TEXT = {
+  'button': 'Stopknop (IO0) ingedrukt: de laser is uit.',
+  'off': 'UIT ingedrukt: de laser is uit.',
+  'blackout': 'Alles is op 0 gezet: de laser is uit.',
+  'calibration-stopped': 'Kalibratie gestopt. Er is niets opgeslagen.',
+  'calibration-timeout': 'Kalibratie gestopt: de verbinding met deze telefoon viel weg. Er is niets opgeslagen.',
+  'calibration-owner-left': 'Kalibratie gestopt: de bedienende telefoon is weg. Er is niets opgeslagen.',
+  'address-changed': 'DMX-adres gewijzigd: de laser is uit. Kalibreer opnieuw.',
+  'calibration-saved': 'Grens opgeslagen. De laser is uit.',
+  'debug-stopped': 'Debug gestopt: de laser is uit.',
+};
+// The firmware reuses the calibration reasons when a debug session ends the same way.
+const DEBUG_STOP_TEXT = {
+  'calibration-stopped': STOP_TEXT['debug-stopped'],
+  'calibration-timeout': 'Debug gestopt: de verbinding met deze telefoon viel weg. De laser is uit.',
+  'calibration-owner-left': 'Debug gestopt: de bedienende telefoon is weg. De laser is uit.',
+};
+const SAVED_TEXT = {
+  limits: 'Opgeslagen. De nieuwe grens geldt nu.',
+  pin: 'Pincode gewijzigd. Onthoud de nieuwe!',
+  addr: 'DMX-adres opgeslagen.',
+};
+
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+};
+const clampTo = (v, max) => Math.max(0, Math.min(max, Math.round(v)));
+const pad3 = (v) => (Number.isFinite(v) ? String(v).padStart(3, '0') : '---');
+const fmtTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+const now = () => performance.now();
+const isFullWidth = (a, b) => Math.min(a, b) === FULL_WIDTH[0] && Math.max(a, b) === FULL_WIDTH[1];
+
+// --- state --------------------------------------------------------------------
+let ws = null;
+let isOpen = false;
+let pin = null;              // in memory only
+let st = null;               // last state message
+let tab = 'kalibratie';
+let wasAdmin = false;        // this connection was logged in
+let authPending = false;
+let autoAuth = false;        // the pending auth is the automatic one after a reconnect
+let lockUntil = 0;
+let loginNote = { text: '', kind: '' };
+let lostKind = '';           // 'cal' or 'debug': our session was running when the socket closed
+let lastKind = '';           // kind of the last session seen (for the stop text)
+let pendingPin = null;
+let lastSaveCmd = '';
+let startAt = -Infinity;
+let axis = 7;
+let lastPhase = '';
+let dbgCh = 1;
+let addrDirty = false;
+let msgTimer = 0;
+let msgCode = '';
+const local = new Map();     // channel -> { v, at }: values changed here, not yet echoed
+const dragging = new Set();
+const outbox = new Map();
+const wake = { want: false, lock: null };
+
+const myCal = () => (st && st.cal && st.cal.owner === true ? st.cal : null);
+const kindOf = (cal) => (cal && cal.phase === 'debug' ? 'debug' : 'cal');
+const limitsOf = () => (st && st.limits && typeof st.limits === 'object' ? st.limits : {});
+
+// --- sending --------------------------------------------------------------------
+function send(text) {
+  if (!isOpen) {
+    showMsg('Geen verbinding met de laser. Gebruik de stopknop (IO0) of de schakelaar van de laser zelf als hij aan staat.', 'error');
+    return false;
+  }
+  ws.send(text);
+  return true;
+}
+function flush() {
+  if (!isOpen) { outbox.clear(); return; }
+  outbox.forEach((v, ch) => ws.send(`${ch} ${v}`));
+  outbox.clear();
+}
+
+// --- messages (a toast over the header) --------------------------------------------
+function showMsg(text, kind, code) {
+  msgCode = code || '';
+  $('msgText').textContent = text;
+  $('msg').className = `toast ${kind || ''}`;
+  $('msg').hidden = false;
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(hideMsg, MSG_MS[kind] || MSG_MS.warn);
+}
+function hideMsg() { $('msg').hidden = true; msgCode = ''; }
+
+// --- words ------------------------------------------------------------------------
+// A part is a string, {n} (amber number), {pair: [label, value]} or {note} (small second line).
+function fillParts(node, parts) {
+  node.textContent = '';
+  parts.forEach((p) => {
+    if (p && typeof p === 'object' && 'pair' in p) {
+      const span = el('span', 'pair', p.pair[0]);
+      span.append(el('span', 'num', String(p.pair[1])));
+      node.append(span);
+    } else if (p && typeof p === 'object' && 'n' in p) node.append(el('span', 'num', String(p.n)));
+    else if (p && typeof p === 'object' && 'note' in p) node.append(el('span', 'note2', p.note));
+    else node.append(document.createTextNode(p));
+  });
+}
+const directionNote = (low, high) => (low > high ? ' (omgekeerd: een hoger getal is lager)' : ' (een hoger getal is hoger)');
+const vertParts = (low, high) => [{ pair: ['Laagste stand ', low] }, ' · ', { pair: ['Hoogste stand ', high] }, { note: directionNote(low, high) }];
+// The saved horizontal limit: "Volle breedte" / "Uit" / "Links 10 · Rechts 127".
+function sideParts(h) {
+  if (!h.on) return ['Uit'];
+  const [left, right] = Array.isArray(h.range) ? h.range : FULL_WIDTH;
+  if (isFullWidth(left, right)) return ['Volle breedte'];
+  return [{ pair: ['Links ', left] }, ' · ', { pair: ['Rechts ', right] }];
+}
+
+// Summary rows: same four rows in every state, so nothing jumps while marking.
+function makeSummary(host) {
+  const row = (name) => {
+    const r = el('div', 'srow');
+    const value = el('b');
+    r.append(el('span', '', name), value);
+    return { r, value };
+  };
+  const low = row('Laagste stand');
+  const high = row('Hoogste stand');
+  const note = el('div', 'snote');
+  const side = row('Zijgrens');
+  const box = el('div', 'sumrows');
+  box.append(low.r, high.r, note, side.r);
+  host.append(box);
+  return { low: low.value, high: high.value, note, side: side.value };
+}
+function setValue(node, value, todoText) {
+  const isTodo = value == null;
+  node.className = isTodo ? 'todo' : '';
+  node.textContent = isTodo ? todoText : String(value);
+}
+function fillSummary(s, cal) {
+  const m = cal.marks || {};
+  setValue(s.low, m.low7, 'nog markeren');
+  setValue(s.high, m.high7, 'nog markeren');
+  const both = m.low7 != null && m.high7 != null;
+  const equal = both && m.low7 === m.high7;
+  s.note.className = `snote${equal ? ' warn' : ''}`;
+  s.note.textContent = !both ? '' : equal ? 'Allebei gelijk: kies twee verschillende standen.' : directionNote(m.low7, m.high7).trim();
+  if (!cal.hOn) {
+    s.side.className = 'words';
+    s.side.textContent = 'uit';
+  } else if (m.left6 != null && m.right6 != null && isFullWidth(m.left6, m.right6)) {
+    s.side.className = 'words';
+    s.side.textContent = 'volle breedte';
+  } else {
+    s.side.className = m.left6 == null || m.right6 == null ? 'todo' : '';
+    s.side.textContent = `${m.left6 == null ? '–' : m.left6} · ${m.right6 == null ? '–' : m.right6}`;
+  }
+}
+const summaries = { adjust: makeSummary($('summary')), check: makeSummary($('checkSummary')) };
+
+// Why "Opslaan"/"Controleren" are not possible yet, or '' when they are.
+function marksBlocker(cal) {
+  const m = cal.marks || {};
+  if (m.low7 == null && m.high7 == null) return 'Markeer eerst de laagste en de hoogste stand.';
+  if (m.low7 == null) return 'Markeer nog de laagste stand.';
+  if (m.high7 == null) return 'Markeer nog de hoogste stand.';
+  if (m.low7 === m.high7) return 'De laagste en hoogste stand mogen niet gelijk zijn.';
+  if (cal.hOn && (m.left6 == null || m.right6 == null)) return 'Markeer links en rechts, of zet de zijgrens uit.';
+  if (cal.hOn && m.left6 === m.right6) return 'Links en rechts mogen niet gelijk zijn.';
+  return '';
+}
+
+// --- local values (calibration CH6/CH7 and the debug channels) -------------------------
+function setLocal(ch, v) { local.set(ch, { v, at: now() }); }
+function valueOf(ch) {
+  const mine = local.get(ch);
+  if (mine) return mine.v;
+  const cal = myCal();
+  if (!cal) return NaN;
+  if (cal.phase === 'debug') return Array.isArray(cal.raw) ? Number(cal.raw[ch - 1]) : NaN;
+  return Number(ch === 7 ? cal.ch7 : cal.ch6);
+}
+function dropStaleLocal() {
+  local.forEach((entry, ch) => {
+    if (!dragging.has(ch) && now() - entry.at > LOCAL_HOLD_MS) local.delete(ch);
+  });
+}
+function clearLocal() { local.clear(); dragging.clear(); outbox.clear(); }
+
+function nudgeButton(label, onClick) {
+  const b = el('button', 'stepbtn', label);
+  b.type = 'button';
+  b.addEventListener('click', onClick);
+  return b;
+}
+function buildStepper(host, lcdId, onNudge, ariaPrefix) {
+  const lcd = el('div', 'lcd', '---');
+  lcd.id = lcdId;
+  const buttons = NUDGES.map((d) => {
+    const b = nudgeButton(d > 0 ? `+${d}` : `−${-d}`, () => onNudge(d));
+    b.dataset.step = d;
+    b.setAttribute('aria-label', `${ariaPrefix} ${d > 0 ? 'plus' : 'min'} ${Math.abs(d)}`);
+    return b;
+  });
+  host.append(buttons[0], buttons[1], lcd, buttons[2], buttons[3]);
+  return lcd;
+}
+function bindSlider(slider, getCh, max, onValue) {
+  slider.addEventListener('input', () => {
+    const ch = getCh();
+    const v = clampTo(Number(slider.value), max);
+    dragging.add(ch);
+    setLocal(ch, v);
+    outbox.set(ch, v);
+    onValue(ch, v);
+  });
+  slider.addEventListener('change', () => { dragging.delete(getCh()); flush(); });
+}
+
+// --- calibration controls ------------------------------------------------------------
+function buildAxis(ax) {
+  const isV = ax === 7;
+  const root = el('div', 'axis');
+  root.id = `axis${ax}`;
+  const stepper = el('div', 'stepper');
+  const lcd = buildStepper(stepper, `lcd${ax}`, (d) => nudgeAxis(ax, d), `CH${ax}`);
+  const sliderRow = el('div', 'slider-row');
+  const slider = el('input');
+  slider.type = 'range';
+  slider.min = 0;
+  slider.max = POS_MAX;
+  slider.id = `slider${ax}`;
+  slider.setAttribute('aria-label', `CH${ax} 0 tot 127`);
+  bindSlider(slider, () => ax, POS_MAX, (ch, v) => { lcd.textContent = pad3(v); $(`tabVal${ch}`).textContent = pad3(v); });
+  sliderRow.append(el('span', '', '0'), slider, el('span', '', '127'));
+  const marks = el('div', 'marks');
+  const keys = isV ? [['low7', 'Dit is de laagste stand'], ['high7', 'Dit is de hoogste stand']]
+    : [['left6', 'Dit is links'], ['right6', 'Dit is rechts']];
+  const markBtns = keys.map(([key, label]) => {
+    const b = el('button', 'mark');
+    b.type = 'button';
+    b.id = `mark-${key}`;
+    b.dataset.mark = key;
+    b.append(el('span', '', label), el('b', '', '—'));
+    b.addEventListener('click', () => send(`lim mark ${key}`));
+    marks.append(b);
+    return b;
+  });
+  root.append(stepper, sliderRow, marks);
+  $('axisHost').append(root);
+  return { root, lcd, slider, markBtns };
+}
+const axes = { 7: buildAxis(7), 6: buildAxis(6) };
+
+function nudgeAxis(ax, d) {
+  const cal = myCal();
+  if (!cal || cal.phase !== 'adjust') return;
+  const base = valueOf(ax);
+  if (!Number.isFinite(base)) return;
+  const v = clampTo(base + d, POS_MAX);
+  setLocal(ax, v);
+  if (v !== base) send(`${ax} ${v}`);
+  renderAdjust();
+}
+
+// --- debug controls ------------------------------------------------------------------
+const tiles = DEBUG_CHANNELS.map(([short], i) => {
+  const ch = i + 1;
+  const b = el('button', 'tile');
+  b.type = 'button';
+  b.dataset.ch = ch;
+  const value = el('span', 'lcd', '000');
+  b.append(el('span', 'tn', `CH${ch}`), value, el('span', 'tl', short));
+  b.addEventListener('click', () => { dbgCh = ch; renderDebug(); });
+  $('dbgTiles').append(b);
+  return { b, value };
+});
+const dbgLcd = buildStepper($('dbgStepper'), 'dbgLcd', (d) => nudgeRaw(d), 'Kanaal');
+bindSlider($('dbgSlider'), () => dbgCh, RAW_MAX, (ch, v) => { dbgLcd.textContent = pad3(v); tiles[ch - 1].value.textContent = pad3(v); });
+DEBUG_FACTS.forEach(([ch, text]) => {
+  const line = el('div');
+  line.append(el('b', '', `CH${ch}`), el('span', '', text));
+  $('dbgFacts').append(line);
+});
+
+function nudgeRaw(d) {
+  const cal = myCal();
+  if (!cal || cal.phase !== 'debug') return;
+  const base = valueOf(dbgCh);
+  if (!Number.isFinite(base)) return;
+  const v = clampTo(base + d, RAW_MAX);
+  setLocal(dbgCh, v);
+  if (v !== base) send(`${dbgCh} ${v}`);
+  renderDebug();
+}
+
+// --- rendering -------------------------------------------------------------------
+const VIEWS = ['connecting', 'login', 'overview', 'adjust', 'check', 'debug-idle', 'debug', 'settings', 'busy'];
+const TAB_VIEWS = { kalibratie: 'overview', debug: 'debug-idle', instellingen: 'settings' };
+function currentView() {
+  if (!isOpen || !st) return 'connecting';
+  if (!st.admin) return authPending && autoAuth ? 'connecting' : 'login';
+  if (st.cal) {
+    if (st.cal.owner !== true) return 'busy';
+    if (st.cal.phase === 'debug') return 'debug';
+    return st.cal.phase === 'check' ? 'check' : 'adjust';
+  }
+  return TAB_VIEWS[tab] || 'overview';
+}
+
+function render() {
+  const view = currentView();
+  VIEWS.forEach((v) => { $(`view-${v}`).hidden = v !== view; });
+  document.body.dataset.view = view;
+  renderHeader(view);
+  renderSide();
+  if (view === 'connecting') renderConnecting();
+  if (view === 'login') renderLogin();
+  if (view === 'overview') renderOverview();
+  if (view === 'adjust') renderAdjust();
+  if (view === 'check') renderCheck();
+  if (view === 'debug-idle') $('dbgStartBtn').disabled = !!st.stopHeld;
+  if (view === 'debug') renderDebug();
+  if (view === 'settings') renderSettings();
+  if (view === 'busy') $('busyLabel').textContent = kindOf(st.cal) === 'debug' ? 'Debug' : 'Kalibratie';
+}
+
+function renderHeader(view) {
+  const cal = st && st.cal;
+  const showTabs = !cal && Object.values(TAB_VIEWS).includes(view);
+  $('nav').hidden = !showTabs;
+  [...$('nav').children].forEach((b) => b.classList.toggle('on', TAB_VIEWS[b.dataset.tab] === view));
+  $('sessBanner').hidden = !cal;
+  $('sessBanner').textContent = kindOf(cal) === 'debug' ? 'DEBUG: geen begrenzing, richt op een muur' : 'KALIBRATIE: begrenzing aangepast';
+  $('topTitle').hidden = showTabs || !!cal;
+}
+
+function setNow(label, name, meta, cls) {
+  $('nowLabel').textContent = label;
+  $('nowName').textContent = name;
+  $('nowMeta').textContent = meta;
+  $('now').className = `now ${cls || ''}`;
+}
+function renderSide() {
+  const mine = myCal();
+  $('sessBox').hidden = !mine;
+  if (mine) {
+    const isDebug = mine.phase === 'debug';
+    $('allZeroBtn').hidden = !isDebug;
+    $('sessStopBtn').textContent = isDebug ? 'Debug stoppen' : 'Kalibratie stoppen';
+  }
+  if (!isOpen || !st) { setNow('Laser', '–', 'Geen verbinding'); return; }
+  if (st.stopHeld) { setNow('Stopknop', 'IO0 ingedrukt', 'De laser blijft uit tot je hem loslaat.', 'stop'); return; }
+  if (st.cal) {
+    if (!mine) { setNow(kindOf(st.cal) === 'debug' ? 'Debug' : 'Kalibratie', 'Loopt elders', 'Met UIT stop je hem altijd', 'sess'); return; }
+    if (mine.phase === 'debug') { setNow('Debug', 'Ruwe kanalen', 'Geen grens · wegklikken stopt', 'sess'); return; }
+    setNow('Kalibratie', mine.phase === 'check' ? 'Controle' : 'Afstellen', 'Laser aan · wegklikken stopt', 'sess');
+    return;
+  }
+  const mode = Array.isArray(st.ch) ? Number(st.ch[0]) : 0;
+  setNow('Laser', mode < 64 ? 'Uit' : 'Aan', st.admin ? `DMX-adres ${st.addr}` : 'Niet ingelogd');
+}
+
+function renderConnecting() {
+  const reauth = isOpen && authPending;
+  $('connectingTitle').textContent = reauth ? 'Opnieuw inloggen…' : 'Verbinden…';
+  $('connectingText').hidden = reauth;
+}
+
+function renderLogin() {
+  const lockLeft = Math.ceil((lockUntil - now()) / 1000);
+  const locked = lockLeft > 0;
+  $('loginBtn').disabled = locked || authPending;
+  $('loginBtn').textContent = authPending ? 'Bezig…' : 'Inloggen';
+  $('pinInput').disabled = locked;
+  const note = locked
+    ? { text: `Te veel verkeerde pogingen. Probeer het opnieuw over ${fmtTime(lockLeft)}.`, kind: 'error' }
+    : loginNote;
+  $('loginNote').textContent = note.text;
+  $('loginNote').className = `note ${note.kind}`;
+}
+
+function fillLimitWords(node) {
+  const L = limitsOf();
+  const ch7 = Array.isArray(L.ch7) ? L.ch7 : null;
+  if (L.calibrated && ch7) fillParts(node, vertParts(ch7[0], ch7[1]));
+  else node.textContent = 'Nog niet ingesteld';
+}
+function fillSideWords(node, prefix) {
+  const L = limitsOf();
+  const parts = sideParts(L.ch6 && typeof L.ch6 === 'object' ? L.ch6 : { on: false });
+  // Inside a sentence ("Zijgrens: volle breedte") the words start lower case.
+  const lower = (p) => (typeof p === 'string' ? p.toLowerCase() : 'pair' in p ? { pair: [p.pair[0].toLowerCase(), p.pair[1]] } : p);
+  fillParts(node, prefix ? [prefix, ...parts.map(lower)] : parts);
+}
+
+function renderOverview() {
+  const L = limitsOf();
+  fillLimitWords($('limitWords'));
+  $('limitSub').textContent = st.settingsReset
+    ? 'De instellingen waren beschadigd, dus de standaardwaarden zijn geladen. Kalibreer opnieuw.'
+    : L.calibrated ? 'De firmware houdt de straal tussen deze standen.'
+      : 'De laser kan pas aan als je een grens hebt gekalibreerd en opgeslagen.';
+  fillSideWords($('hWords'));
+  $('calStartBtn').disabled = !!st.stopHeld;
+}
+
+function renderSettings() {
+  fillLimitWords($('setLimitWords'));
+  fillSideWords($('setHWords'), 'Zijgrens: ');
+  $('addrNow').textContent = st.addr;
+  if (!addrDirty && document.activeElement !== $('addrInput')) $('addrInput').value = st.addr;
+}
+
+function lookHint(cal) {
+  if (!WORST_CASE_LOOKS.includes(cal.look)) {
+    return ['Vierkant is plat: markeren kan alleen in Ruit of Draaien, want gedraaid komt het patroon lager.', true];
+  }
+  if (axis === 6) return ['0 = midden, hoger = verder naar links. Links en rechts markeren is optioneel: zonder blijft de volle breedte.', false];
+  return ['Breng de onderkant net tot de grens en markeer. Hij begint op 64 (hoog).', false];
+}
+
+function renderAdjust() {
+  const cal = myCal();
+  if (!cal) return;
+  if (!cal.hOn) axis = 7;
+  const canMark = WORST_CASE_LOOKS.includes(cal.look);
+  [7, 6].forEach((ax) => {
+    const a = axes[ax];
+    const v = valueOf(ax);
+    a.root.hidden = ax !== axis;
+    a.lcd.textContent = pad3(v);
+    if (!dragging.has(ax) && Number.isFinite(v)) a.slider.value = v;
+    $(`tab${ax}`).classList.toggle('on', ax === axis);
+    $(`tab${ax}`).setAttribute('aria-selected', String(ax === axis));
+    $(`tabVal${ax}`).textContent = pad3(v);
+    a.markBtns.forEach((b) => {
+      const value = (cal.marks || {})[b.dataset.mark];
+      b.querySelector('b').textContent = value == null ? '—' : String(value);
+      b.disabled = !canMark;
+    });
+  });
+  $('tab6').disabled = !cal.hOn;
+  [...$('lookSeg').children].forEach((b) => {
+    b.classList.toggle('on', b.dataset.look === cal.look);
+    b.setAttribute('aria-pressed', String(b.dataset.look === cal.look));
+  });
+  $('hBtn').classList.toggle('on', !!cal.hOn);
+  $('hBtn').setAttribute('aria-pressed', String(!!cal.hOn));
+  $('hState').textContent = cal.hOn ? 'AAN' : 'UIT';
+  const [hint, isWarn] = lookHint(cal);
+  $('lookHint').textContent = hint;
+  $('lookHint').className = `hint fixed2${isWarn ? ' warn' : ''}`;
+  fillSummary(summaries.adjust, cal);
+  const blocker = marksBlocker(cal);
+  $('saveBtn').disabled = !!blocker;
+  $('checkBtn').disabled = !!blocker;
+  $('saveHint').textContent = blocker || 'Controleren is optioneel: dan loopt de laser eerst brede patronen af op de laagste stand.';
+}
+
+function renderCheck() {
+  const cal = myCal();
+  if (!cal) return;
+  const steps = Math.max(1, Number(cal.steps) || 1);
+  const step = Math.max(0, Math.min(steps - 1, Number(cal.step) || 0));
+  $('checkStep').textContent = `Stap ${step + 1}/${steps}: ${cal.stepName || ''}`;
+  const prog = $('checkProg');
+  if (prog.children.length !== steps) {
+    prog.textContent = '';
+    for (let k = 0; k < steps; k++) prog.append(el('i'));
+  }
+  [...prog.children].forEach((seg, k) => {
+    seg.className = k === step ? 'cur' : (cal.checkDone === true || k < step ? 'done' : '');
+  });
+  $('checkSides').hidden = !cal.hOn;
+  fillSummary(summaries.check, cal);
+}
+
+function renderDebug() {
+  const cal = myCal();
+  if (!cal || cal.phase !== 'debug') return;
+  tiles.forEach(({ b, value }, i) => {
+    const ch = i + 1;
+    value.textContent = pad3(valueOf(ch));
+    b.classList.toggle('on', ch === dbgCh);
+    b.setAttribute('aria-pressed', String(ch === dbgCh));
+  });
+  const [, name, note] = DEBUG_CHANNELS[dbgCh - 1];
+  $('edCh').textContent = `CH${dbgCh}`;
+  $('edName').textContent = name;
+  $('edNote').textContent = note;
+  const v = valueOf(dbgCh);
+  dbgLcd.textContent = pad3(v);
+  if (!dragging.has(dbgCh) && Number.isFinite(v)) $('dbgSlider').value = v;
+  $('dbgSlider').setAttribute('aria-label', `CH${dbgCh} ${name}, 0 tot 255`);
+}
+
+// The PIN lock countdown updates four times per second.
+function tick() {
+  if (lockUntil && now() >= lockUntil) {
+    lockUntil = 0;
+    loginNote = { text: 'Je kunt het opnieuw proberen.', kind: '' };
+  }
+  if (document.body.dataset.view === 'login') renderLogin();
+}
+
+// --- incoming messages -------------------------------------------------------------
+function onSessionState(cal) {
+  lastKind = kindOf(cal);
+  const mine = cal.owner === true ? cal : null;
+  if (!mine) return;
+  if (!lastPhase) { axis = 7; clearLocal(); }   // a new session of ours
+  // Drop errors that no longer apply.
+  if ((msgCode === 'need-worst-case-look' && WORST_CASE_LOOKS.includes(mine.look)) || (msgCode && lastPhase && mine.phase !== lastPhase)) hideMsg();
+  lastPhase = mine.phase;
+  dropStaleLocal();
+}
+
+function onState(msg) {
+  if (!Array.isArray(msg.ch) || !msg.limits) return;
+  st = msg;
+  if (st.admin) {
+    wasAdmin = true;
+  } else if (wasAdmin) {
+    wasAdmin = false;
+    pin = null;
+    showMsg('Je bent automatisch uitgelogd na een tijd zonder actie. Log opnieuw in.', 'warn');
+  }
+  if (st.cal) {
+    onSessionState(st.cal);
+  } else {
+    lastPhase = '';
+    clearLocal();
+    if (wake.want && now() - startAt > WAKE_GRACE_MS) stopWake();
+  }
+  render();
+}
+
+function onPinAuthAnswer(msg) {
+  // Answer to "pin <old> <new>": the current PIN was wrong (it counts towards the lock).
+  pendingPin = null;
+  lastSaveCmd = '';
+  const locked = Number(msg.lockedSeconds) || 0;
+  const n = Number(msg.attemptsLeft);
+  showMsg(locked > 0
+    ? `Huidige pincode klopt niet. Te veel pogingen: probeer het over ${fmtTime(locked)} opnieuw.`
+    : `Huidige pincode klopt niet. Nog ${n} ${n === 1 ? 'poging' : 'pogingen'}.`, 'error');
+  $('pinOld').value = '';
+}
+
+function onAuth(msg) {
+  if (pendingPin && st && st.admin && !authPending) { onPinAuthAnswer(msg); return; }
+  const wasAuto = autoAuth;
+  authPending = false;
+  autoAuth = false;
+  $('pinInput').value = '';
+  if (msg.ok) {
+    loginNote = { text: '', kind: '' };
+    lockUntil = 0;
+    if (lostKind) {
+      const what = lostKind === 'debug' ? 'de debugsessie' : 'de kalibratie (er is niets opgeslagen)';
+      showMsg(`De verbinding was even weg, dus ${what} is gestopt en de laser is uit. Start opnieuw als je verder wilt.`, 'warn');
+    }
+    lostKind = '';
+  } else {
+    pin = null;
+    const locked = Number(msg.lockedSeconds) || 0;
+    if (locked > 0) {
+      lockUntil = now() + locked * 1000;
+      loginNote = { text: '', kind: '' };
+    } else {
+      const n = Number(msg.attemptsLeft);
+      loginNote = {
+        text: wasAuto ? 'Opnieuw inloggen lukte niet. Voer de pincode in.'
+          : `Verkeerde pincode. Nog ${n} ${n === 1 ? 'poging' : 'pogingen'}, daarna gaat het slot even dicht.`,
+        kind: 'error',
+      };
+    }
+    if (!$('pinInput').disabled) $('pinInput').focus();
+  }
+  render();
+}
+
+function onStop(msg) {
+  const reason = String(msg.reason || '');
+  const kind = st && st.cal ? kindOf(st.cal) : lastKind;
+  const text = (kind === 'debug' && DEBUG_STOP_TEXT[reason]) || STOP_TEXT[reason] || `De laser is gestopt (${reason}).`;
+  showMsg(text, reason === 'calibration-saved' ? 'ok' : 'stop');
+}
+
+function onError(msg) {
+  const code = String(msg.code || '');
+  showMsg(ERROR_TEXT[code] || `Fout van de laser: ${code}`, 'error', code);
+  if (code === 'bad-pin') pendingPin = null;
+  if (wake.want && !myCal()) stopWake();
+  if (isOpen) ws.send('?');   // resync: undo optimistic values
+}
+
+function onSaved(msg) {
+  const what = typeof msg.what === 'string' ? msg.what : lastSaveCmd;
+  lastSaveCmd = '';
+  if (what === 'pin' && pendingPin) {
+    pin = pendingPin;
+    pendingPin = null;
+    ['pinOld', 'pinNew', 'pinNew2'].forEach((id) => { $(id).value = ''; });
+  }
+  showMsg(SAVED_TEXT[what] || 'Opgeslagen.', 'ok');
+}
+
+function onMessage(data) {
+  let msg;
+  try { msg = JSON.parse(data); } catch { return; }
+  if (!msg || typeof msg !== 'object') return;
+  if (msg.type === 'state') onState(msg);
+  else if (msg.type === 'auth') onAuth(msg);
+  else if (msg.type === 'stop') onStop(msg);
+  else if (msg.type === 'error') onError(msg);
+  else if (msg.type === 'saved') onSaved(msg);
+}
+
+// --- connection ----------------------------------------------------------------------
+function setConn(text, kind) {
+  $('conn').textContent = text;
+  $('conn').className = `conn ${kind}`;
+}
+function connect() {
+  if (document.hidden || ws) return;
+  setConn('Verbinden…', '');
+  const sock = new WebSocket(`ws://${location.hostname || '192.168.4.1'}:81/`);
+  ws = sock;
+  sock.onopen = () => {
+    isOpen = true;
+    wasAdmin = false;
+    setConn('Verbonden', 'ok');
+    if (pin) {   // re-login only; a session is never resumed
+      authPending = true;
+      autoAuth = true;
+      sock.send(`auth ${pin}`);
+    }
+    render();
+  };
+  sock.onclose = () => {
+    if (ws !== sock) return;
+    const mine = myCal();
+    if (mine) lostKind = kindOf(mine);
+    ws = null;
+    isOpen = false;
+    st = null;
+    authPending = false;
+    autoAuth = false;
+    wasAdmin = false;
+    lastPhase = '';
+    clearLocal();
+    stopWake();
+    setConn('Geen verbinding', 'bad');
+    render();
+    setTimeout(connect, RECONNECT_MS);
+  };
+  sock.onmessage = (event) => onMessage(event.data);
+}
+// Closing on hide frees the slot and, for our session, ends it (firmware rule).
+function closeSocket() { if (ws) ws.close(); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) closeSocket(); else connect(); });
+window.addEventListener('pagehide', closeSocket);
+window.addEventListener('pageshow', () => connect());
+
+// --- screen wake (sessions only) -------------------------------------------------------
+async function startWake() {
+  wake.want = true;
+  const video = $('wake');
+  video.muted = true;
+  let playing;
+  try { playing = video.play(); } catch (e) { playing = Promise.reject(e); }   // must start inside the tap
+  const tries = [Promise.resolve(playing).then(() => 'video')];
+  if (navigator.wakeLock && navigator.wakeLock.request) {
+    tries.push(navigator.wakeLock.request('screen').then((lock) => { wake.lock = lock; return 'lock'; }));
+  }
+  const results = await Promise.allSettled(tries);
+  if (!wake.want) { stopWake(); return; }
+  const ok = results.find((r) => r.status === 'fulfilled');
+  document.body.dataset.wake = ok ? ok.value : 'failed';
+  if (!ok) showMsg('Het scherm kan uitgaan en dan stopt de sessie. Zet de schermtime-out van je telefoon tijdelijk hoger.', 'warn');
+}
+function stopWake() {
+  wake.want = false;
+  const video = $('wake');
+  if (!video.paused) video.pause();
+  if (wake.lock) { wake.lock.release().catch(() => {}); wake.lock = null; }
+  delete document.body.dataset.wake;
+}
+function startSession(command) {
+  startWake();
+  startAt = now();
+  if (!send(command)) stopWake();
+}
+
+// --- wiring -------------------------------------------------------------------------------
+$('loginForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const value = $('pinInput').value.trim();
+  if (!PIN_RE.test(value)) {
+    loginNote = { text: 'Een pincode heeft 6 tot 8 cijfers.', kind: 'error' };
+    render();
+    return;
+  }
+  if (!send(`auth ${value}`)) return;
+  pin = value;
+  authPending = true;
+  autoAuth = false;
+  render();
+});
+$('pinInput').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/[^0-9]/g, ''); });
+
+[...$('nav').children].forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
+$('msg').addEventListener('click', hideMsg);
+
+$('calStartBtn').addEventListener('click', () => startSession('cal start'));
+[...$('lookSeg').children].forEach((b) => b.addEventListener('click', () => {
+  const cal = myCal();
+  if (cal && cal.look !== b.dataset.look) send(`cal look ${b.dataset.look}`);
+}));
+$('hBtn').addEventListener('click', () => { const cal = myCal(); if (cal) send(`lim h ${cal.hOn ? 'off' : 'on'}`); });
+[7, 6].forEach((ax) => $(`tab${ax}`).addEventListener('click', () => { axis = ax; renderAdjust(); }));
+$('checkBtn').addEventListener('click', () => send('lim check'));
+const save = () => { lastSaveCmd = 'limits'; send('lim save'); };
+$('saveBtn').addEventListener('click', save);
+$('checkSaveBtn').addEventListener('click', save);
+$('redoBtn').addEventListener('click', () => send('lim redo'));
+
+$('dbgStartBtn').addEventListener('click', () => { dbgCh = 1; startSession('dbg start'); });
+// Zero every channel but keep the debug session running ("0" would end it).
+$('allZeroBtn').addEventListener('click', () => {
+  clearLocal();
+  for (let ch = 1; ch <= 10; ch += 1) send(`${ch} 0`);
+});
+$('sessStopBtn').addEventListener('click', () => {
+  const mine = myCal();
+  if (mine) send(mine.phase === 'debug' ? 'dbg stop' : 'cal stop');
+});
+$('logoutBtn').addEventListener('click', () => {
+  pin = null;
+  wasAdmin = false;
+  send('logout');
+});
+$('offBtn').addEventListener('click', () => {
+  if (document.activeElement) document.activeElement.blur();
+  clearLocal();
+  send('off');
+});
+
+$('addrInput').addEventListener('input', () => { addrDirty = true; });
+$('addrBtn').addEventListener('click', () => {
+  const raw = $('addrInput').value.trim();
+  const n = Number(raw);
+  if (!/^[0-9]+$/.test(raw) || n < ADDR_MIN || n > ADDR_MAX) {
+    showMsg(`Een DMX-adres is een getal van ${ADDR_MIN} tot ${ADDR_MAX}.`, 'error');
+    return;
+  }
+  if (st && n === Number(st.addr)) { showMsg('Dat is al het huidige adres.', 'warn'); return; }
+  lastSaveCmd = 'addr';
+  addrDirty = false;
+  send(`addr ${n}`);
+});
+
+$('pinBtn').addEventListener('click', () => {
+  const oldPin = $('pinOld').value.trim();
+  const newPin = $('pinNew').value.trim();
+  if (!PIN_RE.test(oldPin)) { showMsg('Vul je huidige pincode in (6 tot 8 cijfers).', 'error'); return; }
+  if (!PIN_RE.test(newPin)) { showMsg('De nieuwe pincode moet 6 tot 8 cijfers hebben.', 'error'); return; }
+  if (newPin !== $('pinNew2').value.trim()) { showMsg('De twee nieuwe pincodes zijn niet gelijk.', 'error'); return; }
+  if (newPin === oldPin) { showMsg('De nieuwe pincode is hetzelfde als de oude.', 'warn'); return; }
+  pendingPin = newPin;
+  lastSaveCmd = 'pin';
+  send(`pin ${oldPin} ${newPin}`);
+});
+['pinOld', 'pinNew', 'pinNew2'].forEach((id) => $(id).addEventListener('input', (e) => {
+  e.target.value = e.target.value.replace(/[^0-9]/g, '');
+}));
+
+setInterval(() => { if (isOpen) ws.send('hb'); }, HB_MS);
+setInterval(flush, FLUSH_MS);
+setInterval(tick, 250);
+render();
+connect();
+</script>
+</body>
+</html>
