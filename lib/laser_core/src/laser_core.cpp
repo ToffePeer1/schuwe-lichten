@@ -1,166 +1,66 @@
 #include "laser_core.h"
 
-#include <cctype>
-#include <cstring>
-
 namespace laser {
 
 namespace {
 
-constexpr size_t MAX_LINE_LENGTH = 32;
-constexpr uint8_t MAX_CHANNEL_VALUE = 255;
+uint8_t capPosition(uint8_t value) { return value > POSITION_MAX ? POSITION_MAX : value; }
 
-bool isSpace(char c) { return std::isspace(static_cast<unsigned char>(c)) != 0; }
-
-// Parses an unsigned decimal number of 1-3 digits. Advances *cursor past it.
-bool parseNumber(const char** cursor, unsigned* out) {
-  const char* p = *cursor;
-  unsigned value = 0;
-  size_t digits = 0;
-  while (std::isdigit(static_cast<unsigned char>(*p))) {
-    if (++digits > 3) {
-      return false;
-    }
-    value = value * 10 + static_cast<unsigned>(*p - '0');
-    ++p;
+uint8_t clampBetween(uint8_t value, uint8_t endA, uint8_t endB) {
+  const uint8_t lo = capPosition(endA < endB ? endA : endB);
+  const uint8_t hi = capPosition(endA < endB ? endB : endA);
+  const uint8_t capped = capPosition(value);
+  if (capped < lo) {
+    return lo;
   }
-  if (digits == 0) {
-    return false;
-  }
-  *cursor = p;
-  *out = value;
-  return true;
-}
-
-bool equalsIgnoreCase(const char* a, size_t aLength, const char* b) {
-  if (aLength != std::strlen(b)) {
-    return false;
-  }
-  for (size_t i = 0; i < aLength; ++i) {
-    if (std::tolower(static_cast<unsigned char>(a[i])) != b[i]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-Command parseWord(const char* word, size_t length) {
-  Command command;
-  if (equalsIgnoreCase(word, length, "off")) {
-    command.type = CommandType::LaserOff;
-  } else if (equalsIgnoreCase(word, length, "hb")) {
-    command.type = CommandType::Heartbeat;
-  } else if (equalsIgnoreCase(word, length, "?")) {
-    command.type = CommandType::Status;
-  }
-  return command;
-}
-
-Command parseNumbers(const char* begin, const char* end) {
-  const Command invalid;
-  const char* p = begin;
-  unsigned first = 0;
-  if (!parseNumber(&p, &first)) {
-    return invalid;
-  }
-  if (p == end) {
-    if (first != 0) {
-      return invalid;
-    }
-    Command command;
-    command.type = CommandType::Blackout;
-    return command;
-  }
-  if (!isSpace(*p)) {
-    return invalid;
-  }
-  while (p < end && isSpace(*p)) {
-    ++p;
-  }
-  unsigned second = 0;
-  if (!parseNumber(&p, &second) || p != end) {
-    return invalid;
-  }
-  if (first < 1 || first > CHANNEL_COUNT || second > MAX_CHANNEL_VALUE) {
-    return invalid;
-  }
-  Command command;
-  command.type = CommandType::SetChannel;
-  command.channel = static_cast<uint8_t>(first);
-  command.value = static_cast<uint8_t>(second);
-  return command;
+  return capped > hi ? hi : capped;
 }
 
 }  // namespace
 
-Command parseCommand(const char* line) {
-  if (line == nullptr) {
-    return Command{};
-  }
-  const size_t length = strnlen(line, MAX_LINE_LENGTH + 1);
-  if (length > MAX_LINE_LENGTH) {
-    return Command{};
-  }
-  const char* begin = line;
-  const char* end = line + length;
-  while (begin < end && isSpace(*begin)) {
-    ++begin;
-  }
-  while (end > begin && isSpace(*(end - 1))) {
-    --end;
-  }
-  if (begin == end) {
-    return Command{};
-  }
-  if (std::isdigit(static_cast<unsigned char>(*begin))) {
-    return parseNumbers(begin, end);
-  }
-  return parseWord(begin, static_cast<size_t>(end - begin));
+bool isValidLimits(const Limits& limits) {
+  return limits.ch7Low <= POSITION_MAX && limits.ch7High <= POSITION_MAX &&
+         limits.ch6Left <= POSITION_MAX && limits.ch6Right <= POSITION_MAX;
 }
 
 uint8_t clampCh7(uint8_t value, const Limits& limits) {
-  if (!limits.isCh7ClampEnabled) {
-    return value;
-  }
-  if (value < limits.ch7Min) {
-    return limits.ch7Min;
-  }
-  if (value > limits.ch7Max) {
-    return limits.ch7Max;
-  }
-  return value;
+  return clampBetween(value, limits.ch7Low, limits.ch7High);
 }
 
-State applyCommand(const State& state, const Command& command, uint32_t nowMs,
-                   const Limits& limits) {
-  State next = state;
-  switch (command.type) {
-    case CommandType::Invalid:
-    case CommandType::Status:
-      return state;
-    case CommandType::SetChannel: {
-      const uint8_t value = command.channel == CH_VERTICAL_POSITION
-                                ? clampCh7(command.value, limits)
-                                : command.value;
-      next.channels[command.channel - 1] = value;
-      break;
-    }
-    case CommandType::Blackout:
-      next.channels.fill(0);
-      break;
-    case CommandType::LaserOff:
-      next.channels[CH_MODE - 1] = 0;
-      break;
-    case CommandType::Heartbeat:
-      break;
-  }
-  next.lastValidCommandMs = nowMs;
-  return next;
+uint8_t clampCh6(uint8_t value, const Limits& limits) {
+  return limits.ch6Enabled ? clampBetween(value, limits.ch6Left, limits.ch6Right) : value;
 }
 
-State blackout(const State& state) {
+bool isModeAllowed(uint8_t mode, const Limits& limits) {
+  if (mode >= MODE_AUTO_MIN) {
+    return false;
+  }
+  return mode < MODE_ON_MIN || limits.isCalibrated;
+}
+
+ApplyResult setChannel(const State& state, uint8_t channel, uint8_t value, const Limits& limits) {
+  if (channel < 1 || channel > CHANNEL_COUNT) {
+    return {state, ApplyStatus::BadChannel};
+  }
+  if (channel == CH_MODE && !isModeAllowed(value, limits)) {
+    return {state, value >= MODE_AUTO_MIN ? ApplyStatus::AutoBlocked : ApplyStatus::NotCalibrated};
+  }
+  uint8_t applied = value;
+  if (channel == CH_VERTICAL_POSITION) {
+    applied = clampCh7(value, limits);
+  } else if (channel == CH_HORIZONTAL_POSITION) {
+    applied = clampCh6(value, limits);
+  }
   State next = state;
-  next.channels.fill(0);
+  next.channels[channel - 1] = applied;
+  return {next, ApplyStatus::Ok};
+}
+
+State blackout() { return State{}; }
+
+State laserOff(const State& state) {
+  State next = state;
+  next.channels[CH_MODE - 1] = 0;
   return next;
 }
 
@@ -173,15 +73,17 @@ bool isAllZero(const Channels& channels) {
   return true;
 }
 
-bool isFailsafeDue(const State& state, uint32_t nowMs, uint32_t timeoutMs) {
-  const uint32_t elapsedMs = nowMs - state.lastValidCommandMs;
-  return elapsedMs >= timeoutMs && !isAllZero(state.channels);
+State reclamp(const State& state, const Limits& limits) {
+  State next = state;
+  next.channels[CH_VERTICAL_POSITION - 1] = clampCh7(state.channels[CH_VERTICAL_POSITION - 1], limits);
+  next.channels[CH_HORIZONTAL_POSITION - 1] =
+      clampCh6(state.channels[CH_HORIZONTAL_POSITION - 1], limits);
+  if (!isModeAllowed(state.channels[CH_MODE - 1], limits)) {
+    next.channels[CH_MODE - 1] = 0;
+  }
+  return next;
 }
 
-Channels toDmxFrame(const State& state, const Limits& limits) {
-  Channels frame = state.channels;
-  frame[CH_VERTICAL_POSITION - 1] = clampCh7(frame[CH_VERTICAL_POSITION - 1], limits);
-  return frame;
-}
+Channels toDmxFrame(const State& state, const Limits& limits) { return reclamp(state, limits).channels; }
 
 }  // namespace laser

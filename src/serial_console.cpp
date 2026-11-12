@@ -2,78 +2,169 @@
 
 #include <Arduino.h>
 
+#include "command_service.h"
 #include "config.h"
 #include "dmx_output.h"
+#include "library_service.h"
+#include "web_ui.h"
 
 namespace {
 
-constexpr size_t LINE_BUFFER_SIZE = 48;
+constexpr size_t LINE_BUFFER_SIZE = laser::MAX_LINE_LENGTH + 1;
+const laser::Source SERIAL_SOURCE{laser::SourceKind::Serial, 0, true};
 
 char lineBuffer[LINE_BUFFER_SIZE];
 size_t lineLength = 0;
 bool isDiscardingLine = false;
 
 void printHelp() {
-  Serial.println("commands: '<ch> <value>' (e.g. '7 40'), '0' = all zero, 'off' = CH1 0, "
-                 "'hb' = heartbeat, '?' = status");
-  Serial.printf("note: no valid command for %lu ms -> fail-safe sets everything to 0\n",
-                static_cast<unsigned long>(FAILSAFE_TIMEOUT_MS));
+  Serial.println("commands: '<ch> <value>' (e.g. '7 40'), '0' = all zero, 'off' = CH1 0, '?' = status");
+  Serial.println("admin (no PIN on USB): cal start|stop, cal look square|diamond|spin,");
+  Serial.println("  lim mark low7|high7|left6|right6, lim h on|off, lim save, lim check|redo (optional check),");
+  Serial.println("  dbg start|stop (raw channels, NO limits), addr <1-503>, pin <old> <new>, pin reset");
+  Serial.println("library: preset save <1-32> <name>, preset load|delete <slot>, lib (list),");
+  Serial.println("  show save <1-16> <p:t,...> <name> (t in 0.1 s), show play <slot>, show stop, show delete <slot>");
 }
 
-void reportCommand(const laser::Command& command, const laser::State& state) {
-  switch (command.type) {
-    case laser::CommandType::SetChannel: {
-      const uint8_t applied = state.channels[command.channel - 1];
-      Serial.printf("ok CH%u=%u", command.channel, applied);
-      if (applied != command.value) {
-        Serial.printf(" (clamped from %u)", command.value);
-      }
-      Serial.println();
-      break;
+void printLibrary() {
+  const laser::Library& lib = library_service::library();
+  Serial.println("presets:");
+  for (size_t i = 0; i < laser::PRESET_SLOTS; ++i) {
+    const laser::Preset& p = lib.presets[i];
+    if (p.isUsed) {
+      Serial.printf("  %2u %s\n", static_cast<unsigned>(i + 1), p.name);
     }
-    case laser::CommandType::Blackout:
-      Serial.println("ok all channels 0");
-      break;
-    case laser::CommandType::LaserOff:
-      Serial.println("ok CH1=0 (laser off)");
-      break;
-    case laser::CommandType::Status:
-      printLaserState(state);
-      break;
-    case laser::CommandType::Heartbeat:
-    case laser::CommandType::Invalid:
-      break;
+  }
+  Serial.println("shows:");
+  for (size_t i = 0; i < laser::SHOW_SLOTS; ++i) {
+    const laser::Show& s = lib.shows[i];
+    if (!s.isUsed) {
+      continue;
+    }
+    Serial.printf("  %2u %s:", static_cast<unsigned>(i + 1), s.name);
+    for (uint8_t k = 0; k < s.stepCount; ++k) {
+      Serial.printf(" %u(%u.%us)", s.steps[k].preset, s.steps[k].holdTenths / 10, s.steps[k].holdTenths % 10);
+    }
+    Serial.println();
+  }
+}
+
+void printMark(const char* name, int16_t value) {
+  if (value < 0) {
+    Serial.printf(" %s=-", name);
+  } else {
+    Serial.printf(" %s=%d", name, value);
+  }
+}
+
+void printCalibration(const laser::CalSession& cal) {
+  if (!laser::isActive(cal)) {
+    Serial.println("session: off");
+    return;
+  }
+  if (cal.phase == laser::CalPhase::Debug) {
+    Serial.print("DEBUG session (no limits):");
+    for (size_t i = 0; i < laser::CHANNEL_COUNT; ++i) {
+      Serial.printf(" %u=%u", static_cast<unsigned>(i + 1), cal.raw[i]);
+    }
+    Serial.println();
+    return;
+  }
+  if (cal.phase == laser::CalPhase::Adjust) {
+    Serial.printf("calibration: adjust ch7=%u ch6=%u look=%s h=%s", cal.ch7, cal.ch6, laser::lookName(cal.look),
+                  cal.isHorizontalOn ? "on" : "off");
+    printMark("low7", cal.marks.low7);
+    printMark("high7", cal.marks.high7);
+    printMark("left6", cal.marks.left6);
+    printMark("right6", cal.marks.right6);
+    Serial.println();
+    return;
+  }
+  const laser::CheckStep& step = laser::CHECK_STEPS[cal.checkStep % laser::CHECK_STEP_COUNT];
+  Serial.printf("calibration: check step %u/%u %s ('lim save' to keep, 'lim redo' to adjust)\n",
+                cal.checkStep + 1, static_cast<unsigned>(laser::CHECK_STEP_COUNT), step.name);
+}
+
+void reportResult(SharedLaserState& state, const laser::Command& command, const command_service::Result& result) {
+  const laser::Outcome& o = result.outcome;
+  if (o.error != laser::ErrorCode::None) {
+    Serial.printf("error: %s\n", laser::errorCodeName(o.error));
+  }
+  if (result.isSaveFailed) {
+    Serial.println("error: save-failed (nothing changed)");
+  }
+  if (result.isSaved) {
+    Serial.println("saved");
+    if (o.commitKind == laser::CommitKind::Limits) {
+      webUiOnSettingsSaved();  // the "settings were reset" warning means "calibrate again"
+    }
+  }
+  if (result.stop != laser::StopReason::None) {
+    Serial.printf("stopped: %s\n", laser::stopReasonName(result.stop));
+    webUiNotifyStop(result.stop);
+  }
+  if (result.isLibraryChanged) {
+    Serial.println("library saved");
+  }
+  if (result.isLibraryRequested) {
+    printLibrary();
+  }
+  if (command.type == laser::CommandType::Status || result.isSaved) {
+    printLaserStatus(state);  // fresh snapshot: a save may already have ended calibration
+  } else if (o.error == laser::ErrorCode::None && result.stop == laser::StopReason::None &&
+             laser::isActive(o.ctx.cal)) {
+    printCalibration(o.ctx.cal);
+  } else if (o.error == laser::ErrorCode::None && command.type == laser::CommandType::SetChannel) {
+    Serial.printf("ok CH%u=%u\n", command.channel, o.ctx.state.channels[command.channel - 1]);
   }
 }
 
 void handleLine(SharedLaserState& state, const char* line) {
-  const laser::Command command = laser::parseCommand(line);
-  if (command.type == laser::CommandType::Invalid) {
-    if (line[0] != '\0') {
-      Serial.printf("error: invalid command '%s'\n", line);
-      printHelp();
-    }
+  if (line[0] == '\0') {
     return;
   }
-  const laser::State result = command.type == laser::CommandType::Status
-                                  ? state.snapshot()
-                                  : state.apply(command);
-  reportCommand(command, result);
+  const laser::Command command = laser::parseCommand(line);
+  if (command.type == laser::CommandType::Invalid) {
+    Serial.printf("error: invalid command '%s'\n", line);
+    printHelp();
+    return;
+  }
+  reportResult(state, command, command_service::execute(state, command, SERIAL_SOURCE));
 }
 
 }  // namespace
 
 void serialConsoleBegin() { printHelp(); }
 
-void printLaserState(const laser::State& state) {
+void printLaserStatus(SharedLaserState& state) {
+  uint32_t nowMs = 0;
+  const laser::Context ctx = state.snapshot(&nowMs);
+  const laser::Limits& l = ctx.settings.limits;
   Serial.print("channels:");
   for (size_t i = 0; i < laser::CHANNEL_COUNT; ++i) {
-    Serial.printf(" %u=%u", static_cast<unsigned>(i + 1), state.channels[i]);
+    Serial.printf(" %u=%u", static_cast<unsigned>(i + 1), ctx.state.channels[i]);
   }
-  Serial.printf("\nDMX frames sent: %lu, send failures: %lu, uptime %lu ms\n",
-                static_cast<unsigned long>(dmxFramesSent()),
-                static_cast<unsigned long>(dmxSendFailures()),
-                static_cast<unsigned long>(millis()));
+  const laser::Channels frame = laser::frameFor(ctx);
+  Serial.print("\non the wire:");
+  for (size_t i = 0; i < laser::CHANNEL_COUNT; ++i) {
+    Serial.printf(" %u", frame[i]);
+  }
+  Serial.printf("\nlimits: %s ch7 low=%u high=%u%s, ch6 %s", l.isCalibrated ? "calibrated" : "NOT calibrated",
+                l.ch7Low, l.ch7High, l.ch7Low > l.ch7High ? " (inverted)" : "", l.ch6Enabled ? "on" : "off");
+  if (l.ch6Enabled) {
+    Serial.printf(" %u..%u", l.ch6Left, l.ch6Right);
+  }
+  Serial.printf(", DMX address %u\n", ctx.settings.dmxAddress);
+  printCalibration(ctx.cal);
+  Serial.printf("stop button (IO0): %s%s\n", ctx.button.isHeld ? "HELD" : "released",
+                ctx.button.isArmed ? "" : " (not armed yet)");
+  Serial.printf("DMX frames sent: %lu, send failures: %lu, uptime %lu ms\n",
+                static_cast<unsigned long>(dmxFramesSent()), static_cast<unsigned long>(dmxSendFailures()),
+                static_cast<unsigned long>(nowMs));
+  // The serial console runs on the loop task, so nullptr = the loop task.
+  Serial.printf("unused stack: loop %lu B, dmx %lu B, free heap %lu B\n",
+                static_cast<unsigned long>(uxTaskGetStackHighWaterMark(nullptr)),
+                static_cast<unsigned long>(dmxStackFreeBytes()), static_cast<unsigned long>(ESP.getFreeHeap()));
 }
 
 void serialConsolePoll(SharedLaserState& state) {

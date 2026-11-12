@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the lib/laser_core unit tests on this PC without a system C++ compiler:
+# Runs every unit test folder in test/ on this PC without a system C++ compiler:
 # zig (from PyPI, run through uv in a throwaway env) provides clang, and Unity
 # is downloaded once into .pio/host_test. Usage: bash tools/run_host_tests.sh
 set -euo pipefail
@@ -19,7 +19,15 @@ fi
 zig() { uv run --no-project --with "ziglang==$ZIGLANG_VERSION" python -m ziglang "$@"; }
 
 zig cc -c "$UNITY/unity.c" -I"$UNITY" -o "$OUT/unity.o"
-zig c++ -std=c++17 -Wall -Wextra -Werror -I"$UNITY" -I"$ROOT/lib/laser_core/src" \
-  "$ROOT/lib/laser_core/src/laser_core.cpp" "$ROOT/test/test_laser_core/test_main.cpp" \
-  "$OUT/unity.o" -o "$OUT/laser_tests.exe"
-"$OUT/laser_tests.exe"
+LIB_SOURCES=("$ROOT"/lib/laser_core/src/*.cpp)
+failed=0
+for dir in "$ROOT"/test/test_*/; do
+  name="$(basename "$dir")"
+  echo "=== $name"
+  zig c++ -std=c++17 -Wall -Wextra -Werror -I"$UNITY" -I"$ROOT/lib/laser_core/src" \
+    "${LIB_SOURCES[@]}" "$dir"test_main.cpp "$OUT/unity.o" -o "$OUT/$name.exe"
+  if ! "$OUT/$name.exe" | tail -3; then
+    failed=1
+  fi
+done
+exit "$failed"

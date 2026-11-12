@@ -2,49 +2,56 @@
 
 #include <freertos/FreeRTOS.h>
 
-#include "laser_core.h"
+#include "controller.h"
 
-enum class FailsafeReason : uint8_t {
-  None,
-  Timeout,             // no valid command for FAILSAFE_TIMEOUT_MS
-  ClientDisconnected,  // a WebSocket client went away
-  WifiDisconnected,    // a phone left the access point
+struct FrameOutput {
+  laser::Channels channels;
+  uint16_t dmxAddress;
 };
 
-const char* failsafeReasonName(FailsafeReason reason);
-
-// Thread-safe owner of the laser state. Written by the main loop (serial and
-// WebSocket commands) and the WiFi event task; read every frame by the DMX task.
-// The timestamp for the fail-safe is taken inside the lock so it is monotonic.
+// Thread-safe owner of the controller context. Commands arrive on the loop
+// task (serial and WebSocket); the DMX task ticks it every frame. Every call is
+// a short, non-blocking pure function under the lock, and the timestamp is
+// taken inside the lock so it is monotonic.
 class SharedLaserState {
  public:
-  explicit SharedLaserState(const laser::Limits& limits) : limits_(limits) {}
+  void reset(const laser::Context& ctx);
 
-  // Applies an already-parsed command and returns the resulting state.
-  laser::State apply(const laser::Command& command);
+  laser::Outcome handle(const laser::Command& command, const laser::Source& source);
+  laser::Outcome commit(const laser::Settings& saved, laser::CommitKind kind);
+  laser::Outcome clientLeft(uint8_t slot);
 
-  // Blacks out immediately (disconnect fail-safe).
-  void triggerFailsafe(FailsafeReason reason);
+  // Library actions (see laser::loadPreset and friends).
+  laser::Outcome loadPreset(uint16_t slot, const laser::Channels& look);
+  laser::Outcome startShow(uint16_t slot, const laser::ActiveShow& show);
+  laser::Outcome stopShow();
+  laser::Outcome showDeleted(uint16_t slot);
+  laser::Outcome presetSaved(uint16_t slot, const laser::Channels& look);
+  laser::Outcome presetDeleted(uint16_t slot);
 
-  // Called once per DMX frame: runs the timeout fail-safe, returns what to send.
-  laser::Channels nextFrame(uint32_t timeoutMs);
+  // DMX task, once per frame: stop button, timeouts, then the frame to send.
+  FrameOutput frameTick(bool isStopLevelLow);
 
-  laser::State snapshot() const;
-
-  // Increments whenever the channels change, so the web layer knows when to broadcast.
+  laser::Context snapshot(uint32_t* nowMs) const;
   uint32_t revision() const;
 
-  // Returns and clears the reason of the latest fail-safe trip, or None.
-  FailsafeReason takeFailsafeEvent();
+  // Stops raised by frameTick (button, calibration timeout), oldest first.
+  laser::StopReason takeStopEvent();
 
-  const laser::Limits& limits() const { return limits_; }
+  // Called every loop() pass. A loop stall (e.g. a blocking socket write) must
+  // not look like a calibration owner who stopped sending "hb".
+  void noteLoopAlive();
 
  private:
-  void replaceState(const laser::State& next);  // caller holds mux_
+  laser::Outcome storeLocked(const laser::Outcome& outcome, bool isChange);
 
-  const laser::Limits limits_;
+  static constexpr size_t EVENT_QUEUE_SIZE = 4;
+  static constexpr uint32_t LOOP_STALL_MS = 1000;
+
   mutable portMUX_TYPE mux_ = portMUX_INITIALIZER_UNLOCKED;
-  laser::State state_{};
+  laser::Context ctx_{};
   uint32_t revision_ = 0;
-  FailsafeReason pendingFailsafe_ = FailsafeReason::None;
+  uint32_t lastLoopMs_ = 0;
+  laser::StopReason events_[EVENT_QUEUE_SIZE] = {};
+  size_t eventCount_ = 0;
 };

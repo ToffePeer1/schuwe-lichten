@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <esp_dmx.h>
 #include <esp_rom_gpio.h>
+#include <esp_task_wdt.h>
 #include <soc/gpio_pins.h>
 #include <soc/uart_periph.h>
 
@@ -14,28 +15,35 @@
 namespace {
 
 constexpr dmx_port_t DMX_PORT = static_cast<dmx_port_t>(DMX_UART_NUM);
-constexpr uint32_t DMX_TASK_STACK_BYTES = 4096;
+constexpr uint32_t DMX_TASK_STACK_BYTES = 6144;  // the tick copies the Context (incl. a running show)
 constexpr UBaseType_t DMX_TASK_PRIORITY = 3;  // above the Arduino loop task (1)
 constexpr BaseType_t DMX_TASK_CORE = 1;       // same core as the driver ISR; WiFi runs on core 0
 
-static_assert(LASER_DMX_ADDRESS >= 1, "DMX addresses start at 1");
-static_assert(LASER_DMX_ADDRESS + laser::CHANNEL_COUNT <= DMX_PACKET_SIZE,
-              "laser footprint must fit in one DMX universe");
+static_assert(laser::DMX_ADDRESS_MAX + laser::CHANNEL_COUNT - 1 < DMX_PACKET_SIZE,
+              "the laser footprint must fit in one DMX universe at every address");
 
 std::atomic<uint32_t> framesSent{0};
 std::atomic<uint32_t> sendFailures{0};
+TaskHandle_t dmxTaskHandle = nullptr;
 
 void dmxTask(void* arg) {
   auto* state = static_cast<SharedLaserState*>(arg);
-  static uint8_t packet[DMX_PACKET_SIZE] = {};  // slot 0 = start code 0x00
+  esp_task_wdt_add(nullptr);  // a hung DMX task reboots into the boot blackout
+  static uint8_t packet[DMX_PACKET_SIZE];
   TickType_t lastWake = xTaskGetTickCount();
   for (;;) {
-    const laser::Channels frame = state->nextFrame(FAILSAFE_TIMEOUT_MS);
-    std::memcpy(&packet[LASER_DMX_ADDRESS], frame.data(), frame.size());
+    const bool isStopLevelLow = digitalRead(PIN_STOP_BUTTON) == LOW;
+    const FrameOutput frame = state->frameTick(isStopLevelLow);
+    // Rebuilt from zeros every frame: slot 0 = start code, every other slot dark.
+    std::memset(packet, 0, sizeof(packet));
+    if (frame.dmxAddress >= laser::DMX_ADDRESS_MIN && frame.dmxAddress <= laser::DMX_ADDRESS_MAX) {
+      std::memcpy(&packet[frame.dmxAddress], frame.channels.data(), frame.channels.size());
+    }
     dmx_write(DMX_PORT, packet, DMX_PACKET_SIZE);
     const bool isSent = dmx_send_num(DMX_PORT, DMX_PACKET_SIZE) == DMX_PACKET_SIZE &&
                         dmx_wait_sent(DMX_PORT, DMX_TIMEOUT_TICK);
     (isSent ? framesSent : sendFailures).fetch_add(1, std::memory_order_relaxed);
+    esp_task_wdt_reset();
     vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(DMX_FRAME_PERIOD_MS));
   }
 }
@@ -52,6 +60,7 @@ void tieRxInputIdle() {
 }  // namespace
 
 bool dmxOutputBegin(SharedLaserState* state) {
+  pinMode(PIN_STOP_BUTTON, INPUT_PULLUP);
   dmx_config_t config = DMX_CONFIG_DEFAULT;
   if (!dmx_driver_install(DMX_PORT, &config, nullptr, 0)) {
     return false;
@@ -61,9 +70,13 @@ bool dmxOutputBegin(SharedLaserState* state) {
   }
   tieRxInputIdle();
   return xTaskCreatePinnedToCore(dmxTask, "dmx_tx", DMX_TASK_STACK_BYTES, state,
-                                 DMX_TASK_PRIORITY, nullptr, DMX_TASK_CORE) == pdPASS;
+                                 DMX_TASK_PRIORITY, &dmxTaskHandle, DMX_TASK_CORE) == pdPASS;
 }
 
 uint32_t dmxFramesSent() { return framesSent.load(std::memory_order_relaxed); }
 
 uint32_t dmxSendFailures() { return sendFailures.load(std::memory_order_relaxed); }
+
+uint32_t dmxStackFreeBytes() {
+  return dmxTaskHandle == nullptr ? 0 : uxTaskGetStackHighWaterMark(dmxTaskHandle);  // bytes on ESP-IDF
+}
