@@ -11,10 +11,26 @@ optional check round, save from adjust or check), the raw debug session (rule 9)
 the 3 s hb rule, rules 7 and 8 (docs/SAFETY.md), and per-client state JSON. Where the
 docs leave a detail open, the mock follows lib/laser_core.
 
+The patch (lib/laser_core/src/fixtures.*, controller.cpp), up to 4 fixtures on one DMX line:
+- Slots 1-4, each 'none', 'laser' (10 channels, every laser rule) or 'head' (19 channels,
+  no limits at all). Default: slot 1 = laser at address 1. At most one laser; footprints
+  must fit 1..512 and must not overlap.
+- 'f<1-4>' in front of '<ch> <value>', '0' or 'off' picks the slot; on any other command it is
+  bad-command. Without it, '<ch> <value>' is for slot 1, except during a calibration/debug
+  session, where it is for the laser's slot. '0' and 'off' without it act on every fixture.
+- 'off': laser CH1 to 0; head CH7-19 (light and macro) to 0, CH1-6 (pan/tilt) kept.
+- 'patch <1-4> none|laser <addr>|head <addr>' (admin): saved like other settings, then every
+  fixture goes dark, sessions and shows end, and 'patch-changed' is broadcast. Moving or
+  removing the laser makes it uncalibrated; changing only a head keeps the limits.
+- Sessions need a patched laser (no-fixture) and black out every fixture when they start or end.
+- The state has 'fixtures': [{slot, type, addr, ch, preset}] for the patched slots only.
+
 Library details, mirroring lib/laser_core/src/controller.cpp and src/library_service.cpp:
+- Presets and shows hold laser looks and act on the laser's slot (no-fixture without a laser).
+  A head channel change or 'f<head> off' leaves a running show alone.
 - play.step is 0-based (like cal.step); play.steps is the step count.
-- 'preset load' sets state.preset to that slot and stops a running show; a show step sets
-  it to the step's preset; a manual channel command, 'off', '0' or any blackout clears it.
+- 'preset load' sets the laser's preset to that slot and stops a running show; a show step sets
+  it to the step's preset; a manual laser channel command, 'off', '0' or any blackout clears it.
 - 'preset save' (presetSaved): a playing show that uses the slot stops (the look stays).
   If no show is playing afterwards, state.preset = slot when the current look equals the
   saved one, else it is cleared if it was that slot. A show still playing keeps its marking.
@@ -29,7 +45,8 @@ Run:
     uv run --no-project --with websockets python tools/mock_firmware/mock_firmware.py
 
 Test hooks (HTTP GET on the page port; not part of the firmware):
-    /__mock/state                         internal state as JSON
+    /__mock/state                         internal state as JSON ('channels'/'frame'/'preset' are the
+                                          laser's; 'patch', 'fixtures' and 'universe' cover every slot)
     /__mock/stop-button?held=1|0          press or release IO0
     /__mock/config?hb=&checkStep=&adminTimeout=&failSave=0|1
     /__mock/reset?settingsReset=0|1       factory settings (uncalibrated, factory PIN)
@@ -62,12 +79,21 @@ PAGES = {
     "/patterns.json": (ROOT / "src" / "web" / "patterns.json", "application/json; charset=utf-8"),
 }
 
-CHANNEL_COUNT = 10
+CHANNEL_COUNT = 10  # the laser
 POSITION_MAX = 127
 RAW_MAX = 255
 MODE_ON_MIN = 64
 MODE_AUTO_MIN = 128  # auto/sound: permanently unavailable outside debug (rule 7)
-ADDR_MIN, ADDR_MAX = 1, 503
+
+# The patch (lib/laser_core/src/fixtures.h, moving_head.h)
+MAX_FIXTURES = 4
+MAX_FIXTURE_CHANNELS = 19  # the moving head
+UNIVERSE_SIZE = 512
+FIXTURE_CHANNELS = {"none": 0, "laser": CHANNEL_COUNT, "head": MAX_FIXTURE_CHANNELS}
+HEAD_LIGHT_FIRST = 7  # head 'off': CH7-19 (dimmer, strobe, colours, lasers, macro) to 0; CH1-6 stay
+PREFIX_PATTERN = re.compile(r"f([1-4])")
+NUMBER_PATTERN = re.compile(r"[0-9]{1,3}")  # firmware parseNumber(token, 3)
+
 MAX_CLIENTS = 8  # WEBSOCKETS_SERVER_CLIENT_MAX
 MAX_LINE_LENGTH = 255  # "show save" lines can be long
 MAX_WRONG_TRIES = 5
@@ -127,6 +153,52 @@ def pattern_value(number: int) -> int:
 
 def now() -> float:
     return time.monotonic()
+
+
+@dataclass(frozen=True)
+class PatchSlot:
+    type: str = "none"  # 'none', 'laser' or 'head'
+    addr: int = 1       # the fixture's CH1 on the DMX line (1 for an empty slot, like the firmware)
+
+    @property
+    def last(self) -> int:
+        return self.addr + FIXTURE_CHANNELS[self.type] - 1
+
+
+DEFAULT_PATCH = (PatchSlot("laser", 1), PatchSlot(), PatchSlot(), PatchSlot())
+
+
+def patch_problem(patch: tuple[PatchSlot, ...]) -> str:
+    """'' if the patch is fine (firmware checkPatch), else why not."""
+    lasers = 0
+    for i, a in enumerate(patch):
+        if a.type == "none":
+            continue
+        if a.addr < 1 or a.last > UNIVERSE_SIZE:
+            return "bad-address"
+        lasers += a.type == "laser"
+        if any(b.type != "none" and a.addr <= b.last and b.addr <= a.last for b in patch[:i]):
+            return "overlap"
+    return "two-lasers" if lasers > 1 else ""
+
+
+def laser_slot_index(patch: tuple[PatchSlot, ...]) -> int | None:
+    return next((i for i, s in enumerate(patch) if s.type == "laser"), None)
+
+
+def is_laser_moved(before: tuple[PatchSlot, ...], after: tuple[PatchSlot, ...]) -> bool:
+    """The limit is only valid for the slot and address it was calibrated on (firmware isLaserMoved)."""
+    was, is_ = laser_slot_index(before), laser_slot_index(after)
+    return was != is_ or (is_ is not None and before[was].addr != after[is_].addr)
+
+
+def off_channels(kind: str, channels: list[int]) -> list[int]:
+    """The type's 'off': the laser's CH1 to 0; the head's light channels and macro to 0."""
+    if kind == "laser":
+        return [0, *channels[1:]]
+    if kind == "head":
+        return channels[:HEAD_LIGHT_FIRST - 1] + [0] * (MAX_FIXTURE_CHANNELS - HEAD_LIGHT_FIRST + 1)
+    return [0] * MAX_FIXTURE_CHANNELS
 
 
 @dataclass(frozen=True)
@@ -234,22 +306,52 @@ class MockFirmware:
         self.shows: dict[int, Show] = {}
         self.library_reset = False
         self.play: Playback | None = None
-        self.preset: int | None = None
         self.reset_settings(settings_reset)
 
     # --- settings ----------------------------------------------------------------
     def reset_settings(self, settings_reset: bool) -> None:
         self.limits = Limits()
-        self.addr = 1
+        self.patch = DEFAULT_PATCH
         self.pin = self.factory_pin
         self.settings_reset = settings_reset
-        self.channels = [0] * CHANNEL_COUNT
         self.cal: Session | None = None
-        self.play = None
-        self.preset = None
+        self.darken_all()
         self.wrong_tries = 0
         self.lockouts = 0
         self.lock_until = 0.0
+
+    # --- fixtures ------------------------------------------------------------------
+    def darken_all(self) -> None:
+        """Every fixture to 0 with no show running: boot, sessions, patch changes."""
+        self.fixtures = [[0] * MAX_FIXTURE_CHANNELS for _ in range(MAX_FIXTURES)]
+        self.loaded: list[int | None] = [None] * MAX_FIXTURES  # last loaded preset per slot
+        self.play = None
+
+    def laser_index(self) -> int | None:
+        return laser_slot_index(self.patch)
+
+    @property
+    def channels(self) -> list[int]:
+        """The laser's requested channels (all 0 when no laser is patched)."""
+        i = self.laser_index()
+        return [0] * CHANNEL_COUNT if i is None else self.fixtures[i][:CHANNEL_COUNT]
+
+    @property
+    def preset(self) -> int | None:
+        """The laser's last loaded preset."""
+        i = self.laser_index()
+        return None if i is None else self.loaded[i]
+
+    def set_laser(self, look: list[int], preset: int | None) -> None:
+        i = self.laser_index()
+        if i is not None:
+            self.fixtures[i] = list(look[:CHANNEL_COUNT]) + [0] * (MAX_FIXTURE_CHANNELS - CHANNEL_COUNT)
+            self.loaded[i] = preset
+
+    def set_laser_preset(self, preset: int | None) -> None:
+        i = self.laser_index()
+        if i is not None:
+            self.loaded[i] = preset
 
     # --- logging -----------------------------------------------------------------
     def log(self, cid: int, **entry: object) -> None:
@@ -263,22 +365,28 @@ class MockFirmware:
         lim = self.limits
         return {
             "type": "state",
-            "ch": list(self.channels),
+            "fixtures": self.fixtures_json(),
             "limits": {
                 "ch7": [lim.ch7_low, lim.ch7_high],
                 "ch6": {"on": lim.ch6_enabled, "range": [lim.ch6_left, lim.ch6_right]},
                 "calibrated": lim.calibrated,
                 "allowAuto": False,  # kept for old pages; auto/sound no longer exists
             },
-            "addr": self.addr,
             "stopHeld": self.stop_held,
             "admin": client.admin,
             "cal": self.cal_json(client),
-            "settingsReset": self.settings_reset,
-            "preset": self.preset,
             "play": self.play_json(),
+            "settingsReset": self.settings_reset,
             "libraryReset": self.library_reset,
         }
+
+    def fixtures_json(self) -> list[dict]:
+        """The patched slots in slot order: the requested channels, not the frame (web_ui addFixtures)."""
+        return [
+            {"slot": i + 1, "type": s.type, "addr": s.addr, "ch": self.fixtures[i][:FIXTURE_CHANNELS[s.type]],
+             "preset": self.loaded[i]}
+            for i, s in enumerate(self.patch) if s.type != "none"
+        ]
 
     def play_json(self) -> dict | None:
         p = self.play
@@ -317,15 +425,37 @@ class MockFirmware:
         }
 
     def frame(self) -> list[int]:
-        """The DMX frame that would go out (exposed through /__mock/state)."""
-        if self.stop_held:
-            return [0] * CHANNEL_COUNT
+        """The laser's DMX frame (all 0 without a laser), exposed through /__mock/state."""
+        i = self.laser_index()
+        return [0] * CHANNEL_COUNT if i is None else self.fixture_frame(i)
+
+    def fixture_frame(self, i: int) -> list[int]:
+        """What patch slot i puts on the wire: its type's rules applied, all 0 while IO0 is held."""
+        kind = self.patch[i].type
+        count = FIXTURE_CHANNELS[kind]
+        if self.stop_held or kind == "none":
+            return [0] * count
+        if kind == "head":
+            return self.fixtures[i][:count]  # no limits (user decision)
         if self.cal is not None:
             return list(self.cal.raw) if self.cal.is_debug else self.calibration_frame(self.cal)
-        frame = [self.clamp_channel(i + 1, v) for i, v in enumerate(self.channels)]
-        if not self.is_mode_allowed(frame[0]):
-            frame[0] = 0
-        return frame
+        return self.reclamped(self.fixtures[i][:count])
+
+    def reclamped(self, look: list[int]) -> list[int]:
+        """Firmware reclamp(): CH6/CH7 clamps, and CH1 to 0 if its mode is not allowed."""
+        out = [self.clamp_channel(i + 1, v) for i, v in enumerate(look)]
+        if not self.is_mode_allowed(out[0]):
+            out[0] = 0
+        return out
+
+    def universe(self) -> dict[str, int]:
+        """The non-zero DMX slots of the whole universe (firmware buildUniverse)."""
+        dmx: dict[str, int] = {}
+        for i, s in enumerate(self.patch):
+            for k, v in enumerate(self.fixture_frame(i)):
+                if v:
+                    dmx[str(s.addr + k)] = v
+        return dmx
 
     @staticmethod
     def calibration_frame(c: Session) -> list[int]:
@@ -386,14 +516,16 @@ class MockFirmware:
         return value
 
     def reclamp(self) -> None:
-        self.channels = [self.clamp_channel(i + 1, v) for i, v in enumerate(self.channels)]
+        """Firmware commitSettings: the laser's look re-clamped to the (new) limits."""
+        i = self.laser_index()
+        if i is not None:
+            self.fixtures[i][:CHANNEL_COUNT] = self.reclamped(self.fixtures[i][:CHANNEL_COUNT])
 
     # --- stopping ----------------------------------------------------------------
     def blackout(self, reason: str, out: Out) -> None:
+        """Firmware endCalibration + a stop event: every fixture dark, no session, no show."""
         self.cal = None
-        self.channels = [0] * CHANNEL_COUNT
-        self.play = None  # a stop also cancels playback, and nothing resumes it
-        self.preset = None
+        self.darken_all()  # a stop also cancels playback, and nothing resumes it
         out.all({"type": "stop", "reason": reason})
         out.state()
 
@@ -411,82 +543,115 @@ class MockFirmware:
         if not line or len(line) > MAX_LINE_LENGTH:
             self.error(client, "bad-command", out)
             return
-        words = line.split()
-        if line == "hb":
+        kind = line.split()[0].lower()
+        if kind in ("preset", "show"):  # parsed apart: names keep their case and may contain spaces
+            self.library_command(client, kind, line, out)
+            return
+        words = line.lower().split()  # the firmware lower-cases every other command
+        fixture = 0
+        prefix = PREFIX_PATTERN.fullmatch(words[0])
+        if len(words) >= 2 and prefix:
+            fixture = int(prefix[1])
+            words = words[1:]
+        if fixture or words == ["off"] or words[0].isdigit():
+            self.fixture_command(client, fixture, words, out)
+            return
+        if words == ["hb"]:
             if self.cal is not None and self.cal.owner == client.cid:
                 t = now()
                 self.cal.last_hb = t
                 if client.admin:
                     client.last_admin_action = t  # an owner still on the page stays logged in
             return
-        if line == "?":
+        if words == ["?"]:
             out.state(client.cid)
-            return
-        if line in ("0", "off"):
-            self.stop_command(line, out)
-            return
-        if words[0].isdigit():
-            self.channel_command(client, words, out)
             return
         handlers: dict[str, Callable[[Client, list[str], Out], None]] = {
             "auth": self.cmd_auth,
             "logout": self.cmd_logout,
             "pin": self.cmd_pin,
-            "addr": self.cmd_addr,
+            "patch": self.cmd_patch,
             "cal": self.cmd_cal,
             "dbg": self.cmd_dbg,
             "lim": self.cmd_lim,
             "lib": self.cmd_lib,
         }
-        if words[0] in ("preset", "show"):
-            self.library_command(client, words[0], line, out)
-            return
         handler = handlers.get(words[0])
         if handler is None:
             self.error(client, "bad-command", out)
             return
         handler(client, words[1:], out)
 
-    def stop_command(self, line: str, out: Out) -> None:
-        """'off' and '0': accepted from anyone, always; they end calibration and debug."""
-        reason = "blackout" if line == "0" else "off"
-        if self.cal is not None or line == "0":
+    def fixture_command(self, client: Client, fixture: int, words: list[str], out: Out) -> None:
+        """The commands that take an 'f<1-4>' prefix: '<ch> <value>', '0' and 'off' (0 = no prefix)."""
+        if words == ["off"] or (len(words) == 1 and NUMBER_PATTERN.fullmatch(words[0]) and int(words[0]) == 0):
+            self.stop_command(fixture, words[0] == "off", out)
+        elif words[0].isdigit():
+            self.channel_command(client, fixture, words, out)
+        else:
+            self.error(client, "bad-command", out)  # a prefix on any other command
+
+    def stop_command(self, fixture: int, is_off: bool, out: Out) -> None:
+        """'off' and '0': accepted from anyone, always; they end calibration and debug.
+        Without a prefix they act on every fixture, with one only on that slot."""
+        reason = "off" if is_off else "blackout"
+        if self.cal is not None:
             self.blackout(reason, out)
             return
-        self.channels[0] = 0
-        self.play = None
-        self.preset = None
-        out.all({"type": "stop", "reason": reason})
+        laser = self.laser_index()
+        for i, slot in enumerate(self.patch):
+            if fixture and i != fixture - 1:
+                continue
+            if self.play is not None and i == laser:
+                self.play = None  # nothing resumes it
+            self.fixtures[i] = off_channels(slot.type, self.fixtures[i]) if is_off else [0] * MAX_FIXTURE_CHANNELS
+            self.loaded[i] = None
+        if not fixture:  # only a stop of every fixture is announced; "f2 off" is a normal change
+            out.all({"type": "stop", "reason": reason})
         out.state()
 
-    def channel_command(self, client: Client, words: list[str], out: Out) -> None:
-        if len(words) != 2 or not words[1].isdigit():
+    def channel_command(self, client: Client, fixture: int, words: list[str], out: Out) -> None:
+        if len(words) != 2 or not all(NUMBER_PATTERN.fullmatch(w) for w in words):
             self.error(client, "bad-command", out)
             return
         ch, value = int(words[0]), int(words[1])
-        if not (1 <= ch <= CHANNEL_COUNT and 0 <= value <= RAW_MAX):
+        if not (1 <= ch <= MAX_FIXTURE_CHANNELS and value <= RAW_MAX):
             self.error(client, "bad-command", out)
             return
         if self.stop_held:
             self.error(client, "stop-held", out)
             return
+        laser = self.laser_index()
+        # Without a prefix: slot 1, except during a session, which is about the laser.
+        index = fixture - 1 if fixture else (laser if self.cal is not None else 0)
+        kind = "none" if index is None else self.patch[index].type
+        if kind == "none":
+            self.error(client, "no-fixture", out)
+            return
+        if ch > FIXTURE_CHANNELS[kind]:
+            self.error(client, "bad-command", out)
+            return
         c = self.cal
         if c is not None:
-            self.session_channel(client, c, ch, value, out)
+            self.session_channel(client, c, index == laser, ch, value, out)
             return
-        if ch == 1 and not self.is_mode_allowed(value):
-            self.error(client, "auto-blocked" if value >= MODE_AUTO_MIN else "not-calibrated", out)
-            return
-        self.channels[ch - 1] = self.clamp_channel(ch, value)
-        self.play = None  # a manual change takes over the look
-        self.preset = None
+        if kind == "laser":
+            if ch == 1 and not self.is_mode_allowed(value):
+                self.error(client, "auto-blocked" if value >= MODE_AUTO_MIN else "not-calibrated", out)
+                return
+            self.fixtures[index][ch - 1] = self.clamp_channel(ch, value)
+            self.play = None  # a manual change takes over from a show (shows drive the laser)
+        else:
+            self.fixtures[index][ch - 1] = value  # the head has no limits (user decision)
+        self.loaded[index] = None
         out.state()
 
-    def session_channel(self, client: Client, c: Session, ch: int, value: int, out: Out) -> None:
-        if c.owner != client.cid:
+    def session_channel(self, client: Client, c: Session, is_laser: bool, ch: int, value: int, out: Out) -> None:
+        """During a session only its owner may move the laser, within what the session allows."""
+        if c.owner != client.cid or not is_laser:
             self.error(client, "calibration-busy", out)
             return
-        if c.is_debug:
+        if c.is_debug and ch <= CHANNEL_COUNT:
             c.raw[ch - 1] = value  # rule 9: raw, no limits at all
         elif ch in (6, 7) and c.phase == "adjust":
             if ch == 7:
@@ -574,8 +739,21 @@ class MockFirmware:
             out.to(client.cid, {"type": "saved"})
         return True
 
-    def cmd_addr(self, client: Client, args: list[str], out: Out) -> None:
-        if len(args) != 1 or not args[0].isdigit() or not ADDR_MIN <= int(args[0]) <= ADDR_MAX:
+    @staticmethod
+    def parse_patch(args: list[str]) -> tuple[int, PatchSlot] | None:
+        """'<1-4> none' or '<1-4> laser|head <1-512>' (firmware parsePatch)."""
+        if len(args) < 2 or not re.fullmatch(r"[1-4]", args[0]):
+            return None
+        if args[1:] == ["none"]:
+            return int(args[0]), PatchSlot()
+        if len(args) != 3 or args[1] not in ("laser", "head") or not NUMBER_PATTERN.fullmatch(args[2]):
+            return None
+        address = int(args[2])
+        return (int(args[0]), PatchSlot(args[1], address)) if 1 <= address <= UNIVERSE_SIZE else None
+
+    def cmd_patch(self, client: Client, args: list[str], out: Out) -> None:
+        parsed = self.parse_patch(args)
+        if parsed is None:
             self.error(client, "bad-command", out)
             return
         if not self.require_admin(client, out):
@@ -583,17 +761,21 @@ class MockFirmware:
         if self.cal is not None:
             self.error(client, "calibration-busy", out)
             return
+        slot, entry = parsed
+        patch = tuple(entry if i == slot - 1 else s for i, s in enumerate(self.patch))
+        if patch_problem(patch):
+            self.error(client, "bad-patch", out)
+            return
+        if patch == self.patch:
+            out.state(client.cid)  # nothing moved: no save, no blackout (firmware handleSetPatch)
+            return
         if not self.save(client, out):
             return
-        self.addr = int(args[0])
-        self.limits = replace(self.limits, calibrated=False)  # the clamp must be re-verified
-        self.cal = None
-        self.channels = [0] * CHANNEL_COUNT
-        self.play = None
-        self.preset = None
+        if is_laser_moved(self.patch, patch):
+            self.limits = replace(self.limits, calibrated=False)  # the clamp must be re-verified on the new slots
+        self.patch = patch
+        self.blackout("patch-changed", out)  # fixtures moved: every one starts dark
         self.reclamp()  # firmware commitSettings re-clamps after the blackout
-        out.all({"type": "stop", "reason": "address-changed"})
-        out.state()
 
     def owned_session(self, client: Client, out: Out) -> Session | None:
         if self.cal is None:
@@ -615,6 +797,9 @@ class MockFirmware:
             return False
         if self.cal is not None:
             self.error(client, "calibration-busy", out)
+            return False
+        if self.laser_index() is None:
+            self.error(client, "no-fixture", out)  # sessions are for the laser
             return False
         return True
 
@@ -655,9 +840,7 @@ class MockFirmware:
             h_on=lim.ch6_enabled,
             marks={"low7": None, "high7": None, "left6": lim.ch6_left, "right6": lim.ch6_right},
         )
-        self.channels = [0] * CHANNEL_COUNT  # nothing resumes after calibration ends
-        self.play = None
-        self.preset = None
+        self.darken_all()  # every fixture: nothing resumes after calibration ends
         out.state()
 
     def cmd_dbg(self, client: Client, args: list[str], out: Out) -> None:
@@ -669,9 +852,7 @@ class MockFirmware:
         if args[0] == "start":
             if self.start_allowed(client, out):
                 self.cal = Session(owner=client.cid, phase="debug", last_hb=now())  # every channel starts at 0
-                self.channels = [0] * CHANNEL_COUNT
-                self.play = None
-                self.preset = None
+                self.darken_all()
                 out.state()
             return
         c = self.owned_session(client, out)
@@ -781,7 +962,7 @@ class MockFirmware:
 
     def library_command(self, client: Client, kind: str, line: str, out: Out) -> None:
         words = line.split(" ")
-        sub = words[1] if len(words) > 1 else ""
+        sub = words[1].lower() if len(words) > 1 else ""
         if kind == "preset" and sub == "save":
             self.preset_save(client, words[2:], out)
         elif kind == "show" and sub == "save":
@@ -837,7 +1018,12 @@ class MockFirmware:
         if not self.is_valid_name(name):
             self.error(client, "bad-name", out)
             return
-        if self.library_blocked(client, out, needs_output=False) or not self.save(client, out, quiet=True):
+        if self.library_blocked(client, out, needs_output=False):
+            return
+        if self.laser_index() is None:
+            self.error(client, "no-fixture", out)  # presets hold laser looks for now
+            return
+        if not self.save(client, out, quiet=True):
             return
         look = self.stored_look()
         self.presets[slot] = Preset(name, tuple(look))
@@ -845,7 +1031,7 @@ class MockFirmware:
         self.library_changed(out)
 
     def stored_look(self) -> list[int]:
-        """Firmware sanitizeLook(): the current look as a preset stores it."""
+        """Firmware sanitizeLook(): the laser's current look as a preset stores it."""
         look = [self.clamp_channel(i + 1, v) for i, v in enumerate(self.channels)]
         if look[0] >= MODE_AUTO_MIN:
             look[0] = 0
@@ -853,29 +1039,34 @@ class MockFirmware:
 
     def preset_saved(self, slot: int, look: list[int]) -> None:
         """Firmware presetSaved(): a show using the slot has a stale copy, so it stops."""
+        if self.laser_index() is None:
+            return
         p = self.play
         if p is not None and p.show in self.shows and any(s == slot for s, _ in self.shows[p.show].steps):
             self.play = None  # the current look stays
         if self.play is not None:
             return  # the show keeps marking its own step
         if self.stored_look() == look:  # after a blackout the state can hold CH7 below the limit
-            self.preset = slot
+            self.set_laser_preset(slot)
         elif self.preset == slot:
-            self.preset = None
+            self.set_laser_preset(None)
 
     def preset_load(self, client: Client, slot: int, out: Out) -> None:
-        if self.library_blocked(client, out, needs_output=True):
-            return
+        """Firmware order: the slot, then session, IO0, the laser, rule 8."""
         preset = self.presets.get(slot)
         if preset is None:
             self.error(client, "empty-slot", out)
+            return
+        if self.library_blocked(client, out, needs_output=True):
+            return
+        if self.laser_index() is None:
+            self.error(client, "no-fixture", out)
             return
         if self.needs_calibration(preset):
             self.error(client, "not-calibrated", out)
             return
         self.play = None  # loading a preset takes over from a running show
-        self.channels = self.look_of(preset)
-        self.preset = slot
+        self.set_laser(self.look_of(preset), slot)
         out.state()
 
     def preset_delete(self, client: Client, slot: int, out: Out) -> None:
@@ -891,7 +1082,7 @@ class MockFirmware:
             return
         del self.presets[slot]
         if self.preset == slot:
-            self.preset = None
+            self.set_laser_preset(None)
         self.library_changed(out)
 
     def parse_steps(self, text: str) -> tuple[tuple[int, int], ...] | None:
@@ -933,11 +1124,15 @@ class MockFirmware:
         self.library_changed(out)
 
     def show_play(self, client: Client, slot: int, out: Out) -> None:
-        if self.library_blocked(client, out, needs_output=True):
-            return
+        """Firmware order: the slot, then session, IO0, the laser, rule 8 for every step."""
         show = self.shows.get(slot)
         if show is None:
             self.error(client, "empty-slot", out)
+            return
+        if self.library_blocked(client, out, needs_output=True):
+            return
+        if self.laser_index() is None:
+            self.error(client, "no-fixture", out)
             return
         if any(self.needs_calibration(self.presets[p]) for p, _ in show.steps):
             self.error(client, "not-calibrated", out)
@@ -948,8 +1143,7 @@ class MockFirmware:
 
     def load_step(self, show: Show) -> None:
         slot = show.steps[self.play.step][0]
-        self.channels = self.look_of(self.presets[slot])
-        self.preset = slot
+        self.set_laser(self.look_of(self.presets[slot]), slot)
 
     def show_stop(self, out: Out) -> None:
         """Stops advancing and keeps the current look."""
@@ -985,7 +1179,7 @@ class MockFirmware:
             out.state()
             return
         hold = show.steps[p.step][1] / 10
-        if t - p.started >= hold:
+        if t - p.started >= hold and self.laser_index() is not None:
             late = t - p.started - hold
             p.step = (p.step + 1) % len(show.steps)  # the show loops
             p.started = t - late if late < show.steps[p.step][1] / 10 else t  # keeps the schedule
@@ -1109,10 +1303,16 @@ class MockFirmware:
 
     def hook_state(self, _query: dict[str, str], _out: Out) -> dict:
         return {
-            "channels": self.channels,
+            "channels": self.channels,  # the laser's (all 0 without one)
             "frame": self.frame(),
+            "patch": [{"slot": i + 1, **asdict(s)} for i, s in enumerate(self.patch)],
+            "fixtures": [
+                {"slot": i + 1, "type": s.type, "addr": s.addr, "channels": self.fixtures[i][:FIXTURE_CHANNELS[s.type]],
+                 "frame": self.fixture_frame(i), "preset": self.loaded[i]}
+                for i, s in enumerate(self.patch) if s.type != "none"
+            ],
+            "universe": self.universe(),
             "limits": asdict(self.limits),
-            "addr": self.addr,
             "pin": self.pin,
             "stopHeld": self.stop_held,
             "settingsReset": self.settings_reset,
@@ -1165,7 +1365,7 @@ class MockFirmware:
         self.presets.clear()
         self.shows.clear()
         self.play = None
-        self.preset = None
+        self.set_laser_preset(None)
         self.library_reset = query.get("reset", "0") == "1"
         self.library_changed(out)
         return self.library_json()

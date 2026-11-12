@@ -343,6 +343,7 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
     <div class="banners" id="banners" hidden>
       <div class="banner danger" id="sessionBanner" role="status" hidden></div>
       <div class="banner danger" id="stopBanner" role="status" hidden>Stopknop (IO0) ingedrukt: de laser blijft uit tot je hem loslaat.</div>
+      <div class="banner warn" id="noLaserBanner" hidden>Er staat geen laser in de patch. Voeg hem toe in <a href="/admin">Beheer</a> → Instellingen.</div>
       <div class="banner warn" id="uncalBanner" hidden><span id="uncalText"></span> <a href="/admin">Naar Beheer</a></div>
       <div class="banner warn" id="libraryBanner" hidden>De opgeslagen presets en shows waren beschadigd en zijn leeggemaakt. Maak ze opnieuw.</div>
     </div>
@@ -428,6 +429,7 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
 
 // --- constants ------------------------------------------------------------------------
 const CH_COUNT = 10;
+const MAX_FIXTURES = 4;         // patch slots f1-f4
 const PATTERN_COUNT = 51;
 const MODE_ON = 96;             // CH1 manual (64-127); auto/sound (128-255) no longer exists
 const MODE_ON_MIN = 64;
@@ -531,6 +533,8 @@ const ERROR_TEXT = {
   'bad-name': 'Die naam kan niet: 1 tot 32 tekens, zonder " of \\.',
   'bad-steps': 'De show klopt niet: 1 tot 24 stappen, elk met een bestaande preset en 0,1 tot 600 seconden.',
   'preset-in-use': 'Deze preset zit in een show. Haal hem daar eerst uit.',
+  'no-fixture': 'Er staat geen laser in de patch. Voeg hem toe in Beheer → Instellingen.',
+  'bad-patch': 'Dat past niet in de patch: lampen mogen niet overlappen of voorbij kanaal 512 lopen, en er mag maar één laser zijn.',
 };
 const STOP_TEXT = {
   'button': 'Stopknop (IO0) ingedrukt: de laser is uit.',
@@ -539,7 +543,7 @@ const STOP_TEXT = {
   'calibration-stopped': 'Kalibratie of debugsessie gestopt: de laser is uit.',
   'calibration-timeout': 'Kalibratie of debugsessie gestopt (verbinding weg): de laser is uit.',
   'calibration-owner-left': 'Kalibratie of debugsessie gestopt (telefoon weg): de laser is uit.',
-  'address-changed': 'DMX-adres gewijzigd: de laser is uit. De hoogtegrens moet opnieuw worden ingesteld.',
+  'patch-changed': 'De patch (DMX-adressen) is gewijzigd: alles is uit. Is de laser verplaatst, dan moet de hoogtegrens opnieuw worden ingesteld.',
   'calibration-saved': 'Nieuwe hoogtegrens opgeslagen: de laser is uit.',
   'debug-stopped': 'Debugsessie gestopt: de laser is uit.',
 };
@@ -618,7 +622,8 @@ const ui = {
 
 const limits = () => (st ? st.limits : { ch7: [0, POS_MAX], ch6: { on: true, range: [0, POS_MAX] }, calibrated: false });
 const isCalibrated = () => !!(st && st.limits.calibrated);
-const canDrive = () => isOpen && !!st && !st.cal && !st.stopHeld;
+const hasLaser = () => !!st && st.laserSlot != null;
+const canDrive = () => isOpen && hasLaser() && !st.cal && !st.stopHeld;
 const canEdit = () => isOpen && !!st && !st.cal;
 const presetList = () => [...lib.presets.values()].sort((a, b) => a.slot - b.slot);
 const showList = () => [...lib.shows.values()].sort((a, b) => a.slot - b.slot);
@@ -837,14 +842,18 @@ function send(text) {
   ws.send(text);
   return true;
 }
+// Every laser channel command names the laser's patch slot ("f3 7 40"): without
+// a prefix the firmware sends it to slot 1, which may hold another fixture.
+const laserCommand = (ch, v) => `f${st.laserSlot} ${ch} ${v}`;
 function sendChannel(ch, v) {
+  if (!hasLaser()) return false;
   setLocal(ch, v);
   outbox.delete(ch);
-  return send(`${ch} ${v}`);
+  return send(laserCommand(ch, v));
 }
 function flush() {
-  if (!isOpen) { outbox.clear(); return; }
-  outbox.forEach((v, ch) => ws.send(`${ch} ${v}`));
+  if (!isOpen || !hasLaser()) { outbox.clear(); return; }
+  outbox.forEach((v, ch) => ws.send(laserCommand(ch, v)));
   outbox.clear();
 }
 function setLocal(ch, v) { local.set(ch, { v, at: now() }); }
@@ -900,7 +909,8 @@ function renderBanners() {
   $('sessionBanner').textContent = debug ? 'DEBUG: geen begrenzing. De bediening is vergrendeld; UIT werkt altijd.'
     : 'KALIBRATIE: begrenzing aangepast. De bediening is vergrendeld; UIT werkt altijd.';
   $('stopBanner').hidden = !(st && st.stopHeld);
-  $('uncalBanner').hidden = !st || st.limits.calibrated || session;
+  $('noLaserBanner').hidden = !st || hasLaser();
+  $('uncalBanner').hidden = !st || st.limits.calibrated || session || !hasLaser();
   $('uncalText').textContent = st && st.settingsReset
     ? 'De instellingen waren beschadigd en zijn gewist. De laser kan pas aan na het instellen van de hoogtegrens.'
     : 'De laser kan pas aan na het instellen van de hoogtegrens.';
@@ -934,6 +944,7 @@ function renderSide() {
     setNow(debug ? 'Debug' : 'Kalibratie', 'Bediening vergrendeld', 'Met UIT stop je hem altijd.', 'n-sess');
     return;
   }
+  if (!hasLaser()) { setNow('Laser', 'Geen laser', 'Niet in de patch. Voeg hem toe in Beheer → Instellingen.'); return; }
   const ch = currentLook();
   const play = playInfo();
   if (play) {
@@ -1822,7 +1833,7 @@ function guideFor(i) {
 }
 const GUIDE_INTRO = {
   basis: { title: 'Zo werkt het', parts: [
-    ['Je telefoon praat via ', { b: 'de wifi van de ESP32' }, ' met de ESP32. Die stuurt de laser 40 keer per seconde aan via de DMX-kabel: 10 kanalen, vanaf adres 1.'],
+    ['Je telefoon praat via ', { b: 'de wifi van de ESP32' }, ' met de ESP32. Die stuurt de laser 40 keer per seconde aan via de DMX-kabel: 10 kanalen, vanaf zijn DMX-adres (standaard 1).'],
     [{ b: 'Presets' }, ' zijn opgeslagen looks van alle 10 kanalen. Tik een tegel en de laser laat hem zien. Een nieuwe maak je met ＋ Nieuw (de snelbouwer), of stel de laser in op de Lichttafel en tik ＋ Bewaar als preset.'],
     [{ b: 'Shows' }, ' spelen presets na elkaar, elk zo lang als jij wilt, en beginnen dan opnieuw. De ESP32 speelt de show zelf: je telefoon mag op slot, naar een andere app of van de wifi.'],
     [{ b: 'Lichttafel' }, ': alle 10 kanalen met de hand. Tik op een naam voor uitleg. Een schuif bewegen neemt het over van een lopende show.'],
@@ -1923,7 +1934,7 @@ function rebuildAll() {
 }
 function render() {
   document.body.classList.toggle('offline', !isOpen || !st);
-  document.body.classList.toggle('locked', !!(st && (st.cal || st.stopHeld)));
+  document.body.classList.toggle('locked', !!(st && (st.cal || st.stopHeld || !hasLaser())));
   ['presets', 'shows', 'desk', 'guide'].forEach((t) => { $(`view-${t}`).hidden = ui.tab !== t; });
   renderHeader();
   renderBanners();
@@ -1968,17 +1979,24 @@ function drawPlaceholder(cv) {
 function startAnim() { if (!animId && needsAnim()) animId = requestAnimationFrame(animate); }
 
 // --- incoming messages -----------------------------------------------------------------------------------
+// This page drives the laser only: it is found in the patch by its type.
+function laserOf(fixtures) {
+  return fixtures.find((f) => f && f.type === 'laser' && Array.isArray(f.ch) && f.ch.length >= CH_COUNT
+    && Number.isInteger(f.slot) && f.slot >= 1 && f.slot <= MAX_FIXTURES) || null;
+}
 function normState(m) {
   const pair = (v, d) => (Array.isArray(v) && v.length === 2 ? v.map((x) => clampInt(x, 0, RAW_MAX)) : d);
   const l = m.limits && typeof m.limits === 'object' ? m.limits : {};
   const h = l.ch6 && typeof l.ch6 === 'object' ? l.ch6 : {};
   const p = m.play && typeof m.play === 'object' ? m.play : null;
+  const laser = laserOf(m.fixtures);
   return {
-    ch: m.ch.slice(0, CH_COUNT).map((v) => clampInt(v, 0, RAW_MAX)),
+    ch: laser ? laser.ch.slice(0, CH_COUNT).map((v) => clampInt(v, 0, RAW_MAX)) : new Array(CH_COUNT).fill(0),
+    laserSlot: laser ? laser.slot : null,
     limits: { ch7: pair(l.ch7, [0, POS_MAX]), ch6: { on: !!h.on, range: pair(h.range, [0, POS_MAX]) }, calibrated: !!l.calibrated },
     stopHeld: !!m.stopHeld,
     cal: m.cal && typeof m.cal === 'object' ? { phase: String(m.cal.phase || '') } : null,
-    preset: Number.isInteger(m.preset) ? m.preset : null,
+    preset: laser && Number.isInteger(laser.preset) ? laser.preset : null,
     play: p ? { show: Number(p.show), step: Math.max(0, Number(p.step) || 0), steps: Math.max(1, Number(p.steps) || 1), holdLeftMs: Math.max(0, Number(p.holdLeftMs) || 0) } : null,
     libraryReset: !!m.libraryReset,
     settingsReset: !!m.settingsReset,
@@ -2002,13 +2020,13 @@ function normLibrary(m) {
 }
 
 function onState(msg) {
-  if (!Array.isArray(msg.ch) || msg.ch.length < CH_COUNT) return;
+  if (!Array.isArray(msg.fixtures)) return;
   const before = st;
   st = normState(msg);
   stAt = now();
   if (before && (before.preset !== st.preset || playKey(before) !== playKey(st))) releaseLocal();
   dropStaleLocal();
-  if (st.cal || st.stopHeld) {
+  if (st.cal || st.stopHeld || !hasLaser() || (before && before.laserSlot !== st.laserSlot)) {
     clearLocal();
     if (ui.tipCh != null) { ui.tipCh = null; renderTip(); }
   }
