@@ -1,112 +1,184 @@
-# DMX Laser Controller
+# Schuwe Lichten
 
-ESP32 pocket controller: phone → WiFi → ESP32 → DMX → RGB pattern laser.
+A pocket DMX lighting controller: **phone → WiFi → ESP32 → DMX → light**.
 
-## One-time setup
+Right now it drives one cheap RGB laser. You tap presets on your phone, build looping shows that keep playing when you lock the phone,
+and fine-tune every channel on a lighting-desk page. A height limit set on site keeps the beam up, and the ESP32 enforces it on every DMX frame,
+whatever the phone asks for. Everything fits in a small 3D-printed box with an XLR socket.
 
-1. Install the **CP210x driver** (Silicon Labs "CP210x Universal Windows Driver") so the board shows up as a COM port (here: COM5).
-2. In this folder, run `uv sync`. This installs PlatformIO into `.venv`.
-3. If `include/wifi_secrets.h` is missing (fresh clone), copy `include/wifi_secrets.example.h` to it and set a WiFi password (8+ characters)
-   and a factory admin PIN (6-8 digits). The example values deliberately fail the build.
+![Presets on the phone page](docs/images/presets.png)
 
-## Flashing
+> [!WARNING]
+> This drives a **500 mW laser**, which can blind people instantly, also through a reflection.
+> The height limit and stop button make mistakes less likely; they are **not** a certified safety system.
+> Never aim at people, follow your local laser regulations, and keep the laser's own power switch within reach.
+> See [docs/SAFETY.md](docs/SAFETY.md).
 
-**This board does not switch into upload mode on its own. You have to hold the `IO0` button**
-(the small one next to USB that looks like it says "100"; leave `EN` alone).
+## Features
 
-1. Close any open serial monitor, because it blocks the port.
-2. Start the upload:
+- **Phone page, no app.** Join the ESP32's WiFi and open `http://192.168.4.1` in the browser. Made for landscape. The interface is in Dutch.
+- **Presets** with drawings of the actual patterns, a **quick builder** (shape, colour, movement, size, height, lines/dots, shown live on the laser),
+  and a **lighting-desk page** with a fader per channel and an explanation behind every label.
+- **Shows:** a looping list of presets with hold times. The ESP32 plays them itself, so the phone can lock, switch apps or leave the WiFi.
+- **Height limit, calibrated on site** in a PIN-protected admin page. It is applied to every outgoing frame, inside presets and shows too.
+  An optional side limit does the same horizontally.
+- **Stops:** the big UIT button works from every phone, always. The board's BOOT button doubles as a hardware stop.
+  Nothing switches the laser back on by itself, also not after a reboot.
+- **Debug tab** for finding out what the laser really does: all 10 channels raw, admin only.
+- **Built to be trusted:** all safety logic is pure C++ with 148 host unit tests, and the pages run against a Python mock of the firmware in 450+ browser checks.
 
-   ```bash
-   uv run pio run -t upload
-   ```
+| Shows | Lighting desk |
+|---|---|
+| ![Shows](docs/images/shows.png) | ![Lichttafel](docs/images/lichttafel.png) |
+| **Quick builder** | **Calibration (admin)** |
+| ![Builder](docs/images/builder.png) | ![Kalibratie](docs/images/kalibratie.png) |
 
-3. When the terminal shows `Connecting........`, **press and hold IO0**.
-   Release it when you see `Writing at 0x...`.
-4. Wait for `Hard resetting via RTS pin...` and `[SUCCESS]`. The board restarts by itself.
+## Hardware
 
-If it fails with `Wrong boot mode detected (0x13)`, you pressed IO0 too late. Run the command again and hold IO0 a bit earlier.
-If it says it can't find or open the port, add `--upload-port COM5` (check Device Manager → Ports for the number).
+| Part | Notes |
+|---|---|
+| **Laser** | "ALIEN 500 mW RGB Laser Beam Line Scanner Projector" (sold as a DJ/disco/party DMX light). 10-channel DMX mode, address 1. |
+| **ESP32 dev board** | Classic ESP32 (ESP-32S / ESP32-WROOM-32 module, ESP32-D0WD-V3), 38-pin, USB-C, CP2102 USB-serial. The case is sized for a 48.5 × 25 mm board. |
+| **DMX module** | Velleman **VMA432**. Transmit only (no DE/RE or RX pin), male 3-pin XLR. |
+| **Cables** | 3 Dupont jumpers, and a 3-pin DMX cable to the laser (a short microphone cable works too). |
+| **Case** (optional) | 3D-printed, see [Enclosure](#enclosure). |
 
-### From VSCode instead
+### Wiring
 
-PlatformIO's buttons are in the blue status bar at the bottom:
-**✓** builds, **→** uploads, and the **plug** icon opens the serial monitor.
-The same IO0 trick applies while it says `Connecting...`.
+| ESP32 pin | VMA432 pin |
+|---|---|
+| 5V / VIN | VCC |
+| GND | GND |
+| GPIO17 | SIG |
+| | NC (leave unconnected) |
 
-Your limits, PIN and DMX address are stored separately from the program, so they survive a normal flash.
+The ESP32 drives 3.3 V logic into the 5 V module, which works fine here.
+The onboard blue LED (GPIO2) gives a short flash every second while no phone is on the WiFi, so you can see the firmware is running.
+
+> [!TIP]
+> In the case, the plugs go onto the pins from underneath, where the two pin rows look mirrored compared to the printed labels on top.
+> If the board boot-loops with `invalid header: 0xffffffff` on the serial monitor and no WiFi shows up, a plug is probably one pin off.
+> On most 38-pin boards the pins next to `5V` are flash pins.
+
+## The laser, as it really behaves
+
+The laser's manual turned out to be unreliable. The firmware and the pages follow what this unit actually does.
+These lasers are cheap and sold under many names, so **yours may differ**. Use the admin **Debug** tab to check.
+
+| Ch | Function | Manual | Found on this unit |
+|---|---|---|---|
+| 1 | Mode | 0-63 off · 64-127 manual · 128-191 auto · 192-255 sound | Auto and sound ignore any position limit, so the firmware disables them. Manual (96) is used. |
+| 2 | Pattern | 51 patterns over 0-255 | Pattern *n* sits at `floor((n - 0.5) × 256 / 51)`. All 51 differ, except #48, which equals #47. |
+| 3 | Rotation | 0-127 angle · 128-255 rotate | Rotating makes a pattern reach lower. 64 turns the square into a diamond. |
+| 4, 5 | Horizontal / vertical flip | 0-127 position · 128-255 flip speed | Not checked in detail yet. |
+| 6 | Horizontal position | 0-127 position · 128-255 movement | 0-127 only moves left (0 = centre). Right only happens with the automatic movement. |
+| 7 | Vertical position | 0-127 position · 128-255 movement | Behaves differently above 64, where 64 is high. **Clamped by the firmware.** |
+| 8 | Size | 0-63 fixed (higher = smaller) · 64-191 zoom · 192-255 zoom speed | Not checked in detail yet. |
+| 9 | Colour | 0-63 single colour select | 0-63 gives mixed colours, not a single one. Single colours only appear in the cycling ranges (128-255). |
+| 10 | Lines / dots | 0-127 lines · 128-255 dots | Within each half, a higher value draws more slowly. |
+
+All 51 patterns were named and traced by hand on this unit. The traces in [`design/patterns.json`](design/patterns.json) become the drawings on the page.
+They are no guarantee for other units, even of the same model.
+
+## How it works
+
+```
+ phone (browser) ──WiFi──▶ ESP32 access point ──UART 250 kbaud──▶ VMA432 ──XLR──▶ laser
+   /  and /admin             HTTP :80 pages, WebSocket :81         DMX512, 40 frames/s
+```
+
+- **`lib/laser_core`**: the whole command and safety state machine as pure functions: limits, calibration, PIN guard, stop button,
+  presets and shows, and the text protocol parser. It has no Arduino dependencies, so it is unit-tested on the PC.
+- **`src/`**: the firmware around it. A DMX task (core 1, on the task watchdog) sends a fresh frame every 25 ms and plays shows.
+  The loop task runs the WiFi access point, the web server, the WebSocket and the USB serial console.
+- **Storage:** settings (limits, DMX address, PIN) live in NVS as one CRC-checked blob. Presets and shows live on LittleFS.
+  Both are verified after every write and survive firmware updates.
+- **`src/web/`**: the two pages and the pattern drawings, embedded in the firmware. Serial and WebSocket speak the same text protocol,
+  see [docs/PROTOCOL.md](docs/PROTOCOL.md).
+
+Built with [PlatformIO](https://platformio.org/) (Arduino core 2.0.17), [esp_dmx](https://github.com/someweisguy/esp_dmx) and
+[arduinoWebSockets](https://github.com/Links2004/arduinoWebSockets).
+
+## Build and flash
+
+You need [uv](https://docs.astral.sh/uv/), and on Windows the Silicon Labs **CP210x** driver so the board shows up as a COM port.
+
+```bash
+uv sync                                                # installs PlatformIO into .venv
+cp include/wifi_secrets.example.h include/wifi_secrets.h
+# edit it: a WiFi password (8+ characters) and a factory admin PIN (6-8 digits).
+# The example values deliberately fail the build.
+uv run pio run                                         # build
+uv run pio run -t upload --upload-port COM5            # flash (use your own port)
+uv run pio device monitor                              # serial console, 115200 baud
+```
+
+On Windows Git Bash, run `export PYTHONIOENCODING=utf-8` first if PlatformIO crashes with a `UnicodeEncodeError`.
+
+**If the upload hangs on `Connecting...` or fails with `Wrong boot mode detected`,** hold the **BOOT** (IO0) button while it connects,
+and let go once it says `Writing at 0x...`. The board used here never switches into upload mode by itself.
+
+Settings, presets and shows survive a normal flash. **Never use PlatformIO's "Upload Filesystem Image"**: it wipes the presets and shows.
+
+The WiFi name is `AP_SSID` in [`include/config.h`](include/config.h).
 
 ## Using it
 
-**Phone:** join the ESP32's WiFi (the name is `AP_SSID` in `include/config.h`, the password is in `include/wifi_secrets.h`)
-and open **<http://192.168.4.1>**. Turn the phone sideways: the page is made for landscape.
-The laser keeps doing what it does when you lock the phone, switch apps or leave the WiFi. That includes a running show.
-Stop it with the big red **UIT** button on the page, or with the **IO0 button** on the ESP32 (instant blackout, works without a phone).
-Nothing switches it back on by itself. The laser's own power switch is the real emergency stop.
+1. **Set the height limit (once per venue).** Open `http://192.168.4.1/admin`, log in with the PIN, go to **Kalibratie** and tap **Kalibratie starten**.
+   The laser shows a large diamond. Move it down until its lowest corner is at the lowest safe height, then tap **Dit is de laagste stand**.
+   Move it up and tap **Dit is de hoogste stand**, then **Opslaan**. **Controleren** first runs the widest patterns at the low limit.
+   Until a limit is saved, the laser can't be switched on.
+2. **Play.** On `http://192.168.4.1`:
+   - Tap a preset tile.
+   - Build a new look with **＋ Nieuw**, or set it on the **Lichttafel** and tap **＋ Bewaar als preset**.
+   - Make a show on the **Shows** tab.
+   - **Uitleg** explains every control.
+3. **Stop.** **UIT** on any phone, or the BOOT button on the ESP32.
 
-The page has four tabs:
+The USB serial console accepts the same commands as the WebSocket and counts as admin (no PIN). For example:
 
-- **Presets:** tap a tile to show that look. **＋ Nieuw** opens a quick builder (shape, colour, movement, size, height, lines/dots).
-  Each choice is shown live on the laser. **＋ Bewaar als preset** saves whatever the laser shows right now.
-- **Shows:** a list of presets, each with a hold time, that loops. The ESP32 plays it on its own, also with no phone connected.
-  Any manual change, loading a preset, UIT or IO0 stops it.
-- **Lichttafel:** a fader per DMX channel for precise control. Tap a fader's name for an explanation.
-- **Uitleg:** what every control does.
+- `7 40` sets channel 7.
+- `off` switches the laser off.
+- `?` prints the status.
+- `preset load 1` and `show play 1` load a preset or start a show.
+- `pin reset` restores the factory PIN.
 
-**Beheer** (bottom right) opens `/admin`. Everyone on the WiFi can use presets and shows; only calibration and settings need the PIN.
+All commands are in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
-### First time at a venue: set the height limit (`/admin`)
+## Enclosure
 
-The laser can't be switched on until a height limit has been calibrated and saved.
+[`enclosure/enclosure.scad`](enclosure/enclosure.scad) is a parametric OpenSCAD case for the ESP32 and the VMA432. It has three parts:
 
-1. Open **<http://192.168.4.1/admin>** and log in with the PIN (`ADMIN_PIN` in `include/wifi_secrets.h`).
-2. Tap **Kalibratie starten**. The laser draws the big square as a **Ruit** (diamond), because rotated patterns reach lower than a straight square.
-3. Move it with the − / + buttons until its bottom corner just touches the lowest safe height, then tap **Dit is de laagste stand**.
-   Move it up and tap **Dit is de hoogste stand**. The left/right limit is on at full width; narrow it only if you need to.
-4. Tap **Opslaan**. Optionally tap **Controleren** first: the laser then shows the widest patterns at the low limit, one after the other.
+- a base with the XLR socket flush in the wall and a USB-C opening
+- a screw-down lid with flexible tabs to press BOOT and EN
+- a small test coupon to check the fit before printing the whole box
 
-The limit is saved on the ESP32 and used from then on, also after a restart.
-The laser's built-in auto/sound modes are disabled, because they ignore the height limit.
-The DMX address (default 1) is also set in `/admin` and must match the address on the laser.
+Ready-made STLs and a slicer project are in [`enclosure/`](enclosure/). Print the coupon first. Every size is a parameter,
+and the clearances lean toward a little extra room.
 
-The **Debug** tab in `/admin` lets you set all 10 channels directly, **without any limits**, to find out what the laser really does.
-Aim the laser at a wall. The session ends when you leave or lock the page, press OFF, or press IO0.
-
-**Serial monitor:** run `uv run pio device monitor` (Ctrl+C to quit). USB counts as admin (no PIN needed):
-
-| Command | Effect |
-| --- | --- |
-| `7 40` | set channel 7 to 40 (any channel 1-10, value 0-255) |
-| `0` | every channel to 0 |
-| `off` | laser off (CH1 = 0) |
-| `?` | show values, limits, calibration state, DMX frame count, unused task stack and free memory |
-| `cal start` ... `lim save` | the same calibration commands the admin page uses |
-| `dbg start` / `dbg stop` | debug session: raw channels, no limits |
-| `pin reset` | forgot the PIN? restores the factory PIN |
-| `preset save 3 Blauwe tunnel` | save the current look as preset 3 (slots 1-32) |
-| `preset load 3` / `preset delete 3` | load or delete a preset |
-| `show save 1 3:50,4:20 Opwarmen` | show 1: preset 3 for 5.0 s, then preset 4 for 2.0 s, looping (times in tenths of a second) |
-| `show play 1` / `show stop` / `show delete 1` | play, stop (the look stays) or delete a show |
-| `lib` | list the presets and shows |
+```bash
+openscad -o base.stl   -D 'part="base"'   -D show_assembly=false enclosure.scad
+openscad -o lid.stl    -D 'part="lid"'    -D show_assembly=false enclosure.scad
+openscad -o coupon.stl -D 'part="coupon"' -D show_assembly=false enclosure.scad
+```
 
 ## Tests
 
-The safety logic has unit tests that run on the PC (no ESP32 needed):
-
 ```bash
-bash tools/run_host_tests.sh
+bash tools/run_host_tests.sh   # all unit tests in test/ (no ESP32 or system compiler needed)
+uv run --no-project --with playwright --with websockets python tools/mock_firmware/test_ui.py   # the pages in headless Edge
 ```
 
-The web pages are tested in a headless browser against a mock of the firmware:
+`run_host_tests.sh` compiles `lib/laser_core` with zig, fetched through uv. The UI test starts
+[`tools/mock_firmware/mock_firmware.py`](tools/mock_firmware/mock_firmware.py), a Python implementation of the firmware's protocol,
+and drives the real pages against it. It also checks layouts at phone size.
 
-```bash
-uv run --no-project --with playwright --with websockets python tools/mock_firmware/test_ui.py
-```
+## Roadmap
 
-## Troubleshooting
+- More fixtures: a moving head, and other DMX lights on the same controller (daisy-chained) or on a second node.
+- Fades between show steps.
+- Firmware updates over the WiFi.
 
-- **No COM port:** the CP210x driver is missing, or the USB cable only does charging.
-- **`UnicodeEncodeError` from pio in Git Bash:** run `export PYTHONIOENCODING=utf-8` first.
-- **Serial shows "IO0 held low since boot":** the stop button is stuck or held by the USB serial lines; it won't work until it has been released once.
-- **Laser flickers or ignores DMX:** check that the laser's DMX address matches the one in `/admin` (default 1), and check the XLR cable. A normal 3-pin microphone cable works for short runs.
-  The ESP32 sends 3.3 V logic into the 5 V DMX module, which usually works but is worth mentioning if things act up.
+## License
+
+[MIT](LICENSE)
