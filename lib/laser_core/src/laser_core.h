@@ -8,6 +8,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "fixtures.h"
+
 namespace laser {
 
 constexpr size_t CHANNEL_COUNT = 10;
@@ -27,9 +29,6 @@ constexpr uint8_t CH_DOTS = 10;
 constexpr uint8_t POSITION_MAX = 127;   // CH6/CH7 128-255 = automatic sweep, never allowed when limited
 constexpr uint8_t MODE_ON_MIN = 64;     // CH1 64-127 manual
 constexpr uint8_t MODE_AUTO_MIN = 128;  // CH1 128-255 auto/sound: ignores the height limit, never allowed (rule 7)
-
-constexpr uint16_t DMX_ADDRESS_MIN = 1;
-constexpr uint16_t DMX_ADDRESS_MAX = 512 - CHANNEL_COUNT + 1;
 
 // Venue limits, set by calibration. ch7Low is the CH7 value where the beam is
 // lowest; it may be above ch7High when the laser hangs upside down. The
@@ -70,6 +69,10 @@ ApplyResult setChannel(const State& state, uint8_t channel, uint8_t value, const
 State blackout();
 State laserOff(const State& state);
 bool isAllZero(const Channels& channels);
+
+// The laser's 10 channels at the start of a fixture's channel array, and back.
+Channels toLaserChannels(const FixtureChannels& channels);
+FixtureChannels toFixtureChannels(const Channels& channels);
 
 // Re-applies every limit: CH6/CH7 clamps, and CH1 to 0 if its mode is not allowed.
 State reclamp(const State& state, const Limits& limits);

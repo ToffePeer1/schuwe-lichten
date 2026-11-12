@@ -2,6 +2,7 @@
 
 #include <unity.h>
 
+#include <array>
 #include <cstring>
 
 #include "settings_blob.h"
@@ -18,8 +19,29 @@ Settings sample() {
   s.limits.ch6Left = 20;
   s.limits.ch6Right = 100;
   s.limits.isCalibrated = true;
-  s.dmxAddress = 503;
+  s.patch.slots[0] = PatchSlot{FixtureType::Head, 1};
+  s.patch.slots[1].address = 300;  // junk in an empty slot is not kept
+  s.patch.slots[2] = PatchSlot{FixtureType::Laser, 503};
   return s;
+}
+
+// A blob as firmware with settings version 1 wrote it (one laser address, no patch).
+std::array<uint8_t, SETTINGS_BLOB_SIZE_V1> v1Blob(uint16_t address) {
+  std::array<uint8_t, SETTINGS_BLOB_SIZE_V1> b{};
+  b[0] = 1;
+  b[1] = 90;   // ch7Low
+  b[2] = 12;   // ch7High
+  b[3] = 0x3;  // ch6 enabled, calibrated
+  b[4] = 20;
+  b[5] = 100;
+  b[6] = static_cast<uint8_t>(address & 0xFF);
+  b[7] = static_cast<uint8_t>(address >> 8);
+  std::memcpy(&b[8], "13579246", 8);
+  const uint32_t crc = crc32(b.data(), SETTINGS_BLOB_SIZE_V1 - 4);
+  for (int i = 0; i < 4; ++i) {
+    b[SETTINGS_BLOB_SIZE_V1 - 4 + i] = static_cast<uint8_t>(crc >> (8 * i));
+  }
+  return b;
 }
 
 }  // namespace
@@ -44,7 +66,12 @@ void test_round_trip_keeps_every_field() {
   TEST_ASSERT_EQUAL_UINT8(20, out.limits.ch6Left);
   TEST_ASSERT_EQUAL_UINT8(100, out.limits.ch6Right);
   TEST_ASSERT_TRUE(out.limits.isCalibrated);
-  TEST_ASSERT_EQUAL_UINT16(503, out.dmxAddress);
+  TEST_ASSERT_EQUAL(FixtureType::Head, out.patch.slots[0].type);
+  TEST_ASSERT_EQUAL_UINT16(1, out.patch.slots[0].address);
+  TEST_ASSERT_EQUAL(FixtureType::None, out.patch.slots[1].type);
+  TEST_ASSERT_EQUAL_UINT16(1, out.patch.slots[1].address);  // empty slots come back clean
+  TEST_ASSERT_EQUAL(FixtureType::Laser, out.patch.slots[2].type);
+  TEST_ASSERT_EQUAL_UINT16(503, out.patch.slots[2].address);
   TEST_ASSERT_EQUAL_STRING("13579246", out.pin);
 }
 
@@ -57,7 +84,7 @@ void test_any_flipped_byte_is_rejected() {
     copy[i] ^= 0x01;
     Settings out = defaultSettings("000000", 7);
     TEST_ASSERT_FALSE(decodeSettings(copy, sizeof(copy), &out));
-    TEST_ASSERT_EQUAL_UINT16(7, out.dmxAddress);  // untouched on failure
+    TEST_ASSERT_EQUAL_UINT16(7, out.patch.slots[0].address);  // untouched on failure
   }
 }
 
@@ -69,6 +96,8 @@ void test_wrong_size_and_version_rejected() {
   TEST_ASSERT_FALSE(decodeSettings(blob, SETTINGS_BLOB_SIZE + 1, &out));
   blob[0] = SETTINGS_VERSION + 1;
   TEST_ASSERT_FALSE(decodeSettings(blob, SETTINGS_BLOB_SIZE, &out));
+  blob[0] = 1;  // a version 1 header on a version 2 size
+  TEST_ASSERT_FALSE(decodeSettings(blob, SETTINGS_BLOB_SIZE, &out));
 }
 
 void test_out_of_range_values_rejected_even_with_valid_crc() {
@@ -79,9 +108,28 @@ void test_out_of_range_values_rejected_even_with_valid_crc() {
   Settings out;
   TEST_ASSERT_FALSE(decodeSettings(blob, sizeof(blob), &out));
   bad = sample();
-  bad.dmxAddress = 504;
+  bad.patch.slots[2].address = 504;  // the laser would run past slot 512
   encodeSettings(bad, blob, sizeof(blob));
   TEST_ASSERT_FALSE(decodeSettings(blob, sizeof(blob), &out));
+  bad = sample();
+  bad.patch.slots[1] = PatchSlot{FixtureType::Laser, 100};  // two lasers
+  encodeSettings(bad, blob, sizeof(blob));
+  TEST_ASSERT_FALSE(decodeSettings(blob, sizeof(blob), &out));
+}
+
+void test_version_1_blob_migrates_to_a_laser_only_patch() {
+  const auto old = v1Blob(42);
+  Settings out;
+  TEST_ASSERT_TRUE(decodeSettings(old.data(), old.size(), &out));
+  TEST_ASSERT_EQUAL(FixtureType::Laser, out.patch.slots[0].type);
+  TEST_ASSERT_EQUAL_UINT16(42, out.patch.slots[0].address);
+  TEST_ASSERT_EQUAL(FixtureType::None, out.patch.slots[1].type);
+  TEST_ASSERT_TRUE(out.limits.isCalibrated);  // the venue limit survives the update
+  TEST_ASSERT_EQUAL_UINT8(90, out.limits.ch7Low);
+  TEST_ASSERT_EQUAL_STRING("13579246", out.pin);
+  auto broken = v1Blob(42);
+  broken[7] ^= 0x01;
+  TEST_ASSERT_FALSE(decodeSettings(broken.data(), broken.size(), &out));
 }
 
 void test_defaults_are_valid_and_uncalibrated() {
@@ -89,6 +137,7 @@ void test_defaults_are_valid_and_uncalibrated() {
   TEST_ASSERT_TRUE(isValidSettings(s));
   TEST_ASSERT_FALSE(s.limits.isCalibrated);
   TEST_ASSERT_TRUE(s.limits.ch6Enabled);
+  TEST_ASSERT_EQUAL(FixtureType::Laser, s.patch.slots[0].type);
   TEST_ASSERT_FALSE(isValidSettings(defaultSettings("12", 1)));
 }
 
@@ -119,6 +168,7 @@ int runAllTests() {
   RUN_TEST(test_out_of_range_values_rejected_even_with_valid_crc);
   RUN_TEST(test_defaults_are_valid_and_uncalibrated);
   RUN_TEST(test_old_blob_with_auto_flag_still_loads);
+  RUN_TEST(test_version_1_blob_migrates_to_a_laser_only_patch);
   RUN_TEST(test_encode_refuses_small_buffer);
   return UNITY_END();
 }

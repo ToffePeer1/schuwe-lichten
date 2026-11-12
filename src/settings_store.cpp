@@ -13,8 +13,8 @@ constexpr char KEY[] = "settings";
 
 }  // namespace
 
-LoadResult load(const char* factoryPin, uint16_t defaultAddress) {
-  LoadResult result{laser::defaultSettings(factoryPin, defaultAddress), true, false};
+LoadResult load(const char* factoryPin, uint16_t defaultLaserAddress) {
+  LoadResult result{laser::defaultSettings(factoryPin, defaultLaserAddress), true, false};
   Preferences prefs;
   if (!prefs.begin(NAMESPACE, true)) {
     return result;  // namespace doesn't exist yet: first boot
@@ -24,12 +24,13 @@ LoadResult load(const char* factoryPin, uint16_t defaultAddress) {
     prefs.end();
     return result;
   }
-  uint8_t blob[laser::SETTINGS_BLOB_SIZE] = {};
-  const size_t read = stored == sizeof(blob) ? prefs.getBytes(KEY, blob, sizeof(blob)) : 0;
+  uint8_t blob[laser::SETTINGS_BLOB_SIZE] = {};  // also holds the shorter version 1 blob
+  const bool isKnownSize = stored == laser::SETTINGS_BLOB_SIZE || stored == laser::SETTINGS_BLOB_SIZE_V1;
+  const size_t read = isKnownSize ? prefs.getBytes(KEY, blob, stored) : 0;
   prefs.end();
   result.wasMissing = false;
   laser::Settings decoded;
-  if (read == sizeof(blob) && laser::decodeSettings(blob, sizeof(blob), &decoded)) {
+  if (read == stored && laser::decodeSettings(blob, read, &decoded)) {
     result.settings = decoded;
   } else {
     result.wasReset = true;

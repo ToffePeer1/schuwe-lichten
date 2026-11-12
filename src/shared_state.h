@@ -4,11 +4,6 @@
 
 #include "controller.h"
 
-struct FrameOutput {
-  laser::Channels channels;
-  uint16_t dmxAddress;
-};
-
 // Thread-safe owner of the controller context. Commands arrive on the loop
 // task (serial and WebSocket); the DMX task ticks it every frame. Every call is
 // a short, non-blocking pure function under the lock, and the timestamp is
@@ -29,8 +24,8 @@ class SharedLaserState {
   laser::Outcome presetSaved(uint16_t slot, const laser::Channels& look);
   laser::Outcome presetDeleted(uint16_t slot);
 
-  // DMX task, once per frame: stop button, timeouts, then the frame to send.
-  FrameOutput frameTick(bool isStopLevelLow);
+  // DMX task, once per frame: stop button, timeouts, then the universe to send.
+  laser::Universe frameTick(bool isStopLevelLow);
 
   laser::Context snapshot(uint32_t* nowMs) const;
   uint32_t revision() const;

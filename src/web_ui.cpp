@@ -23,7 +23,7 @@ extern const char PATTERNS_JSON_END[] asm("_binary_src_web_patterns_json_end");
 
 namespace {
 
-constexpr size_t STATE_JSON_SIZE = 1024;
+constexpr size_t STATE_JSON_SIZE = 2048;  // 4 fixtures of up to 19 channels (~600 B), a session, a show
 constexpr size_t LIBRARY_JSON_SIZE = 10240;  // 32 presets + 16 shows of 24 steps, worst case ~8 KB
 constexpr size_t EVENT_JSON_SIZE = 128;
 
@@ -121,24 +121,41 @@ void addCalibration(JsonWriter& json, const laser::Context& ctx, uint8_t num) {
   json.add("]}");
 }
 
+// The patched fixtures: slot, type, address, the requested channels and the last loaded preset.
+void addFixtures(JsonWriter& json, const laser::Context& ctx) {
+  json.add("\"fixtures\":[");
+  bool isFirst = true;
+  for (uint8_t i = 0; i < laser::MAX_FIXTURES; ++i) {
+    const laser::PatchSlot& slot = ctx.settings.patch.slots[i];
+    if (slot.type == laser::FixtureType::None) {
+      continue;
+    }
+    json.add("%s{\"slot\":%u,\"type\":\"%s\",\"addr\":%u,\"ch\":[", isFirst ? "" : ",", i + 1,
+             laser::fixtureTypeName(slot.type), slot.address);
+    for (uint8_t ch = 0; ch < laser::channelCount(slot.type); ++ch) {
+      json.add(ch == 0 ? "%u" : ",%u", ctx.fixtures[i].channels[ch]);
+    }
+    const uint8_t preset = ctx.fixtures[i].loadedPreset;
+    if (preset == 0) {
+      json.add("],\"preset\":null}");
+    } else {
+      json.add("],\"preset\":%u}", preset);
+    }
+    isFirst = false;
+  }
+  json.add("]");
+}
+
 bool buildStateJson(char* out, size_t size, const laser::Context& ctx, uint32_t nowMs, uint8_t num) {
   const laser::Limits& l = ctx.settings.limits;
   const bool isAdmin = isValidSlot(num) && slots[num].isAdmin;
   JsonWriter json(out, size);
-  json.add("{\"type\":\"state\",\"ch\":[");
-  for (size_t i = 0; i < laser::CHANNEL_COUNT; ++i) {
-    json.add(i == 0 ? "%u" : ",%u", ctx.state.channels[i]);
-  }
-  json.add("],\"limits\":{\"ch7\":[%u,%u],\"ch6\":{\"on\":%s,\"range\":[%u,%u]},\"calibrated\":%s,\"allowAuto\":false},",
+  json.add("{\"type\":\"state\",");
+  addFixtures(json, ctx);
+  json.add(",\"limits\":{\"ch7\":[%u,%u],\"ch6\":{\"on\":%s,\"range\":[%u,%u]},\"calibrated\":%s,\"allowAuto\":false},",
            l.ch7Low, l.ch7High, boolText(l.ch6Enabled), l.ch6Left, l.ch6Right, boolText(l.isCalibrated));
-  json.add("\"addr\":%u,\"stopHeld\":%s,\"admin\":%s,", ctx.settings.dmxAddress, boolText(ctx.button.isHeld),
-           boolText(isAdmin));
+  json.add("\"stopHeld\":%s,\"admin\":%s,", boolText(ctx.button.isHeld), boolText(isAdmin));
   addCalibration(json, ctx, num);
-  if (ctx.loadedPreset == 0) {
-    json.add(",\"preset\":null");
-  } else {
-    json.add(",\"preset\":%u", ctx.loadedPreset);
-  }
   const laser::Playback& play = ctx.playback;
   if (!play.isPlaying) {
     json.add(",\"play\":null");

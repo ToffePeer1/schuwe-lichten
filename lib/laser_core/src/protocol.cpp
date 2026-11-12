@@ -84,7 +84,7 @@ Command parseNumbers(const Tokens& t) {
   if (t.count != 2 || !parseNumber(t.items[1], 3, &second)) {
     return Command{};
   }
-  if (first < 1 || first > CHANNEL_COUNT || second > MAX_CHANNEL_VALUE) {
+  if (first < 1 || first > MAX_FIXTURE_CHANNELS || second > MAX_CHANNEL_VALUE) {
     return Command{};
   }
   Command command = make(CommandType::SetChannel);
@@ -151,10 +151,47 @@ Command parseLim(const Tokens& t) {
   return Command{};
 }
 
+// "patch <slot> none" or "patch <slot> laser|head <address>". Whether the
+// footprint fits and doesn't overlap is checked against the whole patch later.
+Command parsePatch(const Tokens& t) {
+  unsigned slot = 0;
+  if (t.count < 3 || !parseNumber(t.items[1], 1, &slot) || slot < 1 || slot > MAX_FIXTURES) {
+    return Command{};
+  }
+  Command command = make(CommandType::SetPatch);
+  command.fixture = static_cast<uint8_t>(slot);
+  if (t.count == 3 && is(t.items[2], "none")) {
+    return command;
+  }
+  unsigned address = 0;
+  if (t.count != 4 || !parseNumber(t.items[3], 3, &address) || address < 1 || address > DMX_UNIVERSE_SIZE) {
+    return Command{};
+  }
+  if (is(t.items[2], "laser")) {
+    command.fixtureType = FixtureType::Laser;
+  } else if (is(t.items[2], "head")) {
+    command.fixtureType = FixtureType::Head;
+  } else {
+    return Command{};
+  }
+  command.address = static_cast<uint16_t>(address);
+  return command;
+}
+
+// "f1".."f4" in front of a command picks the fixture it is for.
+bool parseFixturePrefix(const char* token, uint8_t* out) {
+  unsigned fixture = 0;
+  if (token[0] != 'f' || !parseNumber(token + 1, 1, &fixture) || fixture < 1 || fixture > MAX_FIXTURES) {
+    return false;
+  }
+  *out = static_cast<uint8_t>(fixture);
+  return true;
+}
+
 Command parseWords(const Tokens& t) {
   const char* word = t.items[0];
   if (t.count == 1) {
-    if (is(word, "off")) return make(CommandType::LaserOff);
+    if (is(word, "off")) return make(CommandType::Off);
     if (is(word, "hb")) return make(CommandType::Heartbeat);
     if (is(word, "?")) return make(CommandType::Status);
     if (is(word, "logout")) return make(CommandType::Logout);
@@ -172,14 +209,29 @@ Command parseWords(const Tokens& t) {
   if (is(word, "cal")) return parseCal(t);
   if (is(word, "dbg")) return parseDbg(t);
   if (is(word, "lim")) return parseLim(t);
-  unsigned address = 0;
-  if (is(word, "addr") && t.count == 2 && parseNumber(t.items[1], 3, &address) &&
-      address >= DMX_ADDRESS_MIN && address <= DMX_ADDRESS_MAX) {
-    Command command = make(CommandType::SetAddress);
-    command.value = static_cast<uint16_t>(address);
+  if (is(word, "patch")) return parsePatch(t);
+  return Command{};
+}
+
+Command parseTokens(Tokens* t) {
+  uint8_t fixture = 0;
+  if (t->count >= 2 && parseFixturePrefix(t->items[0], &fixture)) {
+    for (size_t i = 1; i < t->count; ++i) {
+      t->items[i - 1] = t->items[i];
+    }
+    --t->count;
+  }
+  Command command = isDigit(t->items[0][0]) ? parseNumbers(*t) : parseWords(*t);
+  if (fixture == 0) {
     return command;
   }
-  return Command{};
+  const bool takesPrefix = command.type == CommandType::SetChannel || command.type == CommandType::Blackout ||
+                           command.type == CommandType::Off;
+  if (!takesPrefix) {
+    return Command{};
+  }
+  command.fixture = fixture;
+  return command;
 }
 
 // --- library commands: names keep their case and may contain spaces ---------
@@ -388,7 +440,7 @@ Command parseCommand(const char* line) {
   if (!tokenize(line, length, &tokens) || tokens.count == 0) {
     return Command{};
   }
-  return isDigit(tokens.items[0][0]) ? parseNumbers(tokens) : parseWords(tokens);
+  return parseTokens(&tokens);
 }
 
 bool isAdminCommand(CommandType type) {
@@ -396,7 +448,7 @@ bool isAdminCommand(CommandType type) {
     case CommandType::Invalid:
     case CommandType::SetChannel:
     case CommandType::Blackout:
-    case CommandType::LaserOff:
+    case CommandType::Off:
     case CommandType::Heartbeat:
     case CommandType::Status:
     case CommandType::Auth:

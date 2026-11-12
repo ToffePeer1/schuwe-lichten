@@ -6,6 +6,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "fixtures.h"
+
 namespace laser {
 
 constexpr size_t MAX_LINE_LENGTH = 255;
@@ -16,10 +18,10 @@ constexpr size_t SHOW_MAX_STEPS = 24;
 
 enum class CommandType : uint8_t {
   Invalid,
-  // Anyone
-  SetChannel,  // "<channel> <value>", e.g. "7 40"
-  Blackout,    // "0": every channel to 0 (always accepted, ends calibration)
-  LaserOff,    // "off": CH1 to 0 (always accepted, ends calibration)
+  // Anyone. The first three take an optional fixture prefix, "f<1-4> ...".
+  SetChannel,  // "<channel> <value>", e.g. "7 40" (fixture 1 without a prefix)
+  Blackout,    // "0": every channel to 0 (always accepted, ends calibration); all fixtures without a prefix
+  Off,         // "off": the fixture's light off (always accepted, ends calibration); all fixtures without a prefix
   Heartbeat,   // "hb": keeps a calibration session alive for its owner
   Status,      // "?"
   Auth,        // "auth <pin>"
@@ -27,7 +29,7 @@ enum class CommandType : uint8_t {
   // Admin
   ChangePin,      // "pin <old> <new>"
   PinReset,       // "pin reset" (serial only)
-  SetAddress,     // "addr <1-503>"
+  SetPatch,       // "patch <1-4> none" or "patch <1-4> laser|head <1-512>"
   CalStart,       // "cal start"
   CalStop,        // "cal stop": ends a calibration or debug session
   CalAlive,       // "cal alive": operator action (kept for compatibility; there is no idle limit)
@@ -58,8 +60,11 @@ enum class CommandType : uint8_t {
 
 struct Command {
   CommandType type = CommandType::Invalid;
+  uint8_t fixture = 0;   // 1-based: the "f<n>" prefix or the patch slot; 0 = no prefix given
   uint8_t channel = 0;   // SetChannel
-  uint16_t value = 0;    // SetChannel, SetAddress
+  uint16_t value = 0;    // SetChannel
+  FixtureType fixtureType = FixtureType::None;  // SetPatch
+  uint16_t address = 0;                         // SetPatch: the fixture's CH1 on the DMX line
   char pin[PIN_MAX_DIGITS + 1] = {};     // Auth, ChangePin (old)
   char newPin[PIN_MAX_DIGITS + 1] = {};  // ChangePin (new)
   // Library commands. Ranges and name content are validated by the library,

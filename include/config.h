@@ -26,7 +26,7 @@ constexpr uint8_t PIN_STOP_BUTTON = 0;
 // UART1, routed to GPIO17 through the GPIO matrix. UART2 is avoided because
 // esp_dmx 4.1.0 crashes on DMX_NUM_2 (issue #150, unreleased fix).
 constexpr int DMX_UART_NUM = 1;
-constexpr uint16_t DEFAULT_DMX_ADDRESS = 1;  // runtime setting in /admin
+constexpr uint16_t DEFAULT_LASER_ADDRESS = 1;  // first boot: one laser here; the patch is set in /admin
 constexpr uint32_t DMX_FRAME_PERIOD_MS = 25;  // 40 frames per second
 
 // ---------------------------------------------------------------------------
