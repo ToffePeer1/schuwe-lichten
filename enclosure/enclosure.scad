@@ -8,7 +8,6 @@
 // The STLs come out in print orientation (base floor down, lid outer face down).
 //
 // Every value marked TODO is a guess. Measure it, then print coupon.stl before the full box.
-// Defaults for the ESP32 buttons come from PLAUK's "ESP32-WROOM-32 (USB-C) Box" on Printables (CC BY 4.0).
 //
 // Layout, seen from above (USB end at the bottom):
 //

@@ -1,17 +1,15 @@
-"""Mock of the laser firmware's web protocol (stage 3), for UI tests.
+"""Mock of the laser firmware's web protocol, for UI tests.
 
 Serves src/web/index.html at /, src/web/admin.html at /admin and
 src/web/patterns.json at /patterns.json (read from the repo on every request) and
-speaks the WebSocket protocol from CLAUDE.md on port 81: "Stage 3 step 1 design"
-as amended by "Changes after the user's first hardware test (2026-10-23)" and the
-later "no idle limit" decision, plus "Stage 3 step 2 design: presets + shows"
-(preset/show library, show playback on the mock's tick, the library message).
+speaks the WebSocket protocol from docs/PROTOCOL.md on port 81, including the
+preset/show library, show playback on the mock's tick and the library message.
 
 It covers per-client admin flags, the PIN lockout, calibration (selectable look,
 marks only in a worst-case look, pre-marked full-width horizontal limit, an
 optional check round, save from adjust or check), the raw debug session (rule 9),
-the 3 s hb rule, rules 7 and 8, and per-client state JSON. Where CLAUDE.md
-leaves a detail open, the mock follows lib/laser_core.
+the 3 s hb rule, rules 7 and 8 (docs/SAFETY.md), and per-client state JSON. Where the
+docs leave a detail open, the mock follows lib/laser_core.
 
 Library details, mirroring lib/laser_core/src/controller.cpp and src/library_service.cpp:
 - play.step is 0-based (like cal.step); play.steps is the step count.
@@ -71,7 +69,7 @@ MODE_ON_MIN = 64
 MODE_AUTO_MIN = 128  # auto/sound: permanently unavailable outside debug (rule 7)
 ADDR_MIN, ADDR_MAX = 1, 503
 MAX_CLIENTS = 8  # WEBSOCKETS_SERVER_CLIENT_MAX
-MAX_LINE_LENGTH = 255  # step 2: show save lines can be long
+MAX_LINE_LENGTH = 255  # "show save" lines can be long
 MAX_WRONG_TRIES = 5
 LOCK_MAX_SECONDS = 3600
 PIN_PATTERN = re.compile(r"[0-9]{6,8}")
@@ -94,7 +92,7 @@ VERTICAL_FLIPPING = 200
 PATTERN_COUNT = 51
 MARK_NAMES = ("low7", "high7", "left6", "right6")
 
-# Library (CLAUDE.md "Stage 3 step 2 design")
+# Library (docs/PROTOCOL.md, "Presets and shows")
 PRESET_SLOTS = 32
 SHOW_SLOTS = 16
 MAX_STEPS = 24

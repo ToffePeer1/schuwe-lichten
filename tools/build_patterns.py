@@ -1,7 +1,8 @@
 """Builds src/web/patterns.json, the compact pattern list the phone page uses.
 
-Reads design/patterns.json (the user's names, categories and finger drawings for all
-51 laser patterns, written by tools/pattern_mapper/) and keeps only what the page needs:
+Reads design/patterns.json (names, categories and hand-drawn traces of all 51 laser
+patterns, mapped by hand on one unit; another unit of the same model may differ)
+and keeps only what the page needs:
 number, name, category, duplicateOf and the strokes. Strokes are simplified with
 Ramer-Douglas-Peucker and quantised to 2 decimals, so the file stays small enough
 to embed in the firmware and serve at /patterns.json.

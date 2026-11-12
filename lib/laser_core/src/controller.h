@@ -1,7 +1,8 @@
 #pragma once
 
 // The whole command/safety state machine as pure functions, so every rule in
-// CLAUDE.md can be host-tested. The firmware only adds locking, NVS and I/O.
+// docs/SAFETY.md can be host-tested. The firmware only adds locking, NVS and I/O.
+// "Rule N" in comments throughout the code refers to the numbered rules there.
 
 #include <cstdint>
 

@@ -3,7 +3,7 @@
 #include "library.h"
 #include "shared_state.h"
 
-// Presets and shows (stage 3 step 2). Loop task only: the library is touched
+// Presets and shows. Loop task only: the library is touched
 // by nobody else; the DMX task only ever sees the copied-in ActiveShow.
 namespace library_service {
 

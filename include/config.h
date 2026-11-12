@@ -8,7 +8,7 @@
 constexpr uint32_t SERIAL_BAUD = 115200;
 
 // ---------------------------------------------------------------------------
-// Pin map (see CLAUDE.md)
+// Pin map (wiring table in README.md)
 // ---------------------------------------------------------------------------
 // Onboard blue LED (active high). Flashes only while no phone is on the WiFi, see status_led.h.
 constexpr uint8_t PIN_STATUS_LED = 2;
@@ -30,7 +30,7 @@ constexpr uint16_t DEFAULT_DMX_ADDRESS = 1;  // runtime setting in /admin
 constexpr uint32_t DMX_FRAME_PERIOD_MS = 25;  // 40 frames per second
 
 // ---------------------------------------------------------------------------
-// Safety (limits are runtime settings now; see lib/laser_core and CLAUDE.md)
+// Safety (limits are runtime settings; see lib/laser_core and docs/SAFETY.md)
 // ---------------------------------------------------------------------------
 constexpr uint32_t STOP_BUTTON_STUCK_WARNING_MS = 1000;
 constexpr uint32_t ADMIN_IDLE_TIMEOUT_MS = 10UL * 60UL * 1000UL;

@@ -1450,7 +1450,7 @@ def library_then_state(raw: Raw, command: str, predicate: Callable[[dict], bool]
 
 
 def test_protocol_library(r: Results, owner: Raw, other: Raw) -> None:
-    """Step 2 library protocol on the mock (CLAUDE.md + firmware presetSaved/presetDeleted)."""
+    """Library protocol on the mock (docs/PROTOCOL.md + firmware presetSaved/presetDeleted)."""
     hook("/__mock/library?reset=0")
     r.check("proto lib: 'lib' answers with the (empty) library",
             other.event("lib", "library") == {"type": "library", "presets": [], "shows": []})

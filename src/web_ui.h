@@ -6,7 +6,7 @@
 
 // WiFi access point AP_SSID, the phone page (/) and the admin page
 // (/admin) on HTTP_PORT, and a WebSocket on WEBSOCKET_PORT speaking the text
-// protocol from CLAUDE.md. Clients leaving does NOT stop the laser (rule 3);
+// protocol from docs/PROTOCOL.md. Clients leaving does NOT stop the laser (rule 3);
 // it only ends a calibration that the leaving client owned.
 bool webUiBegin(SharedLaserState* state, bool wasSettingsReset);
 void webUiLoop();

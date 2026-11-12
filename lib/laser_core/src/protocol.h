@@ -1,7 +1,7 @@
 #pragma once
 
 // Text command protocol shared by the serial console and the WebSocket.
-// One command per line/message; see CLAUDE.md "Stage 3 step 1 design".
+// One command per line/message; see docs/PROTOCOL.md.
 
 #include <cstddef>
 #include <cstdint>

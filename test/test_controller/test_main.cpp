@@ -1,4 +1,4 @@
-// Tests for the controller: every safety rule in CLAUDE.md, end to end.
+// Tests for the controller: every safety rule in docs/SAFETY.md, end to end.
 
 #include <unity.h>
 
