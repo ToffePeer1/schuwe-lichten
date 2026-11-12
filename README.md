@@ -91,7 +91,7 @@ They are no guarantee for other units, even of the same model.
   presets and shows, and the text protocol parser. It has no Arduino dependencies, so it is unit-tested on the PC.
 - **`src/`**: the firmware around it. A DMX task (core 1, on the task watchdog) sends a fresh frame every 25 ms and plays shows.
   The loop task runs the WiFi access point, the web server, the WebSocket and the USB serial console.
-- **Storage:** settings (limits, DMX address, PIN) live in NVS as one CRC-checked blob. Presets and shows live on LittleFS.
+- **Storage:** settings (limits, patch, PIN) live in NVS as one CRC-checked blob. Presets and shows live on LittleFS.
   Both are verified after every write and survive firmware updates.
 - **`src/web/`**: the two pages and the pattern drawings, embedded in the firmware. Serial and WebSocket speak the same text protocol,
   see [docs/PROTOCOL.md](docs/PROTOCOL.md).

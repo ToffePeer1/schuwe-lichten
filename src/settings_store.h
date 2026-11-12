@@ -11,7 +11,9 @@ struct LoadResult {
   bool wasReset;    // a blob existed but was invalid: defaults loaded instead
 };
 
-LoadResult load(const char* factoryPin, uint16_t defaultAddress);
+// First boot: one laser at defaultLaserAddress. A version 1 blob is migrated on load
+// (and rewritten as version 2 by the next save).
+LoadResult load(const char* factoryPin, uint16_t defaultLaserAddress);
 
 // Writes the blob, reads it back and compares. False if anything went wrong.
 bool save(const laser::Settings& settings);

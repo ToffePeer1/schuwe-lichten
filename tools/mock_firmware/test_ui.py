@@ -3,7 +3,8 @@
 Starts tools/mock_firmware/mock_firmware.py with short timeouts, drives both pages in the
 system Edge (Playwright), and checks both the DOM and what the mock received (its log).
 The main page (index) is checked for presets, the quick builder, shows, the desk faders,
-tooltips, banners, UIT, reconnects and layout at 844x390 and in portrait.
+tooltips, banners, UIT, reconnects and layout at 844x390 and in portrait, and with the
+laser in another patch slot or not patched at all. Raw clients check the protocol, incl. the patch.
 Screenshots go to <OS temp dir>/dmx_ui_test/. Exits non-zero if any check fails.
 
 Run:
@@ -46,7 +47,7 @@ DEBUG_BANNER = "DEBUG: geen begrenzing, richt op een muur"
 ERROR_CODES = (
     "bad-command not-admin serial-only calibration-busy not-owner stop-held auto-blocked not-calibrated "
     "wrong-phase need-worst-case-look need-both-marks need-horizontal-marks equal-ends bad-pin locked "
-    "not-calibrating save-failed"
+    "not-calibrating save-failed no-fixture bad-patch"
 ).split()
 LIBRARY_ERROR_CODES = "bad-slot empty-slot bad-name bad-steps preset-in-use".split()
 PATTERNS = json.loads((ROOT / "src" / "web" / "patterns.json").read_text(encoding="utf-8"))["patterns"]
@@ -54,11 +55,14 @@ PATTERN_VALUES = [(2 * n - 1) * 128 // 51 for n in range(1, 52)]  # CH2 value of
 INDEX_SESSION_TEXT = "De bediening is vergrendeld"
 UNCAL_TEXT = "De laser kan pas aan na het instellen van de hoogtegrens"
 STOP_REASONS = (
-    "button off blackout calibration-stopped calibration-timeout calibration-owner-left address-changed "
+    "button off blackout calibration-stopped calibration-timeout calibration-owner-left patch-changed "
     "calibration-saved debug-stopped"
 ).split()
 OBSOLETE_IN_PAGES = ("need-spin", "check-not-finished", "auto-disabled", "factoryPin", "allowAuto", "idleLeft",
-                     "cal color", "cal spin", "cal alive", "auto on", "Straalpad vrij", "Nog bezig")
+                     "cal color", "cal spin", "cal alive", "auto on", "Straalpad vrij", "Nog bezig",
+                     "address-changed", "addr ${", "st.addr", "msg.ch")
+NO_LASER_TEXT = "Er staat geen laser in de patch"
+DEFAULT_FIXTURES = [{"slot": 1, "type": "laser", "addr": 1}]
 
 SET_HIDDEN_JS = """(hidden) => {
   Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
@@ -413,8 +417,44 @@ def drag_fader(page: Page, ch: int, frac_from: float, frac_to: float) -> None:
     page.mouse.up()
 
 
+CHANNEL_MSG = re.compile(r"(?:f[1-4] )?(\d+) (\d+)")
+
+
 def channel_msgs(log: MockLog, since: int, client: int | None, ch: int) -> list[int]:
-    return [int(m.split()[1]) for m in log.msgs(since, client) if re.fullmatch(rf"{ch} \d+", m)]
+    """Values sent for one channel, with or without an 'f<slot>' prefix."""
+    hits = (CHANNEL_MSG.fullmatch(m) for m in log.msgs(since, client))
+    return [int(h[2]) for h in hits if h and int(h[1]) == ch]
+
+
+def lc(command: str, slot: int = 1) -> str:
+    """A laser channel command as the main page sends it: always with the laser's patch slot."""
+    return f"f{slot} {command}"
+
+
+def laser_of(state: dict | None) -> dict:
+    """The laser fixture of a state message or of /__mock/state ({} when none is patched)."""
+    return next((f for f in (state or {}).get("fixtures", []) if f.get("type") == "laser"), {})
+
+
+def laser_ch(state: dict | None) -> list[int]:
+    return laser_of(state).get("ch", [])
+
+
+def laser_preset(state: dict | None) -> int | None:
+    return laser_of(state).get("preset")
+
+
+def fixture_at(state: dict | None, slot: int) -> dict:
+    return next((f for f in (state or {}).get("fixtures", []) if f.get("slot") == slot), {})
+
+
+def patch_of(state: dict | None) -> list[dict]:
+    """[{slot, type, addr}] of the patched slots in a state message."""
+    return [{k: f.get(k) for k in ("slot", "type", "addr")} for f in (state or {}).get("fixtures", [])]
+
+
+def mock_fixture(slot: int) -> dict:
+    return next((f for f in hook("/__mock/state")["fixtures"] if f["slot"] == slot), {})
 
 
 def pattern_name(value: int) -> str:
@@ -491,7 +531,7 @@ def test_index_uncalibrated(ui: Ui) -> tuple[Page, int | None]:
     tap(i, "#addTile")
     r.check("builder (uncalibrated): opens", visible(i, "#builder"))
     i.click('#bPane [data-pattern="2"]')
-    r.check("builder (uncalibrated): a shape tap sends the look ('2 7')", log.wait_msg("2 7", mark, i_id))
+    r.check("builder (uncalibrated): a shape tap sends the look ('2 7')", log.wait_msg(lc("2 7"), mark, i_id))
     i.wait_for_timeout(300)
     r.check("builder (uncalibrated): CH1 never sent", not channel_msgs(log, mark, i_id, 1), str(log.msgs(mark, i_id)))
     r.check("builder (uncalibrated): Opslaan disabled", i.locator("#bSave").is_disabled())
@@ -694,10 +734,10 @@ def test_index_mapped(ui: Ui, i: Page, i_id: int | None) -> None:
             (i.get_attribute(pos_v, "aria-valuemin"), i.get_attribute(pos_v, "aria-valuemax")) == ("10", "94"))
     mark = log.mark()
     drag_fader(i, 7, 0.5, -0.1)
-    r.check("desk: POS-V bottom = low end (94)", log.wait_msg("7 94", mark, i_id), str(log.msgs(mark, i_id)))
+    r.check("desk: POS-V bottom = low end (94)", log.wait_msg(lc("7 94"), mark, i_id), str(log.msgs(mark, i_id)))
     r.check("desk: POS-V bottom says 'Laagst'", text_has(i, '#desk [data-ch="7"] .zone', "Laagst"))
     drag_fader(i, 7, 0.5, 1.1)
-    r.check("desk: POS-V top = high end (10)", log.wait_msg("7 10", mark, i_id), str(log.msgs(mark, i_id)))
+    r.check("desk: POS-V top = high end (10)", log.wait_msg(lc("7 10"), mark, i_id), str(log.msgs(mark, i_id)))
     r.check("desk: POS-V never leaves the limit", all(10 <= v <= 94 for v in channel_msgs(log, mark, i_id, 7)),
             str(channel_msgs(log, mark, i_id, 7)))
     r.check("desk: POS-H spans the full-width side limit (0..127)",
@@ -709,14 +749,14 @@ def test_index_mapped(ui: Ui, i: Page, i_id: int | None) -> None:
     i.wait_for_timeout(200)
     r.check("desk: opening the desk sends no CH1 (rule 5)", not channel_msgs(log, mark, i_id, 1), str(log.msgs(mark, i_id)))
     tap(i, power)
-    r.check("desk: tapping the switch sends '1 96'", log.wait_msg("1 96", mark, i_id), str(log.msgs(mark, i_id)))
+    r.check("desk: tapping the switch sends '1 96'", log.wait_msg(lc("1 96"), mark, i_id), str(log.msgs(mark, i_id)))
     r.check("desk: switch lit and says AAN", bool(wait_until(lambda: "on" in (i.get_attribute(power, "class") or "").split()))
             and text_has(i, f"{power} .word", "AAN") and i.get_attribute(power, "aria-pressed") == "true")
     tap(i, power)
-    r.check("desk: tapping again sends '1 0'", log.wait_msg("1 0", mark, i_id), str(log.msgs(mark, i_id)))
+    r.check("desk: tapping again sends '1 0'", log.wait_msg(lc("1 0"), mark, i_id), str(log.msgs(mark, i_id)))
     # The user's case: UIT, change some values, then switch it back on from the desk (no preset needed).
     tap(i, power)
-    log.wait_msg("1 96", mark, i_id)
+    log.wait_msg(lc("1 96"), mark, i_id)
     mark = log.mark()
     i.click("#offBtn")
     r.check("desk: UIT turns it off; the switch offers ZET AAN", log.wait_msg("off", mark, i_id) and text_has(i, f"{power} .word", "ZET AAN"))
@@ -724,10 +764,10 @@ def test_index_mapped(ui: Ui, i: Page, i_id: int | None) -> None:
     drag_fader(i, 8, 0.2, 0.6)
     tap(i, power)
     r.check("desk: after UIT and a fader change, the switch turns it back on",
-            log.wait_msg("1 96", mark, i_id) and bool(wait_until(lambda: hook("/__mock/state")["frame"][0] == 96)),
+            log.wait_msg(lc("1 96"), mark, i_id) and bool(wait_until(lambda: hook("/__mock/state")["frame"][0] == 96)),
             str(log.msgs(mark, i_id)))
     tap(i, power)
-    log.wait_msg("1 0", mark, i_id)
+    log.wait_msg(lc("1 0"), mark, i_id)
     r.check("desk: Modus only ever sends 0 or 96", set(channel_msgs(log, mark, i_id, 1)) <= {0, 96},
             str(channel_msgs(log, mark, i_id, 1)))
     r.check("desk: Patroon has 51 positions", i.locator('#desk [data-ch="2"] .detent').count() == 51)
@@ -746,7 +786,7 @@ def test_index_mapped(ui: Ui, i: Page, i_id: int | None) -> None:
     mark = log.mark()
     i.focus('#desk [data-ch="10"] .track')
     i.keyboard.press("ArrowUp")
-    r.check("desk: keyboard ArrowUp on CH10 sends '10 1'", log.wait_msg("10 1", mark, i_id), str(log.msgs(mark, i_id)))
+    r.check("desk: keyboard ArrowUp on CH10 sends '10 1'", log.wait_msg(lc("10 1"), mark, i_id), str(log.msgs(mark, i_id)))
     ui.shot(i, "index_desk")
     ui.index_layout(i, "index desk")
     index_tab(i, "presets")
@@ -838,12 +878,12 @@ def test_builder(ui: Ui, i: Page, i_id: int | None) -> None:
     ui.shot(i, "index_builder_empty")
     r.check("builder: still nothing sent after browsing", log.msgs(mark, i_id) == [], str(log.msgs(mark, i_id)))
     i.click('#bPane [data-pattern="21"]')
-    r.check("builder: a shape tap switches the laser on ('1 96')", log.wait_msg("1 96", mark, i_id), str(log.msgs(mark, i_id)))
+    r.check("builder: a shape tap switches the laser on ('1 96')", log.wait_msg(lc("1 96"), mark, i_id), str(log.msgs(mark, i_id)))
     i.wait_for_timeout(200)
     sent = log.msgs(mark, i_id)
-    r.check("builder: the look goes first, CH1 = 96 last", "2 102" in sent and "7 52" in sent and sent[-1] == "1 96", str(sent))
+    r.check("builder: the look goes first, CH1 = 96 last", lc("2 102") in sent and lc("7 52") in sent and sent[-1] == lc("1 96"), str(sent))
     r.check("builder: status says live", text_has(i, "#bStatus", "Live op de laser"), text(i, "#bStatus"))
-    for tab, opt, expected in (("kleur", 2, "9 224"), ("beweging", 1, "3 140"), ("grootte", 2, "8 40"), ("lijnen", 1, "10 128")):
+    for tab, opt, expected in (("kleur", 2, lc("9 224")), ("beweging", 1, lc("3 140")), ("grootte", 2, lc("8 40")), ("lijnen", 1, lc("10 128"))):
         i.click(f'#bTabs [data-tab="{tab}"]')
         if tab == "kleur":
             r.check("builder: Kleur offers only Mix / Eén kleur, wisselend / Alle kleuren",
@@ -852,7 +892,7 @@ def test_builder(ui: Ui, i: Page, i_id: int | None) -> None:
             ui.shot(i, "index_builder_color")
         i.click(f'#bPane .opt[data-opt="{opt}"]')
         r.check(f"builder: {tab} choice sends '{expected}'", log.wait_msg(expected, mark, i_id), str(log.msgs(mark, i_id)))
-    r.check("builder: CH1 = 96 sent only once", log.msgs(mark, i_id).count("1 96") == 1, str(log.msgs(mark, i_id)))
+    r.check("builder: CH1 = 96 sent only once", log.msgs(mark, i_id).count(lc("1 96")) == 1, str(log.msgs(mark, i_id)))
     raw = Raw()
     raw.send("off")  # someone else presses UIT while the builder is open
     raw.close()
@@ -863,9 +903,9 @@ def test_builder(ui: Ui, i: Page, i_id: int | None) -> None:
     set_range(i, "#speedSlider", 40)
     i.wait_for_timeout(300)
     sent = log.msgs(mark, i_id)
-    r.check("builder: releasing a slider after UIT sends the value but not CH1", "10 168" in sent and "1 96" not in sent, str(sent))
+    r.check("builder: releasing a slider after UIT sends the value but not CH1", lc("10 168") in sent and lc("1 96") not in sent, str(sent))
     i.click('#bPane .opt[data-opt="1"]')
-    r.check("builder: a choice tap switches it back on", log.wait_msg("1 96", mark, i_id), str(log.msgs(mark, i_id)))
+    r.check("builder: a choice tap switches it back on", log.wait_msg(lc("1 96"), mark, i_id), str(log.msgs(mark, i_id)))
     r.check("builder: Opslaan enabled again", bool(wait_until(lambda: i.locator("#bSave").is_enabled())))
     set_range(i, "#speedSlider", 0)  # back to TESTLOOK
     i.wait_for_timeout(200)
@@ -891,7 +931,7 @@ def test_save_sheet(ui: Ui, i: Page, i_id: int | None) -> None:
     index_tab(i, "desk")
     mark = log.mark()
     i.click('#desk [data-ch="2"] .pstep button[aria-label="Volgend patroon"]')
-    r.check("desk: Patroon ▲ steps to the next pattern ('2 107')", log.wait_msg("2 107", mark, i_id), str(log.msgs(mark, i_id)))
+    r.check("desk: Patroon ▲ steps to the next pattern ('2 107')", log.wait_msg(lc("2 107"), mark, i_id), str(log.msgs(mark, i_id)))
     r.check("desk: scribble line shows its name", text_has(i, '#desk [data-ch="2"] .zone', "Sinusgolf"))
     r.check("sheet: manual change clears the preset highlight", text_has(i, "#nowName", "Eigen instelling"), text(i, "#nowName"))
     tap(i, "#saveBtn")
@@ -1306,16 +1346,80 @@ def test_address(ui: Ui, a: Page, a_id: int | None, i: Page) -> None:
     r, log = ui.r, ui.log
     tap(a, '#nav [data-tab="instellingen"]')
     visible(a, "#view-settings")
+    r.check("addr: shows the laser's address from the patch", text_has(a, "#addrNow", "1"), text(a, "#addrNow"))
     mark = log.mark()
     a.fill("#addrInput", "5")
     a.click("#addrBtn")
-    r.check("addr: 'addr 5' sent", log.wait_msg("addr 5", mark, a_id))
-    state = hook("/__mock/state")
-    r.check("addr: mock uncalibrated at address 5", state["addr"] == 5 and not state["limits"]["calibrated"], str(state))
-    r.check("addr: stop reason shown", text_has(a, "#msgText", "DMX-adres gewijzigd"), text(a, "#msgText"))
+    r.check("addr: 'patch 1 laser 5' sent (the laser's slot)", log.wait_msg("patch 1 laser 5", mark, a_id), str(log.msgs(mark, a_id)))
+    r.check("addr: mock uncalibrated, laser in slot 1 at address 5",
+            bool(wait_until(lambda: hook("/__mock/state")["patch"][0] == {"slot": 1, "type": "laser", "addr": 5}))
+            and not hook("/__mock/state")["limits"]["calibrated"], str(hook("/__mock/state")["patch"]))
+    r.check("addr: stop reason shown", text_has(a, "#msgText", "Patch gewijzigd"), text(a, "#msgText"))
+    r.check("addr: new address shown", text_has(a, "#addrNow", "5") and "DMX-adres 5" in text(a, "#nowMeta"), text(a, "#addrNow"))
+    r.check("addr: index explains the patch change", text_has(i, "#msgText", "patch"), text(i, "#msgText"))
     tap(a, '#nav [data-tab="kalibratie"]')
     r.check("addr: overview says 'Nog niet ingesteld' again", text_has(a, "#limitWords", "Nog niet ingesteld"))
     r.check("addr: index uncalibrated banner back", visible(i, "#uncalBanner"))
+
+
+def pointer_events(page: Page, selector: str) -> str:
+    return page.evaluate(f"getComputedStyle(document.querySelector('{selector}')).pointerEvents")
+
+
+def test_index_patch(ui: Ui, a: Page, a_id: int | None, i: Page) -> None:
+    """The main page with only heads patched, then with the laser in slot 3 (added from /admin)."""
+    r, log = ui.r, ui.log
+    raw = Raw()
+    raw.event(f"auth {NEW_PIN}", "auth")
+    patch_event(raw, "patch 1 head 1")  # replaces the laser: nothing but heads
+    patch_event(raw, "patch 2 head 100")
+    r.check("no laser: index explains it in a banner", visible(i, "#noLaserBanner") and NO_LASER_TEXT in text(i, "#noLaserBanner"),
+            text(i, "#noLaserBanner"))
+    r.check("no laser: the banner links to /admin", i.locator('#noLaserBanner a[href="/admin"]').count() == 1)
+    r.check("no laser: Nu card says 'Geen laser'", text_has(i, "#nowName", "Geen laser"), text(i, "#nowName"))
+    r.check("no laser: no uncalibrated banner on top of it", hidden(i, "#uncalBanner"))
+    r.check("no laser: laser controls locked", all(pointer_events(i, s) == "none" for s in ("#tiles", "#saveBtn", "#desk")))
+    r.check("no laser: UIT stays usable", pointer_events(i, "#offBtn") != "none")
+    index_tab(i, "desk")
+    ui.shot(i, "index_no_laser")
+    ui.index_layout(i, "index no laser")
+    mark = log.mark()
+    i.evaluate("document.querySelector('#desk [data-ch=\"1\"] .power').click()")  # as if the lock were bypassed
+    i.wait_for_timeout(300)
+    r.check("no laser: nothing is sent even if a control fires", not [m for m in log.msgs(mark) if CHANNEL_MSG.fullmatch(m)],
+            str(log.msgs(mark)))
+    tap(a, '#nav [data-tab="instellingen"]')
+    r.check("admin (no laser): settings says there is no laser", text_has(a, "#addrNow", "geen laser"), text(a, "#addrNow"))
+    r.check("admin (no laser): side panel says 'Geen laser'", text_has(a, "#nowName", "Geen laser"), text(a, "#nowName"))
+    mark = log.mark()
+    a.fill("#addrInput", "30")
+    a.click("#addrBtn")
+    r.check("admin (no laser): the address adds the laser in the first free slot ('patch 3 laser 30')",
+            log.wait_msg("patch 3 laser 30", mark, a_id), str(log.msgs(mark, a_id)))
+    r.check("laser in slot 3: index banner gone", hidden(i, "#noLaserBanner"))
+    r.check("laser in slot 3: calibrated through a raw admin client", calibrate(raw))
+    r.check("laser in slot 3: index unlocked", hidden(i, "#uncalBanner") and bool(wait_until(lambda: pointer_events(i, "#desk") != "none")))
+    mark = log.mark()
+    tap(i, '#desk [data-ch="1"] .power')
+    r.check("laser in slot 3: the switch sends 'f3 1 96'", log.wait_msg("f3 1 96", mark), str(log.msgs(mark)))
+    r.check("laser in slot 3: the laser lights at DMX 30", bool(wait_until(lambda: hook("/__mock/state")["universe"].get("30") == 96)),
+            str(hook("/__mock/state")["universe"]))
+    drag_fader(i, 7, 0.5, -0.1)
+    r.check("laser in slot 3: POS-V bottom sends 'f3 7 64' (the low end)", log.wait_msg("f3 7 64", mark), str(log.msgs(mark)))
+    sent = [m for m in log.msgs(mark) if CHANNEL_MSG.fullmatch(m)]
+    r.check("laser in slot 3: every channel command carries 'f3'", bool(sent) and all(m.startswith("f3 ") for m in sent), str(sent))
+    r.check("laser in slot 3: the heads stay dark", mock_fixture(1).get("frame") == [0] * 19 and mock_fixture(2).get("frame") == [0] * 19)
+    ui.shot(i, "index_laser_slot3")
+    mark = log.mark()
+    tap(i, "#offBtn")
+    r.check("laser in slot 3: UIT sends plain 'off'", log.wait_msg("off", mark)
+            and bool(wait_until(lambda: hook("/__mock/state")["frame"][0] == 0)))
+    index_tab(i, "presets")
+    for command in ("patch 3 none", "patch 2 none", "patch 1 laser 1"):
+        patch_event(raw, command)
+    r.check("patch restored: the laser alone in slot 1 at address 1",
+            [{k: f[k] for k in ("slot", "type", "addr")} for f in hook("/__mock/state")["fixtures"]] == DEFAULT_FIXTURES)
+    raw.close()
 
 
 def test_logout(ui: Ui, a: Page, a_id: int | None) -> None:
@@ -1407,6 +1511,7 @@ def test_protocol(r: Results) -> None:
     test_protocol_library(r, owner, other)
     test_protocol_debug(r, owner, other)
     test_protocol_tail(r, owner, other)
+    test_protocol_fixtures(r, owner, other)
     owner.close()
     other.close()
 
@@ -1415,13 +1520,13 @@ def test_protocol_rules(r: Results, owner: Raw, other: Raw) -> None:
     r.check("proto rule 7: auto/sound refused even when calibrated", other.error_for("1 160") == "auto-blocked")
     other.send("1 96")
     r.check("proto rule 8: manual allowed once calibrated",
-            bool(other.recv_until(lambda m: m.get("type") == "state" and m["ch"][0] == 96)))
+            bool(other.recv_until(lambda m: m.get("type") == "state" and laser_ch(m)[0] == 96)))
     other.send("7 100")
     r.check("proto: CH7 clamped to the limit (30..64)",
-            bool(other.recv_until(lambda m: m.get("type") == "state" and m["ch"][6] == 64)))
+            bool(other.recv_until(lambda m: m.get("type") == "state" and laser_ch(m)[6] == 64)))
     other.send("6 200")
     r.check("proto: full-width side limit blocks the CH6 sweep (200 -> 127)",
-            bool(other.recv_until(lambda m: m.get("type") == "state" and m["ch"][5] == 127)))
+            bool(other.recv_until(lambda m: m.get("type") == "state" and laser_ch(m)[5] == 127)))
     owner.send("cal start")
     owner.recv_until(lambda m: m.get("type") == "state" and m.get("cal"))
     stop = other.event("0", "stop")
@@ -1457,7 +1562,7 @@ def test_protocol_library(r: Results, owner: Raw, other: Raw) -> None:
     other.send("1 96")
     other.send("2 102")
     other.send("7 40")  # after a blackout CH7 is 0 in the state; the saved look is clamped, so set it inside the limit
-    lib, state = library_then_state(other, "preset save 3 Eerste look", lambda m: m.get("preset") == 3)
+    lib, state = library_then_state(other, "preset save 3 Eerste look", lambda m: laser_preset(m) == 3)
     presets = (lib or {}).get("presets", [])
     r.check("proto lib: save broadcasts the library", len(presets) == 1 and presets[0]["slot"] == 3
             and presets[0]["name"] == "Eerste look" and presets[0]["ch"][:2] == [96, 102], str(lib))
@@ -1477,10 +1582,10 @@ def test_protocol_library(r: Results, owner: Raw, other: Raw) -> None:
     state = other.state_where("show play 1", lambda m: m.get("play") is not None)
     play = (state or {}).get("play") or {}
     r.check("proto lib: play state {show, step (0-based), steps, holdLeftMs}", play.get("show") == 1 and play.get("step") == 0
-            and play.get("steps") == 2 and 0 < play.get("holdLeftMs", 0) <= 1000 and (state or {}).get("preset") == 3, str(state))
+            and play.get("steps") == 2 and 0 < play.get("holdLeftMs", 0) <= 1000 and laser_preset(state) == 3, str(state))
     stepped = other.recv_until(lambda m: m.get("type") == "state" and (m.get("play") or {}).get("step") == 1, timeout=2)
-    r.check("proto lib: playback steps on its own (step 1 loads preset 5)", stepped is not None and stepped["preset"] == 5
-            and stepped["ch"][1] == 7, str(stepped))
+    r.check("proto lib: playback steps on its own (step 1 loads preset 5)", stepped is not None and laser_preset(stepped) == 5
+            and laser_ch(stepped)[1] == 7, str(stepped))
     owner.send("cal start")
     r.check("proto lib: library edits during a session -> calibration-busy", other.error_for("preset save 6 X") == "calibration-busy")
     owner.send("cal stop")
@@ -1489,24 +1594,24 @@ def test_protocol_library(r: Results, owner: Raw, other: Raw) -> None:
     other.state_where("show play 1", lambda m: m.get("play") is not None)
     _, state = library_then_state(other, "preset save 6 Los", lambda m: True)
     r.check("proto lib: saving a preset the show doesn't use keeps it playing and marking its step",
-            state is not None and state.get("play") is not None and state.get("preset") in (3, 5), str(state))
+            state is not None and state.get("play") is not None and laser_preset(state) in (3, 5), str(state))
     _, state = library_then_state(other, "preset save 3 Eerste look", lambda m: m.get("play") is None)
     r.check("proto lib: re-saving a preset the playing show uses stops the show, look kept",
-            state is not None and state["ch"][0] == 96 and mock_lib()["play"] is None, str(state))
-    r.check("proto lib: ... and marks the saved slot when the look matches", state is not None and state.get("preset") == 3, str(state))
-    state = other.state_where("preset load 6", lambda m: m.get("preset") == 6)
-    r.check("proto lib: preset load sets state.preset", state is not None)
-    _, state = library_then_state(other, "preset delete 6", lambda m: m.get("preset") is None)
-    r.check("proto lib: deleting the loaded preset clears state.preset", state is not None)
+            state is not None and laser_ch(state)[0] == 96 and mock_lib()["play"] is None, str(state))
+    r.check("proto lib: ... and marks the saved slot when the look matches", state is not None and laser_preset(state) == 3, str(state))
+    state = other.state_where("preset load 6", lambda m: laser_preset(m) == 6)
+    r.check("proto lib: preset load sets the laser's preset", state is not None)
+    _, state = library_then_state(other, "preset delete 6", lambda m: laser_of(m) and laser_preset(m) is None)
+    r.check("proto lib: deleting the loaded preset clears the laser's preset", state is not None)
     other.state_where("show play 1", lambda m: m.get("play") is not None)
     state = other.state_where("show stop", lambda m: m.get("play") is None)
-    r.check("proto lib: show stop keeps the current look", state is not None and state["ch"][0] == 96, str(state))
+    r.check("proto lib: show stop keeps the current look", state is not None and laser_ch(state)[0] == 96, str(state))
     other.state_where("show play 1", lambda m: m.get("play") is not None)
     _, state = library_then_state(other, "show save 1 5:10,3:10 Lus", lambda m: m.get("play") is None)
     r.check("proto lib: re-saving the playing show stops it", state is not None)
     other.state_where("show play 1", lambda m: m.get("play") is not None)
     state = other.state_where("4 10", lambda m: m.get("play") is None)
-    r.check("proto lib: a manual channel takes over (play and preset cleared)", state is not None and state.get("preset") is None)
+    r.check("proto lib: a manual channel takes over (play and preset cleared)", state is not None and laser_preset(state) is None)
     other.state_where("show play 1", lambda m: m.get("play") is not None)
     hook("/__mock/stop-button?held=1")
     r.check("proto lib: IO0 stops playback", mock_lib()["play"] is None)
@@ -1552,9 +1657,10 @@ def test_protocol_debug(r: Results, owner: Raw, other: Raw) -> None:
 
 def test_protocol_tail(r: Results, owner: Raw, other: Raw) -> None:
     other.drain()
-    owner.send("addr 7")
+    owner.send("patch 1 laser 7")
     stop = other.recv_until(lambda m: m.get("type") == "stop")
-    r.check("proto: address change -> stop address-changed", (stop or {}).get("reason") == "address-changed")
+    r.check("proto: moving the laser -> stop patch-changed", (stop or {}).get("reason") == "patch-changed")
+    r.check("proto: 'addr' no longer exists -> bad-command", owner.error_for("addr 5") == "bad-command")
     r.check("proto rule 8: laser can't switch on uncalibrated", other.error_for("1 96") == "not-calibrated")
     r.check("proto rule 8: a preset that switches the laser on is refused uncalibrated",
             other.error_for("preset load 3") == "not-calibrated")
@@ -1564,6 +1670,188 @@ def test_protocol_tail(r: Results, owner: Raw, other: Raw) -> None:
     r.check("proto: wrong PIN -> auth ok:false with attemptsLeft 4", wrong is not None and not wrong["ok"]
             and wrong["attemptsLeft"] == 4, str(wrong))
     owner.event(f"auth {NEW_PIN}", "auth")  # a right PIN resets the counter
+
+
+# --- protocol checks: the patch (several fixtures on one line) --------------------------------------
+def patch_event(raw: Raw, command: str) -> dict | None:
+    """Sends an admin 'patch' command; returns the stop event (or the error) it caused."""
+    raw.drain()
+    raw.send(command)
+    return raw.recv_until(lambda m: m.get("type") in ("stop", "error"))
+
+
+def calibrate(raw: Raw, low: int = 64, high: int = 30) -> bool:
+    """A quick calibration through an admin raw client (plain channel commands go to the laser's slot)."""
+    raw.state_where("cal start", lambda m: (m.get("cal") or {}).get("owner") is True)
+    for command in (f"7 {low}", "lim mark low7", f"7 {high}", "lim mark high7"):
+        raw.send(command)
+    return (raw.event("lim save", "stop") or {}).get("reason") == "calibration-saved"
+
+
+def restore_default_patch(raw: Raw) -> None:
+    for slot in (4, 3, 2):
+        raw.send(f"patch {slot} none")
+    patch_event(raw, "patch 1 laser 1")
+
+
+def test_protocol_fixtures(r: Results, owner: Raw, other: Raw) -> None:
+    restore_default_patch(owner)
+    r.check("proto patch: back to the default patch, laser calibrated again", calibrate(owner)
+            and hook("/__mock/state")["limits"]["calibrated"])
+    owner.drain()
+    owner.send("patch 2 head 11")
+    saved = owner.recv_until(lambda m: m.get("type") == "saved")
+    stop = owner.recv_until(lambda m: m.get("type") == "stop")
+    r.check("proto patch: 'patch 2 head 11' -> saved + patch-changed", saved is not None
+            and (stop or {}).get("reason") == "patch-changed", str(stop))
+    state = owner.state_where("?", lambda m: True)
+    r.check("proto patch: adding a head keeps the laser calibrated", (state or {}).get("limits", {}).get("calibrated") is True)
+    owner.drain()
+    owner.send("patch 2 head 11")  # the same again
+    noise = owner.recv_until(lambda m: m.get("type") in ("saved", "stop"), timeout=0.6)
+    r.check("proto patch: an unchanged patch is not saved and blacks nothing out", noise is None, str(noise))
+    r.check("proto patch: state lists the patched fixtures in slot order",
+            patch_of(state) == [{"slot": 1, "type": "laser", "addr": 1}, {"slot": 2, "type": "head", "addr": 11}]
+            and len(laser_ch(state)) == 10 and fixture_at(state, 2).get("ch") == [0] * 19
+            and fixture_at(state, 2).get("preset") is None, str(state))
+    r.check("proto patch: no 'ch', 'addr' or 'preset' at the top of the state",
+            not {"ch", "addr", "preset"} & set(state or {}), str(sorted(state or {})))
+    for command, code in (("patch 2 head 10", "bad-patch"), ("patch 3 laser 100", "bad-patch"), ("patch 3 head 500", "bad-patch"),
+                          ("patch 5 head 1", "bad-command"), ("patch 2 head 0", "bad-command"), ("patch 2 spot 40", "bad-command"),
+                          ("patch 2", "bad-command")):
+        r.check(f"proto patch: '{command}' -> {code}", owner.error_for(command) == code)
+    r.check("proto patch: a guest can't patch -> not-admin", other.error_for("patch 3 none") == "not-admin")
+    test_protocol_prefix(r, other)
+    test_protocol_fixture_stops(r, owner, other)
+    test_protocol_fixture_sessions(r, owner, other)
+    test_protocol_no_laser(r, owner, other)
+    restore_default_patch(owner)
+    r.check("proto patch: default patch restored and calibrated", calibrate(owner)
+            and [{k: f[k] for k in ("slot", "type", "addr")} for f in hook("/__mock/state")["fixtures"]] == DEFAULT_FIXTURES)
+    owner.drain()
+    other.drain()
+
+
+def test_protocol_prefix(r: Results, other: Raw) -> None:
+    """Laser in slot 1 at 1, head in slot 2 at 11."""
+    state = other.state_where("f2 7 255", lambda m: fixture_at(m, 2).get("ch", [0] * 7)[6] == 255)
+    r.check("proto prefix: 'f2 7 255' sets the head's CH7", state is not None and laser_ch(state) == hook("/__mock/state")["channels"])
+    r.check("proto prefix: ... at DMX slot 17 (address 11 + 6)", hook("/__mock/state")["universe"].get("17") == 255,
+            str(hook("/__mock/state")["universe"]))
+    for command, code in (("f5 7 1", "bad-command"), ("f0 7 1", "bad-command"), ("f3 1 1", "no-fixture"), ("11 5", "bad-command"),
+                          ("f2 20 1", "bad-command"), ("f2 cal start", "bad-command"), ("f2 preset load 1", "bad-command"),
+                          ("f2 hb", "bad-command"), ("f2", "bad-command"), ("f1 11 5", "bad-command")):
+        r.check(f"proto prefix: '{command}' -> {code}", other.error_for(command) == code)
+    state = other.state_where("F2 1 200", lambda m: fixture_at(m, 2).get("ch", [0])[0] == 200)
+    r.check("proto prefix: case-insensitive, and the head's CH1 has no rule 7 ('F2 1 200')", state is not None)
+    r.check("proto prefix: ... while the laser's CH1 200 is still auto-blocked", other.error_for("1 200") == "auto-blocked")
+    other.state_where("f2 19 255", lambda m: fixture_at(m, 2).get("ch", [0] * 19)[18] == 255)
+    head = mock_fixture(2)
+    r.check("proto head: no limits at all (frame = requested, CH19 macro 255 allowed)",
+            head.get("frame") == head.get("channels") and head["channels"][18] == 255 and head["channels"][0] == 200, str(head))
+    state = other.state_where("f1 1 96", lambda m: laser_ch(m)[:1] == [96])
+    r.check("proto prefix: 'f1 1 96' drives the laser like '1 96'", state is not None and hook("/__mock/state")["frame"][0] == 96)
+
+
+def test_protocol_fixture_stops(r: Results, owner: Raw, other: Raw) -> None:
+    """Laser on (slot 1), head in slot 2 with pan 200, dimmer 255, macro 255."""
+    other.drain()
+    other.send("f2 off")
+    seen: list[dict] = []
+    state = other.recv_until(lambda m: seen.append(m) is None and m.get("type") == "state")
+    head = fixture_at(state, 2).get("ch", [])
+    r.check("proto off: 'f2 off' darkens the head (CH7-19 to 0), keeps its pan, leaves the laser on",
+            head[:1] == [200] and head[6:] == [0] * 13 and laser_ch(state)[:1] == [96], str(state))
+    r.check("proto off: 'f2 off' is not announced as a stop (phones would say the laser went off)",
+            not [m for m in seen if m.get("type") == "stop"], str(seen))
+    other.send("f2 7 255")
+    other.send("f2 3 90")
+    state = other.state_where("off", lambda m: laser_ch(m)[:1] == [0])
+    head = fixture_at(state, 2).get("ch", [])
+    r.check("proto off: plain 'off' darkens both (laser CH1, head light), head pan and motors kept",
+            state is not None and head[:1] == [200] and head[2] == 90 and head[6] == 0, str(state))
+    other.send("1 96")
+    other.send("f2 7 255")
+    state = other.state_where("0", lambda m: laser_ch(m) == [0] * 10 and fixture_at(m, 2).get("ch") == [0] * 19)
+    universe = hook("/__mock/state")["universe"]  # a dark laser frame still carries CH7 at the low limit
+    r.check("proto 0: plain '0' zeroes every channel of both fixtures", state is not None and "1" not in universe
+            and not any(11 <= int(k) <= 29 for k in universe), str(universe))
+    other.send("1 96")
+    other.send("f2 7 255")
+    state = other.state_where("f2 0", lambda m: fixture_at(m, 2).get("ch") == [0] * 19)
+    r.check("proto 0: 'f2 0' zeroes only the head", state is not None and laser_ch(state)[:1] == [96], str(state))
+    # Shows drive the laser only: the head can change and switch off without stopping one.
+    for command in ("2 102", "7 40", "preset save 1 Een", "2 7", "preset save 2 Twee", "show save 1 1:10,2:10 Lus"):
+        other.send(command)
+    other.state_where("show play 1", lambda m: m.get("play") is not None)
+    state = other.state_where("f2 7 200", lambda m: fixture_at(m, 2).get("ch", [0] * 7)[6] == 200)
+    r.check("proto show: a head channel change keeps the laser show running", (state or {}).get("play") is not None, str(state))
+    other.event("f2 off", "stop")
+    r.check("proto show: 'f2 off' keeps the laser show running", mock_lib()["play"] is not None)
+    state = other.state_where("4 10", lambda m: m.get("play") is None)
+    r.check("proto show: a laser channel change still stops it", state is not None)
+    other.state_where("show play 1", lambda m: m.get("play") is not None)
+    other.event("off", "stop")
+    r.check("proto show: plain 'off' stops it", mock_lib()["play"] is None)
+
+
+def test_protocol_fixture_sessions(r: Results, owner: Raw, other: Raw) -> None:
+    other.send("1 96")
+    other.state_where("f2 7 255", lambda m: fixture_at(m, 2).get("ch", [0] * 7)[6] == 255)
+    state = owner.state_where("cal start", lambda m: (m.get("cal") or {}).get("owner") is True)
+    r.check("proto session: 'cal start' blacks out every fixture", state is not None and laser_ch(state) == [0] * 10
+            and fixture_at(state, 2).get("ch") == [0] * 19 and mock_fixture(2)["frame"] == [0] * 19, str(state))
+    r.check("proto session: a head channel during the session -> calibration-busy", owner.error_for("f2 7 255") == "calibration-busy")
+    r.check("proto session: ... from a guest too", other.error_for("f2 7 255") == "calibration-busy")
+    owner.send("cal stop")
+    owner.drain()
+    state = owner.state_where("dbg start", lambda m: (m.get("cal") or {}).get("phase") == "debug")
+    r.check("proto session: 'dbg start' also needs and finds the laser", state is not None)
+    r.check("proto session: debug CH11 -> bad-command (the laser has 10)", owner.error_for("11 5") == "bad-command")
+    owner.event("dbg stop", "stop")
+    stop = patch_event(owner, "patch 1 laser 30")
+    state = owner.state_where("?", lambda m: True)
+    r.check("proto patch: moving the laser ('patch 1 laser 30') uncalibrates it", (stop or {}).get("reason") == "patch-changed"
+            and (state or {}).get("limits", {}).get("calibrated") is False, f"{stop} {state}")
+    # The laser in slot 3, a head in slot 1: plain channel commands in a session are for the laser.
+    for command in ("patch 1 none", "patch 2 none", "patch 1 head 40"):
+        patch_event(owner, command)
+    stop = patch_event(owner, "patch 3 laser 1")
+    r.check("proto patch: head in slot 1 at 40, laser in slot 3 at 1", (stop or {}).get("reason") == "patch-changed"
+            and patch_of(owner.state_where("?", lambda m: True)) == [{"slot": 1, "type": "head", "addr": 40},
+                                                                       {"slot": 3, "type": "laser", "addr": 1}])
+    state = other.state_where("7 40", lambda m: fixture_at(m, 1).get("ch", [0] * 7)[6] == 40)
+    r.check("proto prefix: outside a session, plain '7 40' is for slot 1 (the head)", state is not None and laser_ch(state)[6] != 40,
+            str(state))
+    state = owner.state_where("cal start", lambda m: (m.get("cal") or {}).get("owner") is True)
+    r.check("proto session: started with the laser in slot 3", state is not None and fixture_at(state, 1).get("ch") == [0] * 19)
+    state = owner.state_where("7 40", lambda m: (m.get("cal") or {}).get("ch7") == 40)
+    r.check("proto session: plain '7 40' moves cal.ch7 (the laser's slot)", state is not None)
+    r.check("proto session: 'f1 7 255' (the head) -> calibration-busy", owner.error_for("f1 7 255") == "calibration-busy")
+    state = owner.state_where("f3 7 50", lambda m: (m.get("cal") or {}).get("ch7") == 50)
+    r.check("proto session: 'f3 7 50' (the laser, prefixed) moves cal.ch7", state is not None)
+    r.check("proto session: a guest's plain '7 40' -> calibration-busy", other.error_for("7 40") == "calibration-busy")
+    r.check("proto session: the calibration look goes out at the laser's address", hook("/__mock/state")["universe"].get("1") == 96
+            and hook("/__mock/state")["universe"].get("7") == 50, str(hook("/__mock/state")["universe"]))
+    r.check("proto patch: no patch change during a session -> calibration-busy", owner.error_for("patch 2 head 100") == "calibration-busy")
+    stop = owner.event("cal stop", "stop")
+    r.check("proto session: cal stop with the laser in slot 3", (stop or {}).get("reason") == "calibration-stopped")
+
+
+def test_protocol_no_laser(r: Results, owner: Raw, other: Raw) -> None:
+    """Only a head is patched: everything that needs the laser says no-fixture."""
+    stop = patch_event(owner, "patch 3 none")
+    state = owner.state_where("?", lambda m: True)
+    r.check("proto no laser: head-only patch", (stop or {}).get("reason") == "patch-changed"
+            and patch_of(state) == [{"slot": 1, "type": "head", "addr": 40}] and not laser_of(state), str(state))
+    for client, command in ((owner, "cal start"), (owner, "dbg start"), (other, "preset load 1"), (other, "show play 1"),
+                            (other, "preset save 3 X"), (other, "f3 1 96")):
+        r.check(f"proto no laser: '{command}' -> no-fixture", client.error_for(command) == "no-fixture")
+    r.check("proto no laser: show and preset edits still work (no laser needed)",
+            other.event("show delete 1", "library") is not None and other.event("preset delete 2", "library") is not None)
+    state = other.state_where("f1 7 255", lambda m: fixture_at(m, 1).get("ch", [0] * 7)[6] == 255)
+    r.check("proto no laser: the head still works", state is not None and hook("/__mock/state")["frame"] == [0] * 10)
+    other.event("off", "stop")
 
 
 def test_sources(r: Results) -> None:
@@ -1615,6 +1903,7 @@ def run_browser_tests(r: Results, log: MockLog) -> list[str]:
         test_pin_change(ui, a, a_id)
         a_id = test_hidden_ends_calibration(ui, a, a_id, i)
         test_address(ui, a, a_id, i)
+        test_index_patch(ui, a, a_id, i)
         test_logout(ui, a, a_id)
         test_portrait(ui)
         test_back_link(ui)

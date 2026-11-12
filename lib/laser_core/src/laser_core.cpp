@@ -1,5 +1,7 @@
 #include "laser_core.h"
 
+#include <algorithm>
+
 namespace laser {
 
 namespace {
@@ -71,6 +73,18 @@ bool isAllZero(const Channels& channels) {
     }
   }
   return true;
+}
+
+Channels toLaserChannels(const FixtureChannels& channels) {
+  Channels laser{};
+  std::copy_n(channels.begin(), CHANNEL_COUNT, laser.begin());
+  return laser;
+}
+
+FixtureChannels toFixtureChannels(const Channels& channels) {
+  FixtureChannels fixture{};
+  std::copy(channels.begin(), channels.end(), fixture.begin());
+  return fixture;
 }
 
 State reclamp(const State& state, const Limits& limits) {

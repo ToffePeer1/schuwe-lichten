@@ -366,7 +366,7 @@ input[type=range] { flex: 1; min-width: 0; height: 28px; margin: 0; accent-color
             <input class="field" id="addrInput" type="number" inputmode="numeric" min="1" max="503" aria-label="Nieuw DMX-adres (1 tot 503)">
             <button type="button" class="btn" id="addrBtn">Wijzigen</button>
           </div>
-          <p class="hint">Zet het adres op de laser zelf ook zo. Na een wijziging gaat de laser uit en moet je opnieuw kalibreren.</p>
+          <p class="hint">Zet het adres op de laser zelf ook zo. Na een wijziging gaat alles uit en moet je opnieuw kalibreren.</p>
         </div>
         <div class="card">
           <div class="label">Pincode wijzigen</div>
@@ -423,7 +423,8 @@ const POS_MAX = 127;
 const RAW_MAX = 255;
 const FULL_WIDTH = [0, POS_MAX];
 const ADDR_MIN = 1;
-const ADDR_MAX = 503;
+const ADDR_MAX = 503;        // the laser's 10 channels must fit in 512
+const MAX_FIXTURES = 4;      // patch slots 1-4
 const PIN_RE = /^[0-9]{6,8}$/;
 const NUDGES = [-10, -1, 1, 10];
 const WORST_CASE_LOOKS = ['diamond', 'spin'];
@@ -467,6 +468,8 @@ const ERROR_TEXT = {
   'locked': 'Te veel verkeerde pincodes. Wacht even en probeer het opnieuw.',
   'not-calibrating': 'Er loopt geen kalibratie of debugsessie (meer).',
   'save-failed': 'Opslaan is mislukt. De oude grens blijft gelden. Probeer het opnieuw.',
+  'no-fixture': 'Er staat geen laser in de patch. Geef hem een DMX-adres bij Instellingen.',
+  'bad-patch': 'Dat past niet in de patch: lampen mogen niet overlappen of voorbij kanaal 512 lopen, en er mag maar één laser zijn.',
 };
 const STOP_TEXT = {
   'button': 'Stopknop (IO0) ingedrukt: de laser is uit.',
@@ -475,7 +478,7 @@ const STOP_TEXT = {
   'calibration-stopped': 'Kalibratie gestopt. Er is niets opgeslagen.',
   'calibration-timeout': 'Kalibratie gestopt: de verbinding met deze telefoon viel weg. Er is niets opgeslagen.',
   'calibration-owner-left': 'Kalibratie gestopt: de bedienende telefoon is weg. Er is niets opgeslagen.',
-  'address-changed': 'DMX-adres gewijzigd: de laser is uit. Kalibreer opnieuw.',
+  'patch-changed': 'Patch gewijzigd: alles is uit. Is de laser verplaatst, kalibreer dan opnieuw.',
   'calibration-saved': 'Grens opgeslagen. De laser is uit.',
   'debug-stopped': 'Debug gestopt: de laser is uit.',
 };
@@ -534,6 +537,17 @@ const wake = { want: false, lock: null };
 const myCal = () => (st && st.cal && st.cal.owner === true ? st.cal : null);
 const kindOf = (cal) => (cal && cal.phase === 'debug' ? 'debug' : 'cal');
 const limitsOf = () => (st && st.limits && typeof st.limits === 'object' ? st.limits : {});
+const fixturesOf = () => (st && Array.isArray(st.fixtures) ? st.fixtures.filter((f) => f && typeof f === 'object') : []);
+const laserOf = () => fixturesOf().find((f) => f.type === 'laser') || null;
+// The patch slot for "patch <slot> laser <addr>": the laser's own, else the first free one
+// (so adding the laser never replaces another fixture), else slot 1.
+function laserPatchSlot() {
+  const laser = laserOf();
+  if (laser && Number.isInteger(laser.slot)) return laser.slot;
+  const used = new Set(fixturesOf().map((f) => f.slot));
+  for (let slot = 1; slot <= MAX_FIXTURES; slot += 1) if (!used.has(slot)) return slot;
+  return 1;
+}
 
 // --- sending --------------------------------------------------------------------
 function send(text) {
@@ -827,8 +841,10 @@ function renderSide() {
     setNow('Kalibratie', mine.phase === 'check' ? 'Controle' : 'Afstellen', 'Laser aan · wegklikken stopt', 'sess');
     return;
   }
-  const mode = Array.isArray(st.ch) ? Number(st.ch[0]) : 0;
-  setNow('Laser', mode < 64 ? 'Uit' : 'Aan', st.admin ? `DMX-adres ${st.addr}` : 'Niet ingelogd');
+  const laser = laserOf();
+  if (!laser) { setNow('Laser', 'Geen laser', st.admin ? 'Niet in de patch' : 'Niet ingelogd'); return; }
+  const mode = Array.isArray(laser.ch) ? Number(laser.ch[0]) : 0;
+  setNow('Laser', mode < 64 ? 'Uit' : 'Aan', st.admin ? `DMX-adres ${laser.addr}` : 'Niet ingelogd');
 }
 
 function renderConnecting() {
@@ -878,8 +894,9 @@ function renderOverview() {
 function renderSettings() {
   fillLimitWords($('setLimitWords'));
   fillSideWords($('setHWords'), 'Zijgrens: ');
-  $('addrNow').textContent = st.addr;
-  if (!addrDirty && document.activeElement !== $('addrInput')) $('addrInput').value = st.addr;
+  const laser = laserOf();
+  $('addrNow').textContent = laser ? laser.addr : '– (geen laser in de patch)';
+  if (!addrDirty && document.activeElement !== $('addrInput')) $('addrInput').value = laser ? laser.addr : '';
 }
 
 function lookHint(cal) {
@@ -987,7 +1004,7 @@ function onSessionState(cal) {
 }
 
 function onState(msg) {
-  if (!Array.isArray(msg.ch) || !msg.limits) return;
+  if (!Array.isArray(msg.fixtures) || !msg.limits) return;
   st = msg;
   if (st.admin) {
     wasAdmin = true;
@@ -1226,10 +1243,11 @@ $('addrBtn').addEventListener('click', () => {
     showMsg(`Een DMX-adres is een getal van ${ADDR_MIN} tot ${ADDR_MAX}.`, 'error');
     return;
   }
-  if (st && n === Number(st.addr)) { showMsg('Dat is al het huidige adres.', 'warn'); return; }
+  const laser = laserOf();
+  if (laser && n === Number(laser.addr)) { showMsg('Dat is al het huidige adres.', 'warn'); return; }
   lastSaveCmd = 'addr';
   addrDirty = false;
-  send(`addr ${n}`);
+  send(`patch ${laserPatchSlot()} laser ${n}`);
 });
 
 $('pinBtn').addEventListener('click', () => {

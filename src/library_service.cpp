@@ -39,7 +39,10 @@ Result savePreset(SharedLaserState& state, const laser::Command& command) {
     return fail(laser::libraryError(status));
   }
   const laser::Context ctx = state.snapshot(nullptr);
-  const laser::Channels look = laser::sanitizeLook(ctx.state.channels, ctx.settings.limits);
+  if (laser::laserIndex(ctx.settings.patch) == laser::NO_FIXTURE) {
+    return fail(laser::ErrorCode::NoFixture);  // presets hold laser looks for now
+  }
+  const laser::Channels look = laser::sanitizeLook(laser::laserChannels(ctx), ctx.settings.limits);
   scratch = live;
   laser::storePreset(scratch, command.slot, command.name, look);
   Result result = persist(library_store::savePresets, &isPresetsReset);

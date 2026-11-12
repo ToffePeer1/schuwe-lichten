@@ -57,7 +57,7 @@ Context calibrated(uint8_t low, uint8_t high) {
   return commit(run(ctx, "lim save", ADMIN, 5));  // the Controle round is optional
 }
 
-uint8_t frameCh(const Context& ctx, uint8_t channel) { return frameFor(ctx)[channel - 1]; }
+uint8_t frameCh(const Context& ctx, uint8_t channel) { return laserFrame(ctx)[channel - 1]; }
 
 // Laser off: CH1 = 0 and nothing set except the clamped positions (CH6/CH7 sit
 // on the limit even when dark, so the beam can never start below it).
@@ -79,8 +79,8 @@ void tearDown() {}
 // Rule 1: boot dark.
 void test_boot_is_dark() {
   const Context ctx = boot();
-  TEST_ASSERT_TRUE(isAllZero(ctx.state.channels));
-  TEST_ASSERT_TRUE(isAllZero(frameFor(ctx)));
+  TEST_ASSERT_TRUE(isAllZero(laserChannels(ctx)));
+  TEST_ASSERT_TRUE(isAllZero(laserFrame(ctx)));
   TEST_ASSERT_TRUE(isFactoryPin(ctx));
 }
 
@@ -135,21 +135,21 @@ void test_guest_off_ends_someone_elses_calibration() {
   TEST_ASSERT_EQUAL(ErrorCode::None, o.error);
   TEST_ASSERT_EQUAL(StopReason::Off, o.stop);
   TEST_ASSERT_FALSE(isActive(o.ctx.cal));
-  TEST_ASSERT_TRUE(isDark(frameFor(o.ctx)));
+  TEST_ASSERT_TRUE(isDark(laserFrame(o.ctx)));
 }
 
 void test_zero_ends_calibration_and_blacks_out() {
   const Outcome o = run(must(boot(), "cal start", ADMIN), "0", GUEST);
   TEST_ASSERT_EQUAL(StopReason::Blackout, o.stop);
-  TEST_ASSERT_TRUE(isDark(frameFor(o.ctx)));
+  TEST_ASSERT_TRUE(isDark(laserFrame(o.ctx)));
 }
 
 void test_off_keeps_other_channels_outside_calibration() {
   Context ctx = must(calibrated(30, 100), "1 96", GUEST);
   ctx = must(ctx, "2 40", GUEST);
   ctx = must(ctx, "off", GUEST);
-  TEST_ASSERT_EQUAL_UINT8(0, ctx.state.channels[0]);
-  TEST_ASSERT_EQUAL_UINT8(40, ctx.state.channels[1]);
+  TEST_ASSERT_EQUAL_UINT8(0, laserChannels(ctx)[0]);
+  TEST_ASSERT_EQUAL_UINT8(40, laserChannels(ctx)[1]);
 }
 
 // IO0 stop button.
@@ -160,11 +160,11 @@ void test_stop_button_blacks_out_holds_and_never_resumes() {
   const Outcome pressed = tick(ctx, true, 50);
   TEST_ASSERT_EQUAL(StopReason::Button, pressed.stop);
   ctx = pressed.ctx;
-  TEST_ASSERT_TRUE(isDark(frameFor(ctx)));
+  TEST_ASSERT_TRUE(isDark(laserFrame(ctx)));
   TEST_ASSERT_EQUAL(ErrorCode::StopHeld, run(ctx, "1 96", GUEST).error);
   TEST_ASSERT_EQUAL(ErrorCode::StopHeld, run(ctx, "cal start", ADMIN).error);
   ctx = tick(ctx, false, 75).ctx;  // released
-  TEST_ASSERT_TRUE(isDark(frameFor(ctx)));
+  TEST_ASSERT_TRUE(isDark(laserFrame(ctx)));
   ctx = must(ctx, "1 96", GUEST);  // only an explicit command switches it on again
   TEST_ASSERT_EQUAL_UINT8(96, frameCh(ctx, CH_MODE));
 }
@@ -191,7 +191,7 @@ void test_button_held_from_boot_is_ignored_until_released() {
 
 // Admin protection.
 void test_guest_cannot_run_admin_commands() {
-  const char* adminLines[] = {"cal start", "dbg start", "addr 20", "pin 246810 135791", "lim save", "cal stop"};
+  const char* adminLines[] = {"cal start", "dbg start", "patch 1 laser 20", "pin 246810 135791", "lim save", "cal stop"};
   for (const char* line : adminLines) {
     TEST_ASSERT_EQUAL_MESSAGE(ErrorCode::NotAdmin, run(boot(), line, GUEST).error, line);
   }
@@ -309,7 +309,7 @@ void test_saving_ends_calibration_dark() {
   TEST_ASSERT_EQUAL(StopReason::CalibrationSaved, committed.stop);
   TEST_ASSERT_FALSE(isActive(committed.ctx.cal));
   TEST_ASSERT_TRUE(committed.ctx.settings.limits.isCalibrated);
-  TEST_ASSERT_TRUE(isDark(frameFor(committed.ctx)));
+  TEST_ASSERT_TRUE(isDark(laserFrame(committed.ctx)));
 }
 
 void test_calibration_times_out_without_heartbeat() {
@@ -317,7 +317,7 @@ void test_calibration_times_out_without_heartbeat() {
   ctx = run(ctx, "hb", GUEST, 2000).ctx;  // a guest's heartbeat doesn't count
   const Outcome o = tick(ctx, false, 1000 + CAL_HEARTBEAT_TIMEOUT_MS);
   TEST_ASSERT_EQUAL(StopReason::CalibrationTimeout, o.stop);
-  TEST_ASSERT_TRUE(isDark(frameFor(o.ctx)));
+  TEST_ASSERT_TRUE(isDark(laserFrame(o.ctx)));
 }
 
 void test_owner_heartbeat_keeps_calibration_alive() {
@@ -342,24 +342,25 @@ void test_calibration_never_resumes_previous_look() {
   Context ctx = must(calibrated(30, 100), "1 96", GUEST);
   ctx = must(ctx, "cal start", ADMIN);
   ctx = must(ctx, "cal stop", ADMIN);
-  TEST_ASSERT_TRUE(isDark(frameFor(ctx)));
+  TEST_ASSERT_TRUE(isDark(laserFrame(ctx)));
 }
 
-// DMX address.
-void test_address_change_uncalibrates_and_blacks_out() {
+// Patch (DMX addresses).
+void test_moving_the_laser_uncalibrates_and_blacks_out() {
   Context ctx = must(calibrated(30, 100), "1 96", GUEST);
-  const Outcome o = run(ctx, "addr 21", ADMIN);
+  const Outcome o = run(ctx, "patch 1 laser 21", ADMIN);
   TEST_ASSERT_FALSE(o.settingsToSave.limits.isCalibrated);
   const Outcome committed = commitSettings(o.ctx, o.settingsToSave, o.commitKind);
-  TEST_ASSERT_EQUAL(StopReason::AddressChanged, committed.stop);
-  TEST_ASSERT_EQUAL_UINT16(21, committed.ctx.settings.dmxAddress);
-  TEST_ASSERT_TRUE(isDark(frameFor(committed.ctx)));
+  TEST_ASSERT_EQUAL(StopReason::PatchChanged, committed.stop);
+  TEST_ASSERT_EQUAL_UINT16(21, committed.ctx.settings.patch.slots[0].address);
+  TEST_ASSERT_TRUE(isDark(laserFrame(committed.ctx)));
   TEST_ASSERT_EQUAL(ErrorCode::NotCalibrated, run(committed.ctx, "1 96", GUEST).error);
 }
 
 void test_settings_cannot_change_during_calibration() {
   const Context ctx = must(boot(), "cal start", ADMIN);
-  TEST_ASSERT_EQUAL(ErrorCode::CalibrationBusy, run(ctx, "addr 21", ADMIN).error);
+  TEST_ASSERT_EQUAL(ErrorCode::CalibrationBusy, run(ctx, "patch 1 laser 21", ADMIN).error);
+  TEST_ASSERT_EQUAL(ErrorCode::CalibrationBusy, run(ctx, "patch 2 head 11", ADMIN).error);
 }
 
 void test_serial_is_admin_and_can_calibrate() {
@@ -410,7 +411,7 @@ void test_debug_is_admin_only_and_starts_dark() {
   TEST_ASSERT_EQUAL(ErrorCode::NotAdmin, run(boot(), "dbg start", GUEST).error);
   const Context ctx = must(boot(), "dbg start", ADMIN);
   TEST_ASSERT_EQUAL(CalPhase::Debug, ctx.cal.phase);
-  TEST_ASSERT_TRUE(isAllZero(frameFor(ctx)));
+  TEST_ASSERT_TRUE(isAllZero(laserFrame(ctx)));
 }
 
 void test_debug_sends_raw_values_even_uncalibrated() {
@@ -421,7 +422,7 @@ void test_debug_sends_raw_values_even_uncalibrated() {
   TEST_ASSERT_EQUAL_UINT8(200, frameCh(ctx, CH_VERTICAL_POSITION));
   TEST_ASSERT_EQUAL_UINT8(96, frameCh(ctx, CH_MODE));
   TEST_ASSERT_EQUAL_UINT8(180, frameCh(ctx, CH_HORIZONTAL_POSITION));
-  TEST_ASSERT_TRUE(isAllZero(ctx.state.channels));  // normal state untouched
+  TEST_ASSERT_TRUE(isAllZero(laserChannels(ctx)));  // normal state untouched
 }
 
 void test_debug_belongs_to_its_owner() {
@@ -435,10 +436,10 @@ void test_debug_ends_dark_on_stop_off_and_owner_leaving() {
   const Context ctx = must(must(boot(), "dbg start", ADMIN), "1 96", ADMIN);
   const Outcome stopped = run(ctx, "dbg stop", ADMIN);
   TEST_ASSERT_EQUAL(StopReason::DebugStopped, stopped.stop);
-  TEST_ASSERT_TRUE(isAllZero(frameFor(stopped.ctx)));
+  TEST_ASSERT_TRUE(isAllZero(laserFrame(stopped.ctx)));
   const Outcome off = run(ctx, "off", GUEST);
   TEST_ASSERT_FALSE(isActive(off.ctx.cal));
-  TEST_ASSERT_TRUE(isAllZero(frameFor(off.ctx)));
+  TEST_ASSERT_TRUE(isAllZero(laserFrame(off.ctx)));
   TEST_ASSERT_EQUAL(StopReason::CalibrationOwnerLeft, clientLeft(ctx, ADMIN.slot).stop);
 }
 
@@ -457,7 +458,7 @@ void test_stop_button_ends_debug() {
   ctx = tick(ctx, true, 25).ctx;
   const Outcome o = tick(ctx, true, 50);
   TEST_ASSERT_EQUAL(StopReason::Button, o.stop);
-  TEST_ASSERT_TRUE(isAllZero(frameFor(o.ctx)));
+  TEST_ASSERT_TRUE(isAllZero(laserFrame(o.ctx)));
 }
 
 void test_session_survives_long_idle_with_heartbeats() {
@@ -495,7 +496,7 @@ ActiveShow twoStepShow() {
 void test_load_preset_is_explicit_and_clamped() {
   const Outcome o = loadPreset(calibrated(30, 100), 4, presetLook(10, 5));
   TEST_ASSERT_EQUAL(ErrorCode::None, o.error);
-  TEST_ASSERT_EQUAL_UINT8(4, o.ctx.loadedPreset);
+  TEST_ASSERT_EQUAL_UINT8(4, o.ctx.fixtures[0].loadedPreset);
   TEST_ASSERT_EQUAL_UINT8(96, frameCh(o.ctx, CH_MODE));
   TEST_ASSERT_EQUAL_UINT8(30, frameCh(o.ctx, CH_VERTICAL_POSITION));
 }
@@ -527,7 +528,7 @@ void test_show_steps_loop_without_a_phone() {
   ctx = tick(ctx, false, 2000).ctx;
   TEST_ASSERT_EQUAL_UINT8(20, frameCh(ctx, CH_PATTERN));
   TEST_ASSERT_EQUAL_UINT8(30, frameCh(ctx, CH_VERTICAL_POSITION));  // clamped
-  TEST_ASSERT_EQUAL_UINT8(2, ctx.loadedPreset);
+  TEST_ASSERT_EQUAL_UINT8(2, ctx.fixtures[0].loadedPreset);
   TEST_ASSERT_EQUAL_UINT32(1500, holdLeftMs(ctx, 2500));
   ctx = tick(ctx, false, 4000).ctx;  // loops back to step 1
   TEST_ASSERT_EQUAL_UINT8(0, ctx.playback.step);
@@ -544,18 +545,18 @@ void test_off_and_stop_button_end_a_show_for_good() {
   ctx = tick(ctx, true, 60).ctx;
   TEST_ASSERT_FALSE(ctx.playback.isPlaying);
   ctx = tick(ctx, false, 5000).ctx;
-  TEST_ASSERT_TRUE(isDark(frameFor(ctx)));
+  TEST_ASSERT_TRUE(isDark(laserFrame(ctx)));
 }
 
 void test_manual_change_and_sessions_take_over_from_a_show() {
   const Context playing = startShow(calibrated(30, 100), 3, twoStepShow(), 0).ctx;
   const Context manual = must(playing, "8 40", GUEST, 10);
   TEST_ASSERT_FALSE(manual.playback.isPlaying);
-  TEST_ASSERT_EQUAL_UINT8(0, manual.loadedPreset);
+  TEST_ASSERT_EQUAL_UINT8(0, manual.fixtures[0].loadedPreset);
   TEST_ASSERT_EQUAL_UINT8(96, frameCh(manual, CH_MODE));  // the look stays, now by hand
   const Context debugging = must(playing, "dbg start", ADMIN, 10);
   TEST_ASSERT_FALSE(debugging.playback.isPlaying);
-  TEST_ASSERT_TRUE(isAllZero(frameFor(debugging)));
+  TEST_ASSERT_TRUE(isAllZero(laserFrame(debugging)));
 }
 
 void test_show_stop_keeps_the_look_and_delete_stops_only_that_show() {
@@ -571,7 +572,7 @@ void test_loading_a_preset_stops_a_show() {
   const Context playing = startShow(calibrated(30, 100), 3, twoStepShow(), 0).ctx;
   const Context loaded = loadPreset(playing, 7, presetLook(30, 80)).ctx;
   TEST_ASSERT_FALSE(loaded.playback.isPlaying);
-  TEST_ASSERT_EQUAL_UINT8(7, loaded.loadedPreset);
+  TEST_ASSERT_EQUAL_UINT8(7, loaded.fixtures[0].loadedPreset);
 }
 
 void test_empty_show_is_refused() {
@@ -592,31 +593,189 @@ void test_show_steps_keep_their_schedule_when_a_frame_is_late() {
 
 void test_saving_a_preset_a_playing_show_uses_stops_the_show() {
   const Context playing = startShow(calibrated(30, 100), 3, twoStepShow(), 0).ctx;
-  const Channels current = playing.state.channels;
+  const Channels current = laserChannels(playing);
   const Context other = presetSaved(playing, 9, current).ctx;
   TEST_ASSERT_TRUE(other.playback.isPlaying);  // the show doesn't use slot 9
-  TEST_ASSERT_EQUAL_UINT8(1, other.loadedPreset);
+  TEST_ASSERT_EQUAL_UINT8(1, other.fixtures[0].loadedPreset);
   const Context used = presetSaved(playing, 2, current).ctx;
   TEST_ASSERT_FALSE(used.playback.isPlaying);  // its copy of preset 2 is stale
-  TEST_ASSERT_EQUAL_UINT8(2, used.loadedPreset);  // what is showing was just saved as 2
+  TEST_ASSERT_EQUAL_UINT8(2, used.fixtures[0].loadedPreset);  // what is showing was just saved as 2
   TEST_ASSERT_EQUAL_UINT8(10, frameCh(used, CH_PATTERN));  // the look stays
 }
 
 void test_saved_or_deleted_preset_updates_the_loaded_mark() {
   const Context manual = must(calibrated(30, 100), "1 96", GUEST);
-  TEST_ASSERT_EQUAL_UINT8(0, manual.loadedPreset);
-  TEST_ASSERT_EQUAL_UINT8(5, presetSaved(manual, 5, manual.state.channels).ctx.loadedPreset);
+  TEST_ASSERT_EQUAL_UINT8(0, manual.fixtures[0].loadedPreset);
+  TEST_ASSERT_EQUAL_UINT8(5, presetSaved(manual, 5, laserChannels(manual)).ctx.fixtures[0].loadedPreset);
   const Context loaded = loadPreset(calibrated(30, 100), 4, presetLook(10, 60)).ctx;
-  TEST_ASSERT_EQUAL_UINT8(0, presetSaved(loaded, 4, presetLook(11, 60)).ctx.loadedPreset);  // 4 changed meanwhile
-  TEST_ASSERT_EQUAL_UINT8(4, presetDeleted(loaded, 6).ctx.loadedPreset);
-  TEST_ASSERT_EQUAL_UINT8(0, presetDeleted(loaded, 4).ctx.loadedPreset);
+  TEST_ASSERT_EQUAL_UINT8(0, presetSaved(loaded, 4, presetLook(11, 60)).ctx.fixtures[0].loadedPreset);  // 4 changed meanwhile
+  TEST_ASSERT_EQUAL_UINT8(4, presetDeleted(loaded, 6).ctx.fixtures[0].loadedPreset);
+  TEST_ASSERT_EQUAL_UINT8(0, presetDeleted(loaded, 4).ctx.fixtures[0].loadedPreset);
 }
 
 void test_preset_saved_after_blackout_is_marked_loaded() {
   const Context dark = must(calibrated(30, 100), "0", GUEST);  // the state holds CH7 = 0, below the limit
-  const Channels stored = sanitizeLook(dark.state.channels, dark.settings.limits);  // what the library stores
+  const Channels stored = sanitizeLook(laserChannels(dark), dark.settings.limits);  // what the library stores
   TEST_ASSERT_EQUAL_UINT8(30, stored[CH_VERTICAL_POSITION - 1]);
-  TEST_ASSERT_EQUAL_UINT8(5, presetSaved(dark, 5, stored).ctx.loadedPreset);
+  TEST_ASSERT_EQUAL_UINT8(5, presetSaved(dark, 5, stored).ctx.fixtures[0].loadedPreset);
+}
+
+// --- several fixtures on one DMX line ------------------------------------------
+
+Context patched(const Context& ctx, const char* line) { return commit(run(ctx, line, ADMIN)); }
+
+// The laser at 1 (calibrated 30..100) and the head at 11.
+Context laserAndHead() { return patched(calibrated(30, 100), "patch 2 head 11"); }
+
+uint8_t headCh(const Context& ctx, uint8_t channel) { return fixtureFrame(ctx, 1)[channel - 1]; }
+
+void test_adding_the_head_keeps_the_laser_calibrated() {
+  const Context ctx = laserAndHead();
+  TEST_ASSERT_TRUE(ctx.settings.limits.isCalibrated);
+  TEST_ASSERT_EQUAL(FixtureType::Head, ctx.settings.patch.slots[1].type);
+  TEST_ASSERT_EQUAL_UINT16(11, ctx.settings.patch.slots[1].address);
+}
+
+void test_bad_patches_are_refused() {
+  const Context ctx = calibrated(30, 100);
+  TEST_ASSERT_EQUAL(ErrorCode::BadPatch, run(ctx, "patch 2 head 10", ADMIN).error);   // overlaps the laser's CH10
+  TEST_ASSERT_EQUAL(ErrorCode::BadPatch, run(ctx, "patch 2 head 495", ADMIN).error);  // runs past slot 512
+  TEST_ASSERT_EQUAL(ErrorCode::BadPatch, run(ctx, "patch 2 laser 100", ADMIN).error);  // one laser only
+  TEST_ASSERT_EQUAL(ErrorCode::NotAdmin, run(ctx, "patch 2 head 11", GUEST).error);
+}
+
+void test_head_channels_have_no_limits() {
+  Context ctx = must(laserAndHead(), "f2 7 255", GUEST);
+  ctx = must(ctx, "f2 1 200", GUEST);
+  ctx = must(ctx, "f2 19 120", GUEST);  // the head's own sound mode is allowed (user decision)
+  TEST_ASSERT_EQUAL_UINT8(255, headCh(ctx, HEAD_CH_DIMMER));
+  TEST_ASSERT_EQUAL_UINT8(200, headCh(ctx, HEAD_CH_PAN));
+  TEST_ASSERT_EQUAL_UINT8(120, headCh(ctx, HEAD_CH_MACRO));
+}
+
+void test_channel_numbers_follow_the_fixture_type() {
+  const Context ctx = laserAndHead();
+  TEST_ASSERT_EQUAL(ErrorCode::BadCommand, run(ctx, "11 5", GUEST).error);  // the laser has 10 channels
+  TEST_ASSERT_EQUAL(ErrorCode::None, run(ctx, "f2 19 5", GUEST).error);
+  TEST_ASSERT_EQUAL(ErrorCode::NoFixture, run(ctx, "f3 1 5", GUEST).error);
+}
+
+void test_laser_rules_stay_with_the_laser_wherever_it_is_patched() {
+  Context ctx = patched(patched(boot(), "patch 1 head 1"), "patch 3 laser 30");
+  TEST_ASSERT_EQUAL(ErrorCode::None, run(ctx, "7 255", GUEST).error);           // f1 is the head now
+  TEST_ASSERT_EQUAL(ErrorCode::NotCalibrated, run(ctx, "f3 1 96", GUEST).error);  // rule 8
+  TEST_ASSERT_EQUAL(ErrorCode::AutoBlocked, run(ctx, "f3 1 200", GUEST).error);  // rule 7
+  ctx = must(ctx, "f3 7 3", GUEST);
+  TEST_ASSERT_EQUAL_UINT8(3, laserChannels(ctx)[CH_VERTICAL_POSITION - 1]);
+}
+
+void test_off_with_a_prefix_darkens_only_that_fixture() {
+  Context ctx = must(must(laserAndHead(), "1 96", GUEST), "f2 7 255", GUEST);
+  ctx = must(ctx, "f2 1 90", GUEST);
+  ctx = must(ctx, "f2 off", GUEST);
+  TEST_ASSERT_EQUAL_UINT8(0, headCh(ctx, HEAD_CH_DIMMER));
+  TEST_ASSERT_EQUAL_UINT8(90, headCh(ctx, HEAD_CH_PAN));  // it stays where it points
+  TEST_ASSERT_EQUAL_UINT8(96, frameCh(ctx, CH_MODE));     // the laser keeps going
+}
+
+void test_off_and_zero_without_a_prefix_reach_every_fixture() {
+  const Context lit = must(must(laserAndHead(), "1 96", GUEST), "f2 7 255", GUEST);
+  const Context off = must(lit, "off", GUEST);
+  TEST_ASSERT_EQUAL_UINT8(0, frameCh(off, CH_MODE));
+  TEST_ASSERT_EQUAL_UINT8(0, headCh(off, HEAD_CH_DIMMER));
+  const Context zero = must(lit, "0", GUEST);
+  TEST_ASSERT_TRUE(isDark(laserFrame(zero)));
+  for (uint8_t ch = 1; ch <= HEAD_CHANNEL_COUNT; ++ch) {
+    TEST_ASSERT_EQUAL_UINT8(0, headCh(zero, ch));
+  }
+}
+
+void test_stop_button_and_sessions_darken_every_fixture() {
+  const Context lit = must(laserAndHead(), "f2 7 255", GUEST);
+  Context held = tick(lit, false, 0).ctx;
+  held = tick(tick(held, true, 25).ctx, true, 50).ctx;
+  TEST_ASSERT_EQUAL_UINT8(0, headCh(held, HEAD_CH_DIMMER));
+  const Context calibrating = must(lit, "cal start", ADMIN);
+  TEST_ASSERT_EQUAL_UINT8(0, headCh(calibrating, HEAD_CH_DIMMER));
+  TEST_ASSERT_EQUAL(ErrorCode::CalibrationBusy, run(calibrating, "f2 7 255", ADMIN).error);
+}
+
+void test_universe_places_each_fixture_at_its_address() {
+  Context ctx = patched(laserAndHead(), "patch 1 laser 30");  // uncalibrates the laser
+  ctx = must(ctx, "f2 7 255", GUEST);
+  ctx = must(ctx, "f2 19 7", GUEST);
+  ctx = must(ctx, "7 50", GUEST);  // inside the (still stored) 30..100 range
+  const Universe universe = buildUniverse(ctx);
+  TEST_ASSERT_EQUAL_UINT8(0, universe[0]);                    // start code
+  TEST_ASSERT_EQUAL_UINT8(255, universe[11 + HEAD_CH_DIMMER - 1]);
+  TEST_ASSERT_EQUAL_UINT8(7, universe[11 + HEAD_CH_MACRO - 1]);
+  TEST_ASSERT_EQUAL_UINT8(50, universe[30 + CH_VERTICAL_POSITION - 1]);
+  for (uint16_t slot = 1; slot <= DMX_UNIVERSE_SIZE; ++slot) {
+    const bool isHead = slot >= 11 && slot <= 29;
+    const bool isLaser = slot >= 30 && slot <= 39;
+    if (!isHead && !isLaser) {
+      TEST_ASSERT_EQUAL_UINT8_MESSAGE(0, universe[slot], "unpatched slots stay dark");
+    }
+  }
+}
+
+void test_the_laser_clamp_also_holds_in_the_universe() {
+  const Context ctx = must(laserAndHead(), "7 5", GUEST);  // below the low end
+  TEST_ASSERT_EQUAL_UINT8(30, buildUniverse(ctx)[1 + CH_VERTICAL_POSITION - 1]);
+}
+
+void test_an_invalid_patch_sends_nothing() {
+  Context ctx = must(laserAndHead(), "f2 7 255", GUEST);
+  ctx.settings.patch.slots[1].address = 5;  // can't be saved, but the frame must not trust it
+  const Universe universe = buildUniverse(ctx);
+  for (uint16_t slot = 0; slot <= DMX_UNIVERSE_SIZE; ++slot) {
+    TEST_ASSERT_EQUAL_UINT8(0, universe[slot]);
+  }
+}
+
+void test_head_changes_leave_a_laser_show_running() {
+  const Context playing = startShow(laserAndHead(), 3, twoStepShow(), 0).ctx;
+  TEST_ASSERT_TRUE(must(playing, "f2 7 200", GUEST).playback.isPlaying);
+  TEST_ASSERT_FALSE(must(playing, "7 50", GUEST).playback.isPlaying);
+  TEST_ASSERT_TRUE(must(playing, "f2 off", GUEST).playback.isPlaying);
+}
+
+void test_session_commands_without_a_prefix_go_to_the_laser() {
+  Context ctx = patched(patched(boot(), "patch 1 head 1"), "patch 3 laser 30");
+  ctx = must(ctx, "cal start", ADMIN);
+  ctx = must(ctx, "7 40", ADMIN);  // the calibration page sends plain channel commands
+  TEST_ASSERT_EQUAL_UINT8(40, ctx.cal.ch7);
+  TEST_ASSERT_EQUAL(ErrorCode::CalibrationBusy, run(ctx, "f1 7 255", ADMIN).error);  // the head waits
+}
+
+void test_only_a_stop_of_every_fixture_is_announced() {
+  const Context lit = must(must(laserAndHead(), "1 96", GUEST), "f2 7 255", GUEST);
+  TEST_ASSERT_EQUAL(StopReason::None, run(lit, "f2 off", GUEST).stop);  // phones must not say the laser went off
+  TEST_ASSERT_EQUAL(StopReason::None, run(lit, "f1 0", GUEST).stop);
+  TEST_ASSERT_EQUAL(StopReason::Off, run(lit, "off", GUEST).stop);
+  TEST_ASSERT_EQUAL(StopReason::Blackout, run(lit, "0", GUEST).stop);
+  const Context calibrating = must(lit, "cal start", ADMIN);
+  TEST_ASSERT_EQUAL(StopReason::Off, run(calibrating, "f2 off", GUEST).stop);  // any stop ends a session
+}
+
+void test_session_channels_beyond_the_laser_are_bad_commands() {
+  const Context debugging = must(laserAndHead(), "dbg start", ADMIN);
+  TEST_ASSERT_EQUAL(ErrorCode::BadCommand, run(debugging, "11 5", ADMIN).error);
+  TEST_ASSERT_EQUAL(ErrorCode::None, run(debugging, "10 5", ADMIN).error);
+}
+
+void test_an_unchanged_patch_is_not_saved() {
+  const Outcome same = run(laserAndHead(), "patch 2 head 11", ADMIN);
+  TEST_ASSERT_EQUAL(ErrorCode::None, same.error);
+  TEST_ASSERT_FALSE(same.hasSettingsToSave);  // no flash write, no blackout
+}
+
+void test_laser_only_actions_need_a_laser() {
+  const Context headOnly = patched(boot(), "patch 1 head 1");
+  TEST_ASSERT_EQUAL(ErrorCode::NoFixture, run(headOnly, "cal start", ADMIN).error);
+  TEST_ASSERT_EQUAL(ErrorCode::NoFixture, run(headOnly, "dbg start", ADMIN).error);
+  TEST_ASSERT_EQUAL(ErrorCode::NoFixture, loadPreset(headOnly, 1, presetLook(10, 60)).error);
+  TEST_ASSERT_EQUAL(ErrorCode::NoFixture, startShow(headOnly, 1, twoStepShow(), 0).error);
 }
 
 int runAllTests() {
@@ -649,7 +808,7 @@ int runAllTests() {
   RUN_TEST(test_owner_heartbeat_keeps_calibration_alive);
   RUN_TEST(test_owner_leaving_or_logging_out_ends_calibration);
   RUN_TEST(test_calibration_never_resumes_previous_look);
-  RUN_TEST(test_address_change_uncalibrates_and_blacks_out);
+  RUN_TEST(test_moving_the_laser_uncalibrates_and_blacks_out);
   RUN_TEST(test_settings_cannot_change_during_calibration);
   RUN_TEST(test_serial_is_admin_and_can_calibrate);
   RUN_TEST(test_bad_command_reports_error);
@@ -676,6 +835,23 @@ int runAllTests() {
   RUN_TEST(test_saving_a_preset_a_playing_show_uses_stops_the_show);
   RUN_TEST(test_saved_or_deleted_preset_updates_the_loaded_mark);
   RUN_TEST(test_preset_saved_after_blackout_is_marked_loaded);
+  RUN_TEST(test_adding_the_head_keeps_the_laser_calibrated);
+  RUN_TEST(test_bad_patches_are_refused);
+  RUN_TEST(test_head_channels_have_no_limits);
+  RUN_TEST(test_channel_numbers_follow_the_fixture_type);
+  RUN_TEST(test_laser_rules_stay_with_the_laser_wherever_it_is_patched);
+  RUN_TEST(test_off_with_a_prefix_darkens_only_that_fixture);
+  RUN_TEST(test_off_and_zero_without_a_prefix_reach_every_fixture);
+  RUN_TEST(test_stop_button_and_sessions_darken_every_fixture);
+  RUN_TEST(test_universe_places_each_fixture_at_its_address);
+  RUN_TEST(test_the_laser_clamp_also_holds_in_the_universe);
+  RUN_TEST(test_an_invalid_patch_sends_nothing);
+  RUN_TEST(test_head_changes_leave_a_laser_show_running);
+  RUN_TEST(test_session_commands_without_a_prefix_go_to_the_laser);
+  RUN_TEST(test_only_a_stop_of_every_fixture_is_announced);
+  RUN_TEST(test_session_channels_beyond_the_laser_are_bad_commands);
+  RUN_TEST(test_an_unchanged_patch_is_not_saved);
+  RUN_TEST(test_laser_only_actions_need_a_laser);
   return UNITY_END();
 }
 

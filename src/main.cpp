@@ -47,7 +47,8 @@ void printBanner(const settings_store::LoadResult& loaded) {
   } else {
     Serial.println("limits: NOT calibrated, the laser stays off until a limit is saved in /admin");
   }
-  Serial.printf("DMX address %u. IO0 = stop button. Auto/sound modes are disabled.\n", loaded.settings.dmxAddress);
+  printPatch(loaded.settings.patch);
+  Serial.println("IO0 = stop button. The laser's auto/sound modes are disabled.");
 }
 
 // Presets and shows. Static: the library is ~3.5 KB, too big for the stack.
@@ -136,7 +137,7 @@ void setup() {
   Serial.begin(SERIAL_BAUD);
   delay(SERIAL_SETTLE_MS);
 
-  const settings_store::LoadResult loaded = settings_store::load(ADMIN_PIN, DEFAULT_DMX_ADDRESS);
+  const settings_store::LoadResult loaded = settings_store::load(ADMIN_PIN, DEFAULT_LASER_ADDRESS);
   laserState.reset(laser::makeContext(loaded.settings, ADMIN_PIN));
   printBanner(loaded);
   loadLibrary();

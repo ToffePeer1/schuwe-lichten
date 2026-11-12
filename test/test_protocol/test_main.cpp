@@ -19,11 +19,30 @@ void test_channel_value_pairs() {
   TEST_ASSERT_EQUAL_UINT8(10, c.channel);
   TEST_ASSERT_EQUAL_UINT16(255, c.value);
   TEST_ASSERT_EQUAL(CommandType::SetChannel, typeOf("7 40"));
+  TEST_ASSERT_EQUAL_UINT8(0, c.fixture);  // no prefix: the controller picks fixture 1
+  const Command head = parseCommand("F2 19 255");
+  TEST_ASSERT_EQUAL(CommandType::SetChannel, head.type);
+  TEST_ASSERT_EQUAL_UINT8(2, head.fixture);
+  TEST_ASSERT_EQUAL_UINT8(19, head.channel);  // the fixture type decides which channels exist
+}
+
+void test_fixture_prefix_only_on_channel_and_stop_commands() {
+  const Command off = parseCommand("f2 off");
+  TEST_ASSERT_EQUAL(CommandType::Off, off.type);
+  TEST_ASSERT_EQUAL_UINT8(2, off.fixture);
+  const Command zero = parseCommand("f4 0");
+  TEST_ASSERT_EQUAL(CommandType::Blackout, zero.type);
+  TEST_ASSERT_EQUAL_UINT8(4, zero.fixture);
+  const char* bad[] = {"f5 7 40", "f0 7 40", "f2", "f2 hb", "f1 auth 123456", "f2 cal start", "f2 preset load 1", "f 7 40",
+                       "f12 7 40"};
+  for (const char* line : bad) {
+    TEST_ASSERT_EQUAL_MESSAGE(CommandType::Invalid, typeOf(line), line);
+  }
 }
 
 void test_simple_words_are_case_insensitive() {
   TEST_ASSERT_EQUAL(CommandType::Blackout, typeOf("0"));
-  TEST_ASSERT_EQUAL(CommandType::LaserOff, typeOf("OFF"));
+  TEST_ASSERT_EQUAL(CommandType::Off, typeOf("OFF"));
   TEST_ASSERT_EQUAL(CommandType::Heartbeat, typeOf("hb"));
   TEST_ASSERT_EQUAL(CommandType::Status, typeOf("?"));
   TEST_ASSERT_EQUAL(CommandType::Logout, typeOf("Logout"));
@@ -49,11 +68,23 @@ void test_bad_pins_are_invalid() {
 }
 
 void test_admin_settings_commands() {
-  const Command addr = parseCommand("addr 503");
-  TEST_ASSERT_EQUAL(CommandType::SetAddress, addr.type);
-  TEST_ASSERT_EQUAL_UINT16(503, addr.value);
-  TEST_ASSERT_EQUAL(CommandType::Invalid, typeOf("addr 504"));
-  TEST_ASSERT_EQUAL(CommandType::Invalid, typeOf("addr 0"));
+  const Command head = parseCommand("patch 2 head 11");
+  TEST_ASSERT_EQUAL(CommandType::SetPatch, head.type);
+  TEST_ASSERT_EQUAL_UINT8(2, head.fixture);
+  TEST_ASSERT_EQUAL(FixtureType::Head, head.fixtureType);
+  TEST_ASSERT_EQUAL_UINT16(11, head.address);
+  const Command laser = parseCommand("PATCH 1 Laser 503");
+  TEST_ASSERT_EQUAL(FixtureType::Laser, laser.fixtureType);
+  TEST_ASSERT_EQUAL_UINT16(503, laser.address);
+  const Command none = parseCommand("patch 4 none");
+  TEST_ASSERT_EQUAL(CommandType::SetPatch, none.type);
+  TEST_ASSERT_EQUAL(FixtureType::None, none.fixtureType);
+  // Footprint checks (does it fit, does it overlap) are the controller's job.
+  const char* bad[] = {"patch 5 head 1", "patch 0 head 1", "patch 2 head", "patch 2 lamp 1", "patch 2 none 4",
+                       "patch 2 head 0", "patch 2 head 513", "patch", "addr 20"};
+  for (const char* line : bad) {
+    TEST_ASSERT_EQUAL_MESSAGE(CommandType::Invalid, typeOf(line), line);
+  }
   TEST_ASSERT_EQUAL(CommandType::Invalid, typeOf("auto on"));  // auto/sound removed (rule 7)
   TEST_ASSERT_EQUAL(CommandType::Invalid, typeOf("auto off"));
 }
@@ -83,7 +114,7 @@ void test_calibration_commands() {
 }
 
 void test_malformed_lines_are_invalid() {
-  const char* bad[] = {"", "   ", "7", "0 5", "11 5", "7 256", "7 -1", "-7 1", "7 40 1", "a b", "7 4x", "7x 4",
+  const char* bad[] = {"", "   ", "7", "0 5", "20 5", "7 256", "7 -1", "-7 1", "7 40 1", "a b", "7 4x", "7x 4",
                        "1000 1", "on", "7,40", "0x7 40", "cal", "cal go", "lim mark low", "lim", "a b c d e"};
   for (const char* line : bad) {
     TEST_ASSERT_EQUAL_MESSAGE(CommandType::Invalid, typeOf(line), line);
@@ -102,11 +133,11 @@ void test_valid_pin_format() {
 
 void test_admin_classification() {
   TEST_ASSERT_FALSE(isAdminCommand(CommandType::SetChannel));
-  TEST_ASSERT_FALSE(isAdminCommand(CommandType::LaserOff));
+  TEST_ASSERT_FALSE(isAdminCommand(CommandType::Off));
   TEST_ASSERT_FALSE(isAdminCommand(CommandType::Blackout));
   TEST_ASSERT_FALSE(isAdminCommand(CommandType::Auth));
   TEST_ASSERT_TRUE(isAdminCommand(CommandType::CalStart));
-  TEST_ASSERT_TRUE(isAdminCommand(CommandType::SetAddress));
+  TEST_ASSERT_TRUE(isAdminCommand(CommandType::SetPatch));
   TEST_ASSERT_TRUE(isAdminCommand(CommandType::LimSave));
   TEST_ASSERT_TRUE(isAdminCommand(CommandType::PinReset));
   TEST_ASSERT_TRUE(isAdminCommand(CommandType::DbgStart));
@@ -168,6 +199,7 @@ void test_max_steps_and_line_length() {
 int runAllTests() {
   UNITY_BEGIN();
   RUN_TEST(test_channel_value_pairs);
+  RUN_TEST(test_fixture_prefix_only_on_channel_and_stop_commands);
   RUN_TEST(test_simple_words_are_case_insensitive);
   RUN_TEST(test_auth_and_pin_commands);
   RUN_TEST(test_bad_pins_are_invalid);

@@ -84,7 +84,7 @@ laser::Outcome SharedLaserState::presetDeleted(uint16_t slot) {
   return outcome;
 }
 
-FrameOutput SharedLaserState::frameTick(bool isStopLevelLow) {
+laser::Universe SharedLaserState::frameTick(bool isStopLevelLow) {
   portENTER_CRITICAL(&mux_);
   const bool wasHeld = ctx_.button.isHeld;
   const laser::CalPhase oldPhase = ctx_.cal.phase;
@@ -103,9 +103,9 @@ FrameOutput SharedLaserState::frameTick(bool isStopLevelLow) {
       wasPlaying != ctx_.playback.isPlaying || oldShowStep != ctx_.playback.step) {
     ++revision_;
   }
-  const FrameOutput frame{laser::frameFor(ctx_), ctx_.settings.dmxAddress};
+  const laser::Universe universe = laser::buildUniverse(ctx_);
   portEXIT_CRITICAL(&mux_);
-  return frame;
+  return universe;
 }
 
 laser::Context SharedLaserState::snapshot(uint32_t* nowMs) const {
