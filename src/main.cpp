@@ -1,7 +1,7 @@
-// ESP32 DMX controller for an RGB pattern laser. See CLAUDE.md.
-// Stage 3 step 1: runtime venue limits with PIN-protected calibration, IO0 stop
-// button, settings that survive reflashes, and settings that keep running when
-// phones leave. All safety logic lives in lib/laser_core (host-tested).
+// ESP32 DMX controller for an RGB pattern laser. See README.md and docs/.
+// Runtime venue limits with PIN-protected calibration, presets and shows that
+// play without a phone, an IO0 stop button, and settings that survive reflashes.
+// All safety logic lives in lib/laser_core (host-tested).
 
 #include <Arduino.h>
 
@@ -37,7 +37,7 @@ bool isLedLit = false;
 void printBanner(const settings_store::LoadResult& loaded) {
   const laser::Limits& l = loaded.settings.limits;
   Serial.println();
-  Serial.println("dmx-controller stage 3 step 1 (limits + /admin + debug + IO0 stop)");
+  Serial.println("schuwe-lichten DMX controller (height limit, presets, shows, /admin, IO0 stop)");
   if (loaded.wasReset) {
     Serial.println("WARNING: saved settings were invalid; uncalibrated defaults loaded. Calibrate again in /admin.");
   }

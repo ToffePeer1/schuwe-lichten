@@ -927,7 +927,7 @@ function renderSide() {
   const prog = $('nowProg');
   prog.hidden = true;
   $('nowSwatch').hidden = true;
-  if (!isOpen || !st) { setNow('Laser', 'Geen verbinding', 'Zit deze telefoon op de wifi Laser-Controller?'); return; }
+  if (!isOpen || !st) { setNow('Laser', 'Geen verbinding', 'Zit deze telefoon op de wifi van de lasercontroller?'); return; }
   if (st.stopHeld) { setNow('Stopknop', 'IO0 ingedrukt', 'De laser blijft uit tot je hem loslaat.', 'n-stop'); return; }
   if (st.cal) {
     const debug = st.cal.phase === 'debug';
