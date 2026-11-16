@@ -106,6 +106,11 @@ input[type=range] { flex: 1; min-width: 0; height: 30px; margin: 0; accent-color
 .beheer { flex: none; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; font: 700 12.5px var(--sans); color: var(--muted); text-decoration: none; }
 .beheer::after { content: "›"; font-size: 15px; line-height: 1; }
 .beheer:active { color: var(--text); }
+.sidefoot { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.sidefoot .beheer { min-height: 0; }
+.lang { flex: none; display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.lang button { font: 800 11px/1 var(--sans); letter-spacing: .06em; background: none; border: 0; color: var(--faint); padding: 7px 12px; min-height: 30px; }
+.lang button.on { background: var(--raised); color: var(--text); }
 
 /* ---- body + views ---- */
 .body { flex: 1; min-height: 0; position: relative; }
@@ -305,7 +310,8 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
   .now .prog { margin-top: 5px; }
   #saveBtn { flex: 1 1 0; }
   .big-off { flex: 1.3 1 0; min-height: 56px; font-size: 26px; }
-  .beheer { flex: 0 0 auto; padding: 0 4px; }
+  .sidefoot { flex: 0 0 auto; }
+  .beheer { padding: 0 4px; }
   .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 132px; }
   .empty { grid-column: 1 / -1; }
   .builder, .sheet { grid-template-columns: minmax(0, 1fr); grid-template-rows: 112px minmax(0, 1fr) auto; }
@@ -329,11 +335,11 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
 <div class="app">
   <div class="main">
     <header class="top">
-      <nav class="nav" id="nav" aria-label="Onderdelen">
-        <button type="button" data-tab="presets" class="on">Presets</button>
-        <button type="button" data-tab="shows">Shows</button>
-        <button type="button" data-tab="desk">Lichttafel</button>
-        <button type="button" data-tab="guide">Uitleg</button>
+      <nav class="nav" id="nav" aria-label="Onderdelen" data-t-aria="nav.aria">
+        <button type="button" data-tab="presets" class="on" data-t="nav.presets">Presets</button>
+        <button type="button" data-tab="shows" data-t="nav.shows">Shows</button>
+        <button type="button" data-tab="desk" data-t="nav.desk">Lichttafel</button>
+        <button type="button" data-tab="guide" data-t="nav.guide">Uitleg</button>
       </nav>
       <span class="spacer"></span>
       <button type="button" class="tabact lockable" id="tabAction" hidden></button>
@@ -342,64 +348,64 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
 
     <div class="banners" id="banners" hidden>
       <div class="banner danger" id="sessionBanner" role="status" hidden></div>
-      <div class="banner danger" id="stopBanner" role="status" hidden>Stopknop (IO0) ingedrukt: de laser blijft uit tot je hem loslaat.</div>
-      <div class="banner warn" id="noLaserBanner" hidden>Er staat geen laser in de patch. Voeg hem toe in <a href="/admin">Beheer</a> → Instellingen.</div>
-      <div class="banner warn" id="uncalBanner" hidden><span id="uncalText"></span> <a href="/admin">Naar Beheer</a></div>
-      <div class="banner warn" id="libraryBanner" hidden>De opgeslagen presets en shows waren beschadigd en zijn leeggemaakt. Maak ze opnieuw.</div>
+      <div class="banner danger" id="stopBanner" role="status" hidden data-t="banner.stop">Stopknop (IO0) ingedrukt: de laser blijft uit tot je hem loslaat.</div>
+      <div class="banner warn" id="noLaserBanner" hidden><span data-t="banner.noLaser">Er staat geen laser in de patch. Voeg hem toe in</span> <a href="/admin" data-t="side.admin">Beheer</a> <span data-t="banner.noLaserEnd">→ Instellingen.</span></div>
+      <div class="banner warn" id="uncalBanner" hidden><span id="uncalText"></span> <a href="/admin" data-t="banner.toAdmin">Naar Beheer</a></div>
+      <div class="banner warn" id="libraryBanner" hidden data-t="banner.library">De opgeslagen presets en shows waren beschadigd en zijn leeggemaakt. Maak ze opnieuw.</div>
     </div>
 
-    <div class="toast" id="msg" role="status" aria-live="polite" hidden><span id="msgText"></span><button type="button" id="msgClose" aria-label="Melding sluiten">✕</button></div>
+    <div class="toast" id="msg" role="status" aria-live="polite" hidden><span id="msgText"></span><button type="button" id="msgClose" aria-label="Melding sluiten" data-t-aria="msg.close">✕</button></div>
 
     <div class="body" id="body">
       <section class="view" id="view-presets"><div class="tiles lockable" id="tiles"></div></section>
       <section class="view" id="view-shows" hidden><div class="shows lockable" id="shows"></div></section>
-      <section class="view" id="view-desk" hidden><div class="desk lockable" id="desk" role="group" aria-label="Lichttafel"></div></section>
-      <section class="view" id="view-guide" hidden><div class="guide"><nav class="gnav" id="gnav" aria-label="Uitleg"></nav><article class="garticle" id="garticle"></article></div></section>
+      <section class="view" id="view-desk" hidden><div class="desk lockable" id="desk" role="group" aria-label="Lichttafel" data-t-aria="nav.desk"></div></section>
+      <section class="view" id="view-guide" hidden><div class="guide"><nav class="gnav" id="gnav" aria-label="Uitleg" data-t-aria="nav.guide"></nav><article class="garticle" id="garticle"></article></div></section>
 
-      <section class="overlay builder" id="builder" hidden aria-label="Snelbouwer">
+      <section class="overlay builder" id="builder" hidden aria-label="Snelbouwer" data-t-aria="builder.title">
         <div class="prev">
           <canvas id="bCanvas"></canvas>
           <div class="cap"><div class="pn" id="bLook">Kies een vorm</div><p class="st" id="bStatus"></p></div>
         </div>
         <div class="bform lockable">
-          <div class="btabs" id="bTabs" role="tablist" aria-label="Onderdelen van de look"></div>
+          <div class="btabs" id="bTabs" role="tablist" aria-label="Onderdelen van de look" data-t-aria="builder.tabsAria"></div>
           <div class="bpane" id="bPane"></div>
         </div>
         <div class="bfoot lockable">
-          <input class="field" id="bName" type="text" maxlength="32" autocomplete="off" enterkeyhint="done" aria-label="Naam van de preset">
-          <button type="button" class="btn" id="bCancel">Annuleren</button>
-          <button type="button" class="btn light" id="bSave">Opslaan</button>
+          <input class="field" id="bName" type="text" maxlength="32" autocomplete="off" enterkeyhint="done" aria-label="Naam van de preset" data-t-aria="builder.nameAria">
+          <button type="button" class="btn" id="bCancel" data-t="common.cancel">Annuleren</button>
+          <button type="button" class="btn light" id="bSave" data-t="common.save">Opslaan</button>
         </div>
       </section>
 
-      <section class="overlay sheet" id="sheet" hidden aria-label="Bewaar als preset">
+      <section class="overlay sheet" id="sheet" hidden aria-label="Bewaar als preset" data-t-aria="sheet.title">
         <div class="prev">
           <canvas id="sCanvas"></canvas>
           <div class="cap"><div class="pn" id="sLook">–</div><p class="st" id="sLookMeta"></p></div>
         </div>
         <div class="sform lockable">
-          <div class="label">Bewaar als preset</div>
-          <div class="ttl">Hoe heet deze look?</div>
-          <input class="field" id="sName" type="text" maxlength="32" autocomplete="off" enterkeyhint="done" aria-label="Naam van de preset">
+          <div class="label" data-t="sheet.title">Bewaar als preset</div>
+          <div class="ttl" data-t="sheet.question">Hoe heet deze look?</div>
+          <input class="field" id="sName" type="text" maxlength="32" autocomplete="off" enterkeyhint="done" aria-label="Naam van de preset" data-t-aria="builder.nameAria">
           <p class="hint" id="sHint"></p>
           <div class="sfoot">
-            <button type="button" class="btn" id="sCancel">Annuleren</button>
-            <button type="button" class="btn light" id="sSave">Opslaan</button>
+            <button type="button" class="btn" id="sCancel" data-t="common.cancel">Annuleren</button>
+            <button type="button" class="btn light" id="sSave" data-t="common.save">Opslaan</button>
           </div>
         </div>
       </section>
 
-      <section class="overlay editor" id="editor" hidden aria-label="Show bewerken">
+      <section class="overlay editor" id="editor" hidden aria-label="Show bewerken" data-t-aria="editor.aria">
         <div class="edtop lockable">
-          <input class="field" id="eName" type="text" maxlength="32" autocomplete="off" enterkeyhint="done" placeholder="Naam van de show" aria-label="Naam van de show">
-          <button type="button" class="btn" id="eCancel">Annuleren</button>
+          <input class="field" id="eName" type="text" maxlength="32" autocomplete="off" enterkeyhint="done" placeholder="Naam van de show" aria-label="Naam van de show" data-t-ph="editor.name" data-t-aria="editor.name">
+          <button type="button" class="btn" id="eCancel" data-t="common.cancel">Annuleren</button>
           <button type="button" class="btn" id="eDelete">Verwijderen</button>
-          <button type="button" class="btn light" id="eSave">Opslaan</button>
+          <button type="button" class="btn light" id="eSave" data-t="common.save">Opslaan</button>
         </div>
         <div class="edinfo"><span class="label" id="eCount">0 stappen</span><span class="hint" id="eTotal"></span></div>
         <div class="edsteps lockable" id="eSteps"></div>
         <div class="picker" id="ePicker" hidden>
-          <div class="pickhead"><span class="label">Kies de preset voor de nieuwe stap</span><button type="button" class="btn" id="ePickBack">Terug</button></div>
+          <div class="pickhead"><span class="label" data-t="editor.pick">Kies de preset voor de nieuwe stap</span><button type="button" class="btn" id="ePickBack" data-t="common.back">Terug</button></div>
           <div class="pickgrid" id="ePickGrid"></div>
         </div>
       </section>
@@ -414,9 +420,14 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
       <div class="prog" id="nowProg" hidden></div>
       <div class="sw" id="nowSwatch"></div>
     </div>
-    <button type="button" class="btn lockable" id="saveBtn">＋ Bewaar als preset</button>
-    <button type="button" class="big-off" id="offBtn">UIT</button>
-    <a class="beheer" id="adminLink" href="/admin">Beheer</a>
+    <button type="button" class="btn lockable" id="saveBtn" data-t="side.save">＋ Bewaar als preset</button>
+    <button type="button" class="big-off" id="offBtn" data-t="side.off">UIT</button>
+    <div class="sidefoot">
+      <a class="beheer" id="adminLink" href="/admin" data-t="side.admin">Beheer</a>
+      <div class="lang" id="langSwitch" role="group" aria-label="Taal / Language">
+        <button type="button" data-lang="nl" lang="nl">NL</button><button type="button" data-lang="en" lang="en">EN</button>
+      </div>
+    </div>
   </aside>
 </div>
 
@@ -426,6 +437,770 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
 // clamp, no auto/sound, no laser before calibration, every stop); this page makes
 // presets, shows and the desk easy. It never re-sends anything after a reconnect, and
 // closing the socket when the page is hidden only frees a slot: the laser keeps running.
+
+// ---- language: NL or EN, stored per phone and shared by both pages ----
+const LANG_KEY = 'lang';
+function detectLang() {
+  try {
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved === 'nl' || saved === 'en') return saved;
+  } catch (e) { /* storage blocked: fall back to the phone's language */ }
+  return /^nl\b/i.test(navigator.language || '') ? 'nl' : 'en';
+}
+let lang = detectLang();
+const STR = {
+  nl: {
+    'doc.title': 'Laser',
+    'nav.aria': 'Onderdelen',
+    'nav.presets': 'Presets',
+    'nav.shows': 'Shows',
+    'nav.desk': 'Lichttafel',
+    'nav.guide': 'Uitleg',
+    'nav.done': 'Klaar',
+    'nav.newShow': '＋ Nieuwe show',
+    'common.edit': 'Bewerken',
+    'common.cancel': 'Annuleren',
+    'common.save': 'Opslaan',
+    'common.delete': 'Verwijderen',
+    'common.back': 'Terug',
+    'conn.connecting': 'Verbinden…',
+    'conn.connected': 'Verbonden',
+    'conn.lost': 'Geen verbinding',
+
+    'banner.stop': 'Stopknop (IO0) ingedrukt: de laser blijft uit tot je hem loslaat.',
+    'banner.noLaser': 'Er staat geen laser in de patch. Voeg hem toe in',
+    'banner.noLaserEnd': '→ Instellingen.',
+    'banner.toAdmin': 'Naar Beheer',
+    'banner.uncal': 'De laser kan pas aan na het instellen van de hoogtegrens.',
+    'banner.uncalReset': 'De instellingen waren beschadigd en zijn gewist. De laser kan pas aan na het instellen van de hoogtegrens.',
+    'banner.library': 'De opgeslagen presets en shows waren beschadigd en zijn leeggemaakt. Maak ze opnieuw.',
+    'banner.debug': 'DEBUG: geen begrenzing. De bediening is vergrendeld; UIT werkt altijd.',
+    'banner.cal': 'KALIBRATIE: begrenzing aangepast. De bediening is vergrendeld; UIT werkt altijd.',
+
+    'msg.close': 'Melding sluiten',
+    'msg.offline': 'Geen verbinding met de laser. Staat hij aan, gebruik dan de stopknop (IO0) of de schakelaar van de laser zelf.',
+    'msg.offUnconfirmed': 'De laser heeft UIT niet bevestigd. Gebruik de stopknop (IO0) of de schakelaar van de laser zelf.',
+    'msg.noAnswer': 'De laser gaf geen antwoord. Kijk of het gelukt is.',
+    'msg.presetSaved': '{name} is bewaard als preset.',
+    'msg.presetDeleted': '{name} is verwijderd.',
+    'msg.showSaved': 'Show {name} is bewaard.',
+    'msg.showDeleted': 'Show {name} is verwijderd.',
+    'msg.presetsFull': 'Alle {n} plekken zijn vol. Verwijder eerst een preset.',
+    'msg.showsFull': 'Alle {n} plekken voor shows zijn vol. Verwijder eerst een show.',
+    'msg.showsFullShort': 'Alle {n} plekken voor shows zijn vol.',
+
+    'side.laser': 'Laser',
+    'side.noConnHint': 'Zit deze telefoon op de wifi van de lasercontroller?',
+    'side.stopLabel': 'Stopknop',
+    'side.stopName': 'IO0 ingedrukt',
+    'side.stopHint': 'De laser blijft uit tot je hem loslaat.',
+    'side.debug': 'Debug',
+    'side.cal': 'Kalibratie',
+    'side.locked': 'Bediening vergrendeld',
+    'side.lockedHint': 'Met UIT stop je hem altijd.',
+    'side.noLaser': 'Geen laser',
+    'side.noLaserHint': 'Niet in de patch. Voeg hem toe in Beheer → Instellingen.',
+    'side.playing': 'Show loopt',
+    'side.playMeta': 'Stap {step}/{steps}: {preset} · nog {left} s',
+    'side.now': 'Nu',
+    'side.laserOff': 'Laser uit',
+    'side.startDesk': 'Tik ZET AAN bij Modus, of kies een preset.',
+    'side.startPreset': 'Tik een preset om te starten.',
+    'side.calFirst': 'Eerst de hoogtegrens instellen (Beheer).',
+    'side.presetMeta': 'Preset · {look}',
+    'side.custom': 'Eigen instelling',
+    'side.save': '＋ Bewaar als preset',
+    'side.off': 'UIT',
+    'side.admin': 'Beheer',
+
+    'look.spins': 'draait',
+    'look.flips': 'spiegelt',
+    'look.pulses': 'pulseert',
+    'look.zooms': 'zoomt',
+    'look.dots': 'punten',
+    'look.off': 'laser uit',
+    'pattern.n': 'Patroon {n}',
+
+    'tiles.newAria': 'Nieuwe preset maken',
+    'tiles.new': '＋ Nieuw',
+    'tiles.emptyTitle': 'Nog geen presets',
+    'tiles.emptyHint': 'Maak er een met ＋ Nieuw, of stel de laser in op de Lichttafel en tik ＋ Bewaar als preset.',
+    'tiles.start': '{name} starten',
+    'tiles.delete': '{name} verwijderen',
+    'tiles.now': 'NU',
+    'tiles.confirm': '{name} verwijderen?',
+    'tiles.busy': 'Bezig…',
+    'tiles.yes': 'Verwijder',
+    'tiles.no': 'Nee',
+
+    'builder.title': 'Snelbouwer',
+    'builder.tabsAria': 'Onderdelen van de look',
+    'builder.nameAria': 'Naam van de preset',
+    'builder.namePh': 'Naam',
+    'builder.pickShape': 'Kies een vorm',
+    'builder.tab.vorm': 'Vorm',
+    'builder.tab.kleur': 'Kleur',
+    'builder.tab.beweging': 'Beweging',
+    'builder.tab.grootte': 'Grootte',
+    'builder.tab.hoogte': 'Hoogte',
+    'builder.tab.lijnen': 'Lijnen',
+    'builder.choose': 'Kies',
+    'builder.pulses': 'Pulseert',
+    'builder.st.offline': 'Geen verbinding met de laser.',
+    'builder.st.session': 'Er loopt een kalibratie of debugsessie: even wachten.',
+    'builder.st.stop': 'De stopknop (IO0) is ingedrukt.',
+    'builder.st.uncal': 'De hoogtegrens is nog niet ingesteld: de laser blijft uit, en opslaan kan pas daarna.',
+    'builder.st.noShape': 'Er gaat pas iets naar de laser als je een vorm kiest.',
+    'builder.st.off': 'De laser is uit. Tik een keuze om hem weer aan te zetten; daarna kun je opslaan.',
+    'builder.st.live': 'Live op de laser. Elke keuze zie je meteen.',
+    'builder.loading': 'De tekeningen laden nog; kies zolang op nummer.',
+    'builder.mixAria': 'Welke mix (kanaal 9, 0 tot 63)',
+    'builder.mix': 'Mix',
+    'builder.mixNote': 'Een vaste losse kleur kan deze laser niet: 0–63 geeft steeds een mix van kleuren.',
+    'builder.moveNote': 'Draaien en spiegelen gebruiken een vaste snelheid; fijner afstellen kan op de Lichttafel.',
+    'builder.sizeValue': 'Kanaal 8 op {v}.',
+    'builder.sizePulse': 'Pulseren regelt de grootte zelf. Kies een andere beweging om een vaste grootte te kiezen.',
+    'builder.sizeNote': 'Een hogere waarde is kleiner: zo werkt deze laser.',
+    'builder.heightHigh': 'Kanaal 7 op {v} (hoogste stand).',
+    'builder.heightMid': 'Kanaal 7 op {v}.',
+    'builder.heightLow': 'Kanaal 7 op {v} (laagste stand).',
+    'builder.heightNote': 'Binnen jouw hoogtegrens ({low} tot {high}). De ESP32 houdt hem daar altijd binnen.',
+    'builder.heightNone': 'Er is nog geen hoogtegrens ingesteld.',
+    'builder.speedAria': 'Snelheid: links snel, rechts langzaam',
+    'builder.fast': 'Snel',
+    'builder.slow': 'Langzaam',
+    'builder.speedNote': 'Hoe hoger kanaal 10 binnen lijnen of punten, hoe langzamer de laser tekent.',
+    'color.mix.label': 'Mix',
+    'color.mix.short': 'Mix',
+    'color.mix.text': 'Meerdere kleuren tegelijk. De schuif kiest de mix.',
+    'color.cycle.label': 'Eén kleur, wisselend',
+    'color.cycle.short': 'Wisselend',
+    'color.cycle.text': 'Steeds één kleur, die wisselt.',
+    'color.all.label': 'Alle kleuren',
+    'color.all.short': 'Alle',
+    'color.all.text': 'Alle kleuren door elkaar, wisselend.',
+    'move.still.label': 'Stil',
+    'move.still.text': 'Staat stil.',
+    'move.spin.label': 'Draaien',
+    'move.spin.text': 'Draait rond.',
+    'move.flip.label': 'Spiegelen',
+    'move.flip.text': 'Klapt steeds om, links en rechts.',
+    'move.pulse.label': 'Pulseren',
+    'move.pulse.text': 'Wordt steeds groter en kleiner.',
+    'size.large': 'Groot',
+    'size.medium': 'Middel',
+    'size.small': 'Klein',
+    'height.high': 'Hoog',
+    'height.mid': 'Midden',
+    'height.low': 'Laag',
+    'dots.lines.label': 'Lijnen',
+    'dots.lines.text': 'Doorgetrokken lijnen.',
+    'dots.dots.label': 'Punten',
+    'dots.dots.text': 'Alleen puntjes.',
+
+    'sheet.title': 'Bewaar als preset',
+    'sheet.question': 'Hoe heet deze look?',
+    'sheet.asNow': 'Zoals de laser nu staat.',
+    'sheet.dark': 'Let op: de laser staat uit, dus deze preset is donker. Handig als pauze in een show.',
+    'sheet.hint': 'Bewaart alle 10 kanalen zoals de laser nu staat.',
+    'sheet.hintSlot': 'Bewaart alle 10 kanalen zoals de laser nu staat, op plek {slot} van {total}.',
+
+    'shows.emptyTitle': 'Nog geen shows',
+    'shows.emptyHint': 'Een show speelt presets na elkaar af, elk zo lang als jij wilt, en begint dan opnieuw. De ESP32 speelt hem zelf: je telefoon mag op slot of weg.',
+    'shows.needPresets': 'Maak eerst een paar presets.',
+    'shows.editAria': '{name} bewerken',
+    'shows.playAria': '{name} afspelen',
+    'shows.stopAria': '{name} stoppen',
+    'shows.playing': 'Speelt · stap {step}/{steps} · nog {left} s',
+    'shows.meta': '{steps} · {time} per ronde · blijft lopen zonder telefoon',
+    'steps.one': '{n} stap',
+    'steps.other': '{n} stappen',
+
+    'editor.aria': 'Show bewerken',
+    'editor.name': 'Naam van de show',
+    'editor.max': '{steps} (maximum)',
+    'editor.total': '{time} per ronde, daarna begint hij opnieuw.',
+    'editor.empty': 'Voeg minstens één stap toe.',
+    'editor.sure': 'Zeker? Tik nog eens',
+    'editor.add': '＋ Stap toevoegen',
+    'editor.gone': 'Preset {slot} (weg)',
+    'editor.secAria': 'Stap {n}: seconden',
+    'editor.shorter': 'Stap {n} korter',
+    'editor.longer': 'Stap {n} langer',
+    'editor.up': 'Stap {n} omhoog',
+    'editor.down': 'Stap {n} omlaag',
+    'editor.remove': 'Stap {n} weghalen',
+    'editor.pick': 'Kies de preset voor de nieuwe stap',
+    'editor.pickAria': '{name} als stap toevoegen',
+
+    'chan.1.short': 'MODUS',
+    'chan.1.name': 'Modus',
+    'chan.1.topic': 'Modus',
+    'chan.2.short': 'PATROON',
+    'chan.2.name': 'Patroon',
+    'chan.2.topic': 'Patroon',
+    'chan.3.short': 'ROTATIE',
+    'chan.3.name': 'Rotatie',
+    'chan.3.topic': 'Rotatie',
+    'chan.4.short': 'SPIEG-H',
+    'chan.4.name': 'Spiegelen horizontaal',
+    'chan.4.topic': 'Spiegelen H',
+    'chan.5.short': 'SPIEG-V',
+    'chan.5.name': 'Spiegelen verticaal',
+    'chan.5.topic': 'Spiegelen V',
+    'chan.6.short': 'POS-H',
+    'chan.6.name': 'Positie horizontaal',
+    'chan.6.topic': 'Positie H',
+    'chan.7.short': 'POS-V',
+    'chan.7.name': 'Positie verticaal',
+    'chan.7.topic': 'Positie V',
+    'chan.8.short': 'GROOTTE',
+    'chan.8.name': 'Grootte',
+    'chan.8.topic': 'Grootte',
+    'chan.9.short': 'KLEUR',
+    'chan.9.name': 'Kleur',
+    'chan.9.topic': 'Kleur',
+    'chan.10.short': 'PUNTEN',
+    'chan.10.name': 'Lijnen of punten',
+    'chan.10.topic': 'Lijnen / punten',
+
+    'desk.helpAria': '{name}: uitleg',
+    'desk.trackAria': 'Kanaal {n}: {name}',
+    'desk.prev': 'Vorig patroon',
+    'desk.next': 'Volgend patroon',
+    'desk.power': 'Laser aan of uit',
+    'desk.on': 'AAN',
+    'desk.turnOn': 'ZET AAN',
+    'desk.tipAria': 'Uitleg {name}',
+    'desk.tipClose': 'Uitleg sluiten',
+    'desk.more': 'Meer in Uitleg →',
+    'zone.on': 'Aan',
+    'zone.off': 'Uit',
+    'zone.noLimit': 'Geen grens',
+    'zone.lowest': 'Laagst',
+    'zone.highest': 'Hoogst',
+    'zone.height': 'Hoogte',
+    'zone.angle': 'Hoek',
+    'zone.spinFwd': 'Draait →',
+    'zone.spinRev': 'Draait ←',
+    'zone.fixed': 'Stand',
+    'zone.flips': 'Spiegelt',
+    'zone.center': 'Midden',
+    'zone.left': 'Links',
+    'zone.moves': 'Beweegt',
+    'zone.sizeFixed': 'Vast',
+    'zone.grows': 'Groeit',
+    'zone.shrinks': 'Krimpt',
+    'zone.pulses': 'Pulseert',
+    'zone.mix': 'Mix',
+    'zone.mix2': 'Mix 2',
+    'zone.cycles': 'Wisselt',
+    'zone.allColors': 'Alle kleuren',
+    'zone.lines': 'Lijnen',
+    'zone.dots': 'Punten',
+    'zone.fast': 'snel',
+    'zone.medium': 'middel',
+    'zone.slow': 'traag',
+
+    'guide.test': 'TESTEN',
+    'guide.basis.title': 'Zo werkt het',
+    'guide.basis.p1': 'Je telefoon praat via **de wifi van de ESP32** met de ESP32. Die stuurt de laser 40 keer per seconde aan via de DMX-kabel: 10 kanalen, vanaf zijn DMX-adres (standaard 1).',
+    'guide.basis.p2': '**Presets** zijn opgeslagen looks van alle 10 kanalen. Tik een tegel en de laser laat hem zien. Een nieuwe maak je met ＋ Nieuw (de snelbouwer), of stel de laser in op de Lichttafel en tik ＋ Bewaar als preset.',
+    'guide.basis.p3': '**Shows** spelen presets na elkaar, elk zo lang als jij wilt, en beginnen dan opnieuw. De ESP32 speelt de show zelf: je telefoon mag op slot, naar een andere app of van de wifi.',
+    'guide.basis.p4': '**Lichttafel**: alle 10 kanalen met de hand. Tik op een naam voor uitleg. Een schuif bewegen neemt het over van een lopende show.',
+    'guide.basis.p5': '**Beheer** (met pincode): de hoogtegrens instellen, kanalen uitproberen in Debug, het DMX-adres en de pincode.',
+    'guide.basis.p6': '[TEST] betekent: nog niet op de echte laser bevestigd. Probeer het uit in Beheer → Debug.',
+    'guide.veilig.title': 'Veiligheid',
+    'guide.veilig.p1': '**UIT** zet de laser meteen uit, vanaf elke telefoon, ook tijdens een show, kalibratie of debugsessie.',
+    'guide.veilig.p2': 'De stopknop **IO0** op de ESP32 doet hetzelfde zonder telefoon. Zolang je hem inhoudt blijft alles uit; loslaten zet niets terug aan.',
+    'guide.veilig.p3': 'De ESP32 houdt de straal binnen de hoogtegrens en de zijgrens, ook in presets en shows, in elk DMX-pakket opnieuw.',
+    'guide.veilig.p4': 'Zonder ingestelde grens kan de laser niet aan. Na een herstart is hij uit, en een show start nooit vanzelf.',
+    'guide.veilig.p5': 'De automatische en geluidsmodus van de laser zijn uitgeschakeld: die negeren de hoogtegrens.',
+    'guide.veilig.warn': 'IO0 is een handige stop, geen noodstop. De echte uitknop is de schakelaar van de laser zelf. Richt de laser nooit op mensen.',
+    'guide.pic.star': '#21 Ster',
+    'guide.pic.heart': '#25 Hart',
+    'guide.pic.zigzag': '#49 Zigzag',
+    'guide.pic.straight': '0: recht',
+    'guide.pic.diamond': '64: ruit',
+    'guide.pic.large': '0: groot',
+    'guide.pic.small': '60: klein',
+    'guide.side.full': 'De zijgrens staat op volle breedte (0–127): de schuif loopt over 0–127 en de automatische beweging is geblokkeerd.',
+    'guide.side.range': 'De schuif loopt over jouw zijgrens: {lo} tot {hi}.',
+    'guide.side.none': 'Er is geen zijgrens: de schuif loopt over 0–255.',
+    'guide.ch1.what': 'Zet de laser aan of uit: tik op de schakelaar. Zo zet je hem ook weer aan na UIT, zonder eerst een preset te kiezen.',
+    'guide.ch1.z0': 'Uit: donker.',
+    'guide.ch1.z1': 'Aan (handmatig): de andere kanalen bepalen wat je ziet. De schakelaar zet 96.',
+    'guide.ch1.z2': 'Automatisch en geluid: uitgeschakeld. Daar negeert de laser de hoogtegrens, dus de ESP32 stuurt dan 0.',
+    'guide.ch1.note': 'Aan kan pas als de hoogtegrens is ingesteld (Beheer).',
+    'guide.ch2.what': 'Welke vorm de laser tekent. Er zijn 51 patronen, ongeveer elke 5 stappen een volgende (#1 = 0–4). De namen en tekeningen zijn van jou.',
+    'guide.ch2.z0': 'De schuif klikt van patroon naar patroon.',
+    'guide.ch2.note': '#48 is precies hetzelfde als #47, en staat daarom niet in de kiezers. Geen enkel patroon beweegt uit zichzelf.',
+    'guide.ch3.what': 'Draait het patroon, zoals een wijzer van de klok.',
+    'guide.ch3.z0': 'Vaste hoek. Op 64 wordt #1 Vierkant een ruit.',
+    'guide.ch3.z1': 'Draait rond, de ene kant op.',
+    'guide.ch3.z2': 'Draait rond, de andere kant op.',
+    'guide.ch3.warn': 'Gedraaid komt het patroon lager dan recht. Daarom meet je de hoogtegrens met de ruit of draaiend.',
+    'guide.ch3.note': 'Of een hogere waarde sneller draait, is nog niet getest.',
+    'guide.ch4.what': 'Spiegelt het patroon links↔rechts. Tussenstanden lijken in 3D om een staande as te draaien.',
+    'guide.ch5.what': 'Spiegelt het patroon boven↔onder. Tussenstanden lijken in 3D om een liggende as te draaien.',
+    'guide.flip.z0': 'Vaste stand.',
+    'guide.flip.z1': 'Blijft spiegelen; hoger = sneller (volgens de handleiding).',
+    'guide.ch6.what': 'Schuift het hele patroon opzij.',
+    'guide.ch6.z0': 'Midden: geen verschuiving.',
+    'guide.ch6.z1': 'Alleen naar links; hoger = verder.',
+    'guide.ch6.z2': 'Beweegt zelf heen en weer, ook naar rechts. Geblokkeerd zolang de zijgrens aan staat.',
+    'guide.ch6.note': 'Handmatig naar rechts is nog niet gevonden (misschien samen met horizontaal spiegelen).',
+    'guide.ch7.what': 'Schuift het patroon omhoog en omlaag. De schuif beslaat alleen jouw veilige bereik: onderaan {low} (laagste stand), bovenaan {high} (hoogste stand).',
+    'guide.ch7.whatNone': 'Schuift het patroon omhoog en omlaag. Er is nog geen hoogtegrens ingesteld, dus de laser kan nog niet aan.',
+    'guide.ch7.z0': 'Positie. Op 64 staat hij hoog (daar begint de kalibratie).',
+    'guide.ch7.z1': 'Doet iets anders; wat precies is nog onbekend.',
+    'guide.ch7.z2': 'Beweegt zelf op en neer: altijd geblokkeerd.',
+    'guide.ch7.warn': 'De ESP32 houdt de straal altijd binnen de grens, ook in presets en shows. De grens stel je per locatie in onder Beheer.',
+    'guide.ch7.note': 'Bij jouw opstelling is een hoger getal lager.',
+    'guide.ch8.what': 'Hoe groot het patroon is.',
+    'guide.ch8.z0': 'Vaste grootte. Hoger = KLEINER: 0 is het grootst.',
+    'guide.ch8.z1': 'Groeit steeds van klein naar groot.',
+    'guide.ch8.z2': 'Krimpt steeds van groot naar klein.',
+    'guide.ch8.z3': 'Pulseert: steeds groter en kleiner (zoomsnelheid).',
+    'guide.ch8.note': 'De zoomcirkels (#17, #29 en #30) veranderen alleen van grootte met dit kanaal.',
+    'guide.ch9.what': 'De kleur. Eén vaste losse kleur kiezen kan deze laser niet.',
+    'guide.ch9.z0': 'Mix: meerdere kleuren tegelijk. De waarde kiest de mix.',
+    'guide.ch9.z1': 'Volgens de handleiding ook mengen; het verschil met 0–63 is nog onbekend.',
+    'guide.ch9.z2': 'Eén kleur tegelijk, die steeds wisselt.',
+    'guide.ch9.z3': 'Alle kleuren, steeds wisselend.',
+    'guide.ch9.note': 'Of de waarde binnen 128–255 de wisselsnelheid regelt, is nog niet getest.',
+    'guide.ch10.what': 'Doorgetrokken lijnen of alleen puntjes, en hoe snel de laser tekent.',
+    'guide.ch10.z0': 'Lijnen. 0 is het snelst; hoger = langzamer.',
+    'guide.ch10.z1': 'Alleen punten. 128 is het snelst; hoger = langzamer.',
+
+    'err.bad-command': 'De laser begreep die opdracht niet.',
+    'err.not-admin': 'Daarvoor moet je ingelogd zijn op Beheer.',
+    'err.serial-only': 'Dat kan alleen via de USB-kabel (seriële console).',
+    'err.calibration-busy': 'Er loopt een kalibratie of debugsessie: de bediening is vergrendeld. Met UIT stop je die altijd.',
+    'err.not-owner': 'Een ander apparaat bedient die sessie.',
+    'err.stop-held': 'De stopknop (IO0) is ingedrukt. Laat hem eerst los.',
+    'err.auto-blocked': 'Die modus is uitgeschakeld: hij negeert de hoogtegrens.',
+    'err.not-calibrated': 'De laser kan pas aan na het instellen van de hoogtegrens (Beheer).',
+    'err.wrong-phase': 'Dat kan niet in deze stap.',
+    'err.need-worst-case-look': 'Markeren kan alleen in Ruit of Draaien.',
+    'err.need-both-marks': 'Markeer eerst de laagste en de hoogste stand.',
+    'err.need-horizontal-marks': 'Markeer ook links en rechts, of zet de zijgrens uit.',
+    'err.equal-ends': 'De twee standen zijn gelijk.',
+    'err.bad-pin': 'Pincode klopt niet.',
+    'err.locked': 'Te veel verkeerde pincodes. Wacht even.',
+    'err.not-calibrating': 'Er loopt geen kalibratie of debugsessie.',
+    'err.save-failed': 'Opslaan is mislukt, er is niets veranderd. Probeer het opnieuw.',
+    'err.bad-slot': 'Die plek bestaat niet.',
+    'err.empty-slot': 'Die plek is leeg: misschien heeft iemand anders hem net verwijderd.',
+    'err.bad-name': 'Die naam kan niet: 1 tot 32 tekens, zonder " of \\.',
+    'err.bad-steps': 'De show klopt niet: 1 tot 24 stappen, elk met een bestaande preset en 0,1 tot 600 seconden.',
+    'err.preset-in-use': 'Deze preset zit in een show. Haal hem daar eerst uit.',
+    'err.no-fixture': 'Er staat geen laser in de patch. Voeg hem toe in Beheer → Instellingen.',
+    'err.bad-patch': 'Dat past niet in de patch: lampen mogen niet overlappen of voorbij kanaal 512 lopen, en er mag maar één laser zijn.',
+    'err.inUse.one': '{name} zit nog in de show {shows}. Haal hem daar eerst uit.',
+    'err.inUse.other': '{name} zit nog in de shows {shows}. Haal hem daar eerst uit.',
+    'err.unknown': 'Fout van de laser: {code}',
+    'stop.button': 'Stopknop (IO0) ingedrukt: de laser is uit.',
+    'stop.off': 'UIT ingedrukt: de laser is uit.',
+    'stop.blackout': 'Alles is op 0 gezet: de laser is uit.',
+    'stop.calibration-stopped': 'Kalibratie of debugsessie gestopt: de laser is uit.',
+    'stop.calibration-timeout': 'Kalibratie of debugsessie gestopt (verbinding weg): de laser is uit.',
+    'stop.calibration-owner-left': 'Kalibratie of debugsessie gestopt (telefoon weg): de laser is uit.',
+    'stop.patch-changed': 'De patch (DMX-adressen) is gewijzigd: alles is uit. Is de laser verplaatst, dan moet de hoogtegrens opnieuw worden ingesteld.',
+    'stop.calibration-saved': 'Nieuwe hoogtegrens opgeslagen: de laser is uit.',
+    'stop.debug-stopped': 'Debugsessie gestopt: de laser is uit.',
+    'stop.unknown': 'De laser is gestopt ({reason}).',
+    'fmt.decimal': ',',
+    'fmt.and': 'en',
+  },
+  en: {
+    'doc.title': 'Laser',
+    'nav.aria': 'Sections',
+    'nav.presets': 'Presets',
+    'nav.shows': 'Shows',
+    'nav.desk': 'Desk',
+    'nav.guide': 'Guide',
+    'nav.done': 'Done',
+    'nav.newShow': '＋ New show',
+    'common.edit': 'Edit',
+    'common.cancel': 'Cancel',
+    'common.save': 'Save',
+    'common.delete': 'Delete',
+    'common.back': 'Back',
+    'conn.connecting': 'Connecting…',
+    'conn.connected': 'Connected',
+    'conn.lost': 'No connection',
+
+    'banner.stop': 'Stop button (IO0) pressed: the laser stays off until you release it.',
+    'banner.noLaser': 'There is no laser in the patch. Add it in',
+    'banner.noLaserEnd': '→ Settings.',
+    'banner.toAdmin': 'Go to Admin',
+    'banner.uncal': "The laser can't turn on until the height limit is set.",
+    'banner.uncalReset': "The settings were corrupted and have been erased. The laser can't turn on until the height limit is set.",
+    'banner.library': 'The saved presets and shows were corrupted and have been cleared. Please make them again.',
+    'banner.debug': 'DEBUG: no limits. The controls are locked; OFF always works.',
+    'banner.cal': 'CALIBRATION: limits adjusted. The controls are locked; OFF always works.',
+
+    'msg.close': 'Close message',
+    'msg.offline': "No connection to the laser. If it is on, use the stop button (IO0) or the laser's own switch.",
+    'msg.offUnconfirmed': "The laser did not confirm OFF. Use the stop button (IO0) or the laser's own switch.",
+    'msg.noAnswer': 'The laser did not answer. Check whether it worked.',
+    'msg.presetSaved': '{name} was saved as a preset.',
+    'msg.presetDeleted': '{name} was deleted.',
+    'msg.showSaved': 'Show {name} was saved.',
+    'msg.showDeleted': 'Show {name} was deleted.',
+    'msg.presetsFull': 'All {n} slots are full. Delete a preset first.',
+    'msg.showsFull': 'All {n} show slots are full. Delete a show first.',
+    'msg.showsFullShort': 'All {n} show slots are full.',
+
+    'side.laser': 'Laser',
+    'side.noConnHint': "Is this phone on the laser controller's WiFi?",
+    'side.stopLabel': 'Stop button',
+    'side.stopName': 'IO0 pressed',
+    'side.stopHint': 'The laser stays off until you release the button.',
+    'side.debug': 'Debug',
+    'side.cal': 'Calibration',
+    'side.locked': 'Controls locked',
+    'side.lockedHint': 'OFF always stops it.',
+    'side.noLaser': 'No laser',
+    'side.noLaserHint': 'Not in the patch. Add it in Admin → Settings.',
+    'side.playing': 'Show playing',
+    'side.playMeta': 'Step {step}/{steps}: {preset} · {left} s left',
+    'side.now': 'Now',
+    'side.laserOff': 'Laser off',
+    'side.startDesk': 'Tap TURN ON under Mode, or pick a preset.',
+    'side.startPreset': 'Tap a preset to start.',
+    'side.calFirst': 'Set the height limit first (Admin).',
+    'side.presetMeta': 'Preset · {look}',
+    'side.custom': 'Custom look',
+    'side.save': '＋ Save as preset',
+    'side.off': 'OFF',
+    'side.admin': 'Admin',
+
+    'look.spins': 'spinning',
+    'look.flips': 'flipping',
+    'look.pulses': 'pulsing',
+    'look.zooms': 'zooming',
+    'look.dots': 'dots',
+    'look.off': 'laser off',
+    'pattern.n': 'Pattern {n}',
+
+    'tiles.newAria': 'Make a new preset',
+    'tiles.new': '＋ New',
+    'tiles.emptyTitle': 'No presets yet',
+    'tiles.emptyHint': 'Make one with ＋ New, or set up the laser on the Desk and tap ＋ Save as preset.',
+    'tiles.start': 'Start {name}',
+    'tiles.delete': 'Delete {name}',
+    'tiles.now': 'NOW',
+    'tiles.confirm': 'Delete {name}?',
+    'tiles.busy': 'Working…',
+    'tiles.yes': 'Delete',
+    'tiles.no': 'No',
+
+    'builder.title': 'Quick builder',
+    'builder.tabsAria': 'Parts of the look',
+    'builder.nameAria': 'Preset name',
+    'builder.namePh': 'Name',
+    'builder.pickShape': 'Choose a shape',
+    'builder.tab.vorm': 'Shape',
+    'builder.tab.kleur': 'Color',
+    'builder.tab.beweging': 'Movement',
+    'builder.tab.grootte': 'Size',
+    'builder.tab.hoogte': 'Height',
+    'builder.tab.lijnen': 'Lines',
+    'builder.choose': 'Choose',
+    'builder.pulses': 'Pulses',
+    'builder.st.offline': 'No connection to the laser.',
+    'builder.st.session': 'A calibration or debug session is running: please wait.',
+    'builder.st.stop': 'The stop button (IO0) is pressed.',
+    'builder.st.uncal': 'The height limit is not set yet: the laser stays off, and you can only save after that.',
+    'builder.st.noShape': 'Nothing goes to the laser until you choose a shape.',
+    'builder.st.off': 'The laser is off. Tap a choice to turn it back on; then you can save.',
+    'builder.st.live': 'Live on the laser. You see every choice right away.',
+    'builder.loading': 'The drawings are still loading; pick by number for now.',
+    'builder.mixAria': 'Which mix (channel 9, 0 to 63)',
+    'builder.mix': 'Mix',
+    'builder.mixNote': "This laser can't show one fixed color: 0–63 always gives a mix of colors.",
+    'builder.moveNote': 'Rotation and flip use a fixed speed; fine-tune them on the Desk.',
+    'builder.sizeValue': 'Channel 8 at {v}.',
+    'builder.sizePulse': 'Pulse sets the size by itself. Choose another movement to pick a fixed size.',
+    'builder.sizeNote': "A higher value is smaller: that's how this laser works.",
+    'builder.heightHigh': 'Channel 7 at {v} (highest position).',
+    'builder.heightMid': 'Channel 7 at {v}.',
+    'builder.heightLow': 'Channel 7 at {v} (lowest position).',
+    'builder.heightNote': 'Within your height limit ({low} to {high}). The ESP32 always keeps it there.',
+    'builder.heightNone': 'No height limit has been set yet.',
+    'builder.speedAria': 'Speed: left fast, right slow',
+    'builder.fast': 'Fast',
+    'builder.slow': 'Slow',
+    'builder.speedNote': 'The higher channel 10 is within lines or dots, the slower the laser draws.',
+    'color.mix.label': 'Mix',
+    'color.mix.short': 'Mix',
+    'color.mix.text': 'Several colors at once. The slider picks the mix.',
+    'color.cycle.label': 'One color, cycling',
+    'color.cycle.short': 'Cycling',
+    'color.cycle.text': 'One color at a time, which keeps changing.',
+    'color.all.label': 'All colors',
+    'color.all.short': 'All',
+    'color.all.text': 'All colors mixed together, changing.',
+    'move.still.label': 'Still',
+    'move.still.text': 'Stands still.',
+    'move.spin.label': 'Rotation',
+    'move.spin.text': 'Spins around.',
+    'move.flip.label': 'Flip',
+    'move.flip.text': 'Keeps flipping over, left and right.',
+    'move.pulse.label': 'Pulse',
+    'move.pulse.text': 'Keeps growing and shrinking.',
+    'size.large': 'Large',
+    'size.medium': 'Medium',
+    'size.small': 'Small',
+    'height.high': 'High',
+    'height.mid': 'Middle',
+    'height.low': 'Low',
+    'dots.lines.label': 'Lines',
+    'dots.lines.text': 'Solid lines.',
+    'dots.dots.label': 'Dots',
+    'dots.dots.text': 'Dots only.',
+
+    'sheet.title': 'Save as preset',
+    'sheet.question': 'What should this look be called?',
+    'sheet.asNow': 'As the laser is now.',
+    'sheet.dark': 'Note: the laser is off, so this preset is dark. Handy as a pause in a show.',
+    'sheet.hint': 'Saves all 10 channels as the laser is now.',
+    'sheet.hintSlot': 'Saves all 10 channels as the laser is now, in slot {slot} of {total}.',
+
+    'shows.emptyTitle': 'No shows yet',
+    'shows.emptyHint': 'A show plays presets one after another, each for as long as you like, and then starts over. The ESP32 plays it by itself: your phone can be locked or gone.',
+    'shows.needPresets': 'Make a few presets first.',
+    'shows.editAria': 'Edit {name}',
+    'shows.playAria': 'Play {name}',
+    'shows.stopAria': 'Stop {name}',
+    'shows.playing': 'Playing · step {step}/{steps} · {left} s left',
+    'shows.meta': '{steps} · {time} per loop · keeps running without a phone',
+    'steps.one': '{n} step',
+    'steps.other': '{n} steps',
+
+    'editor.aria': 'Edit show',
+    'editor.name': 'Show name',
+    'editor.max': '{steps} (maximum)',
+    'editor.total': '{time} per loop, then it starts over.',
+    'editor.empty': 'Add at least one step.',
+    'editor.sure': 'Sure? Tap again',
+    'editor.add': '＋ Add step',
+    'editor.gone': 'Preset {slot} (gone)',
+    'editor.secAria': 'Step {n}: seconds',
+    'editor.shorter': 'Step {n} shorter',
+    'editor.longer': 'Step {n} longer',
+    'editor.up': 'Move step {n} up',
+    'editor.down': 'Move step {n} down',
+    'editor.remove': 'Remove step {n}',
+    'editor.pick': 'Choose the preset for the new step',
+    'editor.pickAria': 'Add {name} as a step',
+
+    'chan.1.short': 'MODE',
+    'chan.1.name': 'Mode',
+    'chan.1.topic': 'Mode',
+    'chan.2.short': 'PATTERN',
+    'chan.2.name': 'Pattern',
+    'chan.2.topic': 'Pattern',
+    'chan.3.short': 'ROTATION',
+    'chan.3.name': 'Rotation',
+    'chan.3.topic': 'Rotation',
+    'chan.4.short': 'FLIP-H',
+    'chan.4.name': 'Horizontal flip',
+    'chan.4.topic': 'Flip H',
+    'chan.5.short': 'FLIP-V',
+    'chan.5.name': 'Vertical flip',
+    'chan.5.topic': 'Flip V',
+    'chan.6.short': 'POS-H',
+    'chan.6.name': 'Horizontal position',
+    'chan.6.topic': 'Position H',
+    'chan.7.short': 'POS-V',
+    'chan.7.name': 'Vertical position',
+    'chan.7.topic': 'Position V',
+    'chan.8.short': 'SIZE',
+    'chan.8.name': 'Size',
+    'chan.8.topic': 'Size',
+    'chan.9.short': 'COLOR',
+    'chan.9.name': 'Color',
+    'chan.9.topic': 'Color',
+    'chan.10.short': 'DOTS',
+    'chan.10.name': 'Lines or dots',
+    'chan.10.topic': 'Lines / dots',
+
+    'desk.helpAria': '{name}: explanation',
+    'desk.trackAria': 'Channel {n}: {name}',
+    'desk.prev': 'Previous pattern',
+    'desk.next': 'Next pattern',
+    'desk.power': 'Laser on or off',
+    'desk.on': 'ON',
+    'desk.turnOn': 'TURN ON',
+    'desk.tipAria': 'Explanation: {name}',
+    'desk.tipClose': 'Close explanation',
+    'desk.more': 'More in the Guide →',
+    'zone.on': 'On',
+    'zone.off': 'Off',
+    'zone.noLimit': 'No limit',
+    'zone.lowest': 'Lowest',
+    'zone.highest': 'Highest',
+    'zone.height': 'Height',
+    'zone.angle': 'Angle',
+    'zone.spinFwd': 'Spins →',
+    'zone.spinRev': 'Spins ←',
+    'zone.fixed': 'Fixed',
+    'zone.flips': 'Flips',
+    'zone.center': 'Center',
+    'zone.left': 'Left',
+    'zone.moves': 'Moves',
+    'zone.sizeFixed': 'Fixed',
+    'zone.grows': 'Grows',
+    'zone.shrinks': 'Shrinks',
+    'zone.pulses': 'Pulses',
+    'zone.mix': 'Mix',
+    'zone.mix2': 'Mix 2',
+    'zone.cycles': 'Cycles',
+    'zone.allColors': 'All colors',
+    'zone.lines': 'Lines',
+    'zone.dots': 'Dots',
+    'zone.fast': 'fast',
+    'zone.medium': 'medium',
+    'zone.slow': 'slow',
+
+    'guide.test': 'UNTESTED',
+    'guide.basis.title': 'How it works',
+    'guide.basis.p1': "Your phone talks to the ESP32 over **the ESP32's WiFi**. The ESP32 drives the laser 40 times a second over the DMX cable: 10 channels, starting at its DMX address (1 by default).",
+    'guide.basis.p2': '**Presets** are saved looks of all 10 channels. Tap a tile and the laser shows it. Make a new one with ＋ New (the quick builder), or set up the laser on the Desk and tap ＋ Save as preset.',
+    'guide.basis.p3': '**Shows** play presets one after another, each for as long as you like, and then start over. The ESP32 plays the show by itself: your phone can be locked, switch to another app or leave the WiFi.',
+    'guide.basis.p4': '**Desk**: all 10 channels by hand. Tap a name for an explanation. Moving a slider takes over from a running show.',
+    'guide.basis.p5': '**Admin** (with PIN): set the height limit, try out channels in Debug, the DMX address and the PIN.',
+    'guide.basis.p6': '[TEST] means: not yet confirmed on the real laser. Try it out in Admin → Debug.',
+    'guide.veilig.title': 'Safety',
+    'guide.veilig.p1': '**OFF** switches the laser off at once, from any phone, also during a show, calibration or debug session.',
+    'guide.veilig.p2': 'The **IO0** stop button on the ESP32 does the same without a phone. While you hold it, everything stays off; releasing it turns nothing back on.',
+    'guide.veilig.p3': 'The ESP32 keeps the beam within the height limit and the side limit, also in presets and shows, again in every DMX packet.',
+    'guide.veilig.p4': "Without a set limit, the laser can't turn on. After a restart it is off, and a show never starts by itself.",
+    'guide.veilig.p5': "The laser's automatic and sound modes are disabled: they ignore the height limit.",
+    'guide.veilig.warn': "IO0 is a handy stop, not an emergency stop. The real off switch is the laser's own switch. Never point the laser at people.",
+    'guide.pic.star': '#21 Star',
+    'guide.pic.heart': '#25 Heart',
+    'guide.pic.zigzag': '#49 Zigzag',
+    'guide.pic.straight': '0: straight',
+    'guide.pic.diamond': '64: diamond',
+    'guide.pic.large': '0: large',
+    'guide.pic.small': '60: small',
+    'guide.side.full': 'The side limit is at full width (0–127): the slider runs over 0–127 and the automatic movement is blocked.',
+    'guide.side.range': 'The slider runs over your side limit: {lo} to {hi}.',
+    'guide.side.none': 'There is no side limit: the slider runs over 0–255.',
+    'guide.ch1.what': 'Turns the laser on or off: tap the switch. This also turns it back on after OFF, without picking a preset first.',
+    'guide.ch1.z0': 'Off: dark.',
+    'guide.ch1.z1': 'On (manual): the other channels decide what you see. The switch sets 96.',
+    'guide.ch1.z2': 'Automatic and sound: disabled. There the laser ignores the height limit, so the ESP32 sends 0 instead.',
+    'guide.ch1.note': 'On only works once the height limit is set (Admin).',
+    'guide.ch2.what': 'Which shape the laser draws. There are 51 patterns, a new one about every 5 steps (#1 = 0–4). The names and drawings are yours.',
+    'guide.ch2.z0': 'The slider clicks from pattern to pattern.',
+    'guide.ch2.note': '#48 is exactly the same as #47, so it is left out of the pickers. No pattern moves by itself.',
+    'guide.ch3.what': 'Rotates the pattern, like the hand of a clock.',
+    'guide.ch3.z0': 'Fixed angle. At 64, #1 Square becomes a diamond.',
+    'guide.ch3.z1': 'Spins around, one way.',
+    'guide.ch3.z2': 'Spins around, the other way.',
+    'guide.ch3.warn': "Rotated, the pattern reaches lower than when it is straight. That's why you measure the height limit with the diamond or spinning.",
+    'guide.ch3.note': 'Whether a higher value spins faster has not been tested yet.',
+    'guide.ch4.what': 'Flips the pattern left↔right. In-between values look like it turns in 3D around an upright axis.',
+    'guide.ch5.what': 'Flips the pattern top↔bottom. In-between values look like it turns in 3D around a level axis.',
+    'guide.flip.z0': 'Fixed position.',
+    'guide.flip.z1': 'Keeps flipping; higher = faster (according to the manual).',
+    'guide.ch6.what': 'Moves the whole pattern sideways.',
+    'guide.ch6.z0': 'Center: no offset.',
+    'guide.ch6.z1': 'Only to the left; higher = farther.',
+    'guide.ch6.z2': 'Moves back and forth by itself, also to the right. Blocked while the side limit is on.',
+    'guide.ch6.note': 'No way to move it right by hand has been found yet (maybe together with horizontal flip).',
+    'guide.ch7.what': 'Moves the pattern up and down. The slider covers only your safe range: {low} at the bottom (lowest position), {high} at the top (highest position).',
+    'guide.ch7.whatNone': "Moves the pattern up and down. No height limit has been set yet, so the laser can't turn on yet.",
+    'guide.ch7.z0': 'Position. At 64 it is high (calibration starts there).',
+    'guide.ch7.z1': 'Does something else; exactly what is still unknown.',
+    'guide.ch7.z2': 'Moves up and down by itself: always blocked.',
+    'guide.ch7.warn': 'The ESP32 always keeps the beam within the limit, also in presets and shows. You set the limit per venue under Admin.',
+    'guide.ch7.note': 'With your setup, a higher number is lower.',
+    'guide.ch8.what': 'How big the pattern is.',
+    'guide.ch8.z0': 'Fixed size. Higher = SMALLER: 0 is the largest.',
+    'guide.ch8.z1': 'Keeps growing from small to large.',
+    'guide.ch8.z2': 'Keeps shrinking from large to small.',
+    'guide.ch8.z3': 'Pulses: keeps growing and shrinking (zoom speed).',
+    'guide.ch8.note': 'The zoom circles (#17, #29 and #30) only change size with this channel.',
+    'guide.ch9.what': "The color. This laser can't pick one fixed color.",
+    'guide.ch9.z0': 'Mix: several colors at once. The value picks the mix.',
+    'guide.ch9.z1': 'Also mixing, according to the manual; how it differs from 0–63 is still unknown.',
+    'guide.ch9.z2': 'One color at a time, which keeps changing.',
+    'guide.ch9.z3': 'All colors, always changing.',
+    'guide.ch9.note': 'Whether the value within 128–255 sets the change speed has not been tested yet.',
+    'guide.ch10.what': 'Solid lines or dots only, and how fast the laser draws.',
+    'guide.ch10.z0': 'Lines. 0 is the fastest; higher = slower.',
+    'guide.ch10.z1': 'Dots only. 128 is the fastest; higher = slower.',
+
+    'err.bad-command': "The laser didn't understand that command.",
+    'err.not-admin': 'You need to be logged in to Admin for that.',
+    'err.serial-only': 'That only works over the USB cable (serial console).',
+    'err.calibration-busy': 'A calibration or debug session is running: the controls are locked. OFF always stops it.',
+    'err.not-owner': 'Another device is running that session.',
+    'err.stop-held': 'The stop button (IO0) is pressed. Release it first.',
+    'err.auto-blocked': 'That mode is disabled: it ignores the height limit.',
+    'err.not-calibrated': 'The laser can only turn on after the height limit is set (Admin).',
+    'err.wrong-phase': "That isn't possible in this step.",
+    'err.need-worst-case-look': 'Marking only works in Diamond or Spinning.',
+    'err.need-both-marks': 'Mark the lowest and the highest position first.',
+    'err.need-horizontal-marks': 'Also mark left and right, or turn the side limit off.',
+    'err.equal-ends': 'The two positions are the same.',
+    'err.bad-pin': 'Wrong PIN.',
+    'err.locked': 'Too many wrong PINs. Please wait a moment.',
+    'err.not-calibrating': 'No calibration or debug session is running.',
+    'err.save-failed': 'Saving failed, nothing was changed. Please try again.',
+    'err.bad-slot': 'That slot does not exist.',
+    'err.empty-slot': 'That slot is empty: maybe someone else just deleted it.',
+    'err.bad-name': 'That name is not allowed: 1 to 32 characters, without " or \\.',
+    'err.bad-steps': 'The show is not valid: 1 to 24 steps, each with an existing preset and 0.1 to 600 seconds.',
+    'err.preset-in-use': 'This preset is in a show. Remove it from there first.',
+    'err.no-fixture': 'There is no laser in the patch. Add it in Admin → Settings.',
+    'err.bad-patch': "That doesn't fit the patch: lights can't overlap or run past channel 512, and there can be only one laser.",
+    'err.inUse.one': '{name} is still in the show {shows}. Remove it from there first.',
+    'err.inUse.other': '{name} is still in the shows {shows}. Remove it from there first.',
+    'err.unknown': 'Error from the laser: {code}',
+    'stop.button': 'Stop button (IO0) pressed: the laser is off.',
+    'stop.off': 'OFF pressed: the laser is off.',
+    'stop.blackout': 'Everything was set to 0: the laser is off.',
+    'stop.calibration-stopped': 'Calibration or debug session stopped: the laser is off.',
+    'stop.calibration-timeout': 'Calibration or debug session stopped (connection lost): the laser is off.',
+    'stop.calibration-owner-left': 'Calibration or debug session stopped (phone gone): the laser is off.',
+    'stop.patch-changed': 'The patch (DMX addresses) was changed: everything is off. If the laser was moved, the height limit must be set again.',
+    'stop.calibration-saved': 'New height limit saved: the laser is off.',
+    'stop.debug-stopped': 'Debug session stopped: the laser is off.',
+    'stop.unknown': 'The laser has stopped ({reason}).',
+    'fmt.decimal': '.',
+    'fmt.and': 'and',
+  },
+};
+// t('key') or t('key', { n: 3, name: 'X' }) replaces {n} and {name}. Missing English falls back to Dutch, then the key.
+function t(key, vars) {
+  let s = STR[lang][key] ?? STR.nl[key] ?? key;
+  if (vars) s = s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? String(vars[k]) : m));
+  return s;
+}
+const hasText = (key) => Object.prototype.hasOwnProperty.call(STR.nl, key);
+const stepsText = (n) => t(n === 1 ? 'steps.one' : 'steps.other', { n });
+// Fills every element marked with data-t (text), data-t-ph, data-t-aria and data-t-title.
+function applyStatic() {
+  document.querySelectorAll('[data-t]').forEach((e) => { e.textContent = t(e.dataset.t); });
+  document.querySelectorAll('[data-t-ph]').forEach((e) => { e.placeholder = t(e.dataset.tPh); });
+  document.querySelectorAll('[data-t-aria]').forEach((e) => { e.setAttribute('aria-label', t(e.dataset.tAria)); });
+  document.querySelectorAll('[data-t-title]').forEach((e) => { e.title = t(e.dataset.tTitle); });
+  document.title = t('doc.title');
+}
+function renderLangSwitch() {
+  document.querySelectorAll('#langSwitch [data-lang]').forEach((b) => {
+    const on = b.dataset.lang === lang;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
 
 // --- constants ------------------------------------------------------------------------
 const CH_COUNT = 10;
@@ -462,91 +1237,49 @@ const LASER = ['#ff4646', '#46ff74', '#4d82ff', '#ffe04d', '#46f0ff', '#ff55ff',
 const TAU = Math.PI * 2;
 const CANVAS_MONO = '700 14px ui-monospace, Menlo, Consolas, monospace';
 
-const CHANNELS = [
-  { key: 'MODUS', name: 'Modus' },
-  { key: 'PATROON', name: 'Patroon' },
-  { key: 'ROTATIE', name: 'Rotatie' },
-  { key: 'SPIEG-H', name: 'Spiegelen horizontaal' },
-  { key: 'SPIEG-V', name: 'Spiegelen verticaal' },
-  { key: 'POS-H', name: 'Positie horizontaal' },
-  { key: 'POS-V', name: 'Positie verticaal' },
-  { key: 'GROOTTE', name: 'Grootte' },
-  { key: 'KLEUR', name: 'Kleur' },
-  { key: 'PUNTEN', name: 'Lijnen of punten' },
-];
-// Zone bars and short labels for the desk faders that run over 0-255 (by channel number).
+// Channel texts live in STR as chan.<n>.short (desk label), .name and .topic (guide menu).
+const chanShort = (i) => t(`chan.${i + 1}.short`);
+const chanName = (i) => t(`chan.${i + 1}.name`);
+// Zone bars and short labels (STR keys) for the desk faders that run over 0-255 (by channel number).
 const ZONES = {
-  3: [[0, 127, 'Hoek'], [128, 191, 'Draait →'], [192, 255, 'Draait ←']],
-  4: [[0, 127, 'Stand'], [128, 255, 'Spiegelt']],
-  5: [[0, 127, 'Stand'], [128, 255, 'Spiegelt']],
-  6: [[0, 0, 'Midden'], [1, 127, 'Links'], [128, 255, 'Beweegt']],
-  8: [[0, 63, 'Vast'], [64, 127, 'Groeit'], [128, 191, 'Krimpt'], [192, 255, 'Pulseert']],
-  9: [[0, 63, 'Mix'], [64, 127, 'Mix 2'], [128, 191, 'Wisselt'], [192, 255, 'Alle kleuren']],
-  10: [[0, 127, 'Lijnen'], [128, 255, 'Punten']],
+  3: [[0, 127, 'zone.angle'], [128, 191, 'zone.spinFwd'], [192, 255, 'zone.spinRev']],
+  4: [[0, 127, 'zone.fixed'], [128, 255, 'zone.flips']],
+  5: [[0, 127, 'zone.fixed'], [128, 255, 'zone.flips']],
+  6: [[0, 0, 'zone.center'], [1, 127, 'zone.left'], [128, 255, 'zone.moves']],
+  8: [[0, 63, 'zone.sizeFixed'], [64, 127, 'zone.grows'], [128, 191, 'zone.shrinks'], [192, 255, 'zone.pulses']],
+  9: [[0, 63, 'zone.mix'], [64, 127, 'zone.mix2'], [128, 191, 'zone.cycles'], [192, 255, 'zone.allColors']],
+  10: [[0, 127, 'zone.lines'], [128, 255, 'zone.dots']],
 };
 
 // Quick builder. Values follow the user's hardware test (2026-10-23), not the manual.
+// label, short and text are STR keys.
 const COLORS = [
-  { label: 'Mix', short: 'Mix', text: 'Meerdere kleuren tegelijk. De schuif kiest de mix.', swatch: 'linear-gradient(90deg, #ff4646 0 33%, #46ff74 33% 66%, #4d82ff 66%)' },
-  { label: 'Eén kleur, wisselend', short: 'Wisselend', text: 'Steeds één kleur, die wisselt.', swatch: 'linear-gradient(90deg, #46ff74 0 25%, #4d82ff 25% 50%, #ff4646 50% 75%, #ffe04d 75%)', value: 160 },
-  { label: 'Alle kleuren', short: 'Alle', text: 'Alle kleuren door elkaar, wisselend.', swatch: 'linear-gradient(90deg, #f44, #fd4, #4f7, #4ef, #48f, #f5f)', value: 224 },
+  { label: 'color.mix.label', short: 'color.mix.short', text: 'color.mix.text', swatch: 'linear-gradient(90deg, #ff4646 0 33%, #46ff74 33% 66%, #4d82ff 66%)' },
+  { label: 'color.cycle.label', short: 'color.cycle.short', text: 'color.cycle.text', swatch: 'linear-gradient(90deg, #46ff74 0 25%, #4d82ff 25% 50%, #ff4646 50% 75%, #ffe04d 75%)', value: 160 },
+  { label: 'color.all.label', short: 'color.all.short', text: 'color.all.text', swatch: 'linear-gradient(90deg, #f44, #fd4, #4f7, #4ef, #48f, #f5f)', value: 224 },
 ];
 const MOVES = [
-  { label: 'Stil', text: 'Staat stil.', ch: { 3: 0, 4: 0 } },
-  { label: 'Draaien', text: 'Draait rond.', ch: { 3: 140, 4: 0 } },
-  { label: 'Spiegelen', text: 'Klapt steeds om, links en rechts.', ch: { 3: 0, 4: 180 } },
-  { label: 'Pulseren', text: 'Wordt steeds groter en kleiner.', ch: { 3: 0, 4: 0, 8: 220 } },
+  { label: 'move.still.label', text: 'move.still.text', ch: { 3: 0, 4: 0 } },
+  { label: 'move.spin.label', text: 'move.spin.text', ch: { 3: 140, 4: 0 } },
+  { label: 'move.flip.label', text: 'move.flip.text', ch: { 3: 0, 4: 180 } },
+  { label: 'move.pulse.label', text: 'move.pulse.text', ch: { 3: 0, 4: 0, 8: 220 } },
 ];
 const PULSE = 3;
-const SIZES = [{ label: 'Groot', value: 4 }, { label: 'Middel', value: 20 }, { label: 'Klein', value: 40 }];
-const HEIGHTS = [{ label: 'Hoog' }, { label: 'Midden' }, { label: 'Laag' }];
-const DOTS = [{ label: 'Lijnen', base: 0, text: 'Doorgetrokken lijnen.' }, { label: 'Punten', base: 128, text: 'Alleen puntjes.' }];
+const SIZES = [{ label: 'size.large', value: 4 }, { label: 'size.medium', value: 20 }, { label: 'size.small', value: 40 }];
+const HEIGHTS = [{ label: 'height.high' }, { label: 'height.mid' }, { label: 'height.low' }];
+const DOTS = [{ label: 'dots.lines.label', base: 0, text: 'dots.lines.text' }, { label: 'dots.dots.label', base: 128, text: 'dots.dots.text' }];
 const BTABS = [
-  ['vorm', 'Vorm', (b) => (b.pattern ? `#${b.pattern}` : 'Kies')],
-  ['kleur', 'Kleur', (b) => COLORS[b.color].short],
-  ['beweging', 'Beweging', (b) => MOVES[b.move].label],
-  ['grootte', 'Grootte', (b) => (b.move === PULSE ? 'Pulseert' : SIZES[b.size].label)],
-  ['hoogte', 'Hoogte', (b) => HEIGHTS[b.height].label],
-  ['lijnen', 'Lijnen', (b) => DOTS[b.dots].label],
+  ['vorm', (b) => (b.pattern ? `#${b.pattern}` : t('builder.choose'))],
+  ['kleur', (b) => t(COLORS[b.color].short)],
+  ['beweging', (b) => t(MOVES[b.move].label)],
+  ['grootte', (b) => (b.move === PULSE ? t('builder.pulses') : t(SIZES[b.size].label))],
+  ['hoogte', (b) => t(HEIGHTS[b.height].label)],
+  ['lijnen', (b) => t(DOTS[b.dots].label)],
 ];
 
-const ERROR_TEXT = {
-  'bad-command': 'De laser begreep die opdracht niet.',
-  'not-admin': 'Daarvoor moet je ingelogd zijn op Beheer.',
-  'serial-only': 'Dat kan alleen via de USB-kabel (seriële console).',
-  'calibration-busy': 'Er loopt een kalibratie of debugsessie: de bediening is vergrendeld. Met UIT stop je die altijd.',
-  'not-owner': 'Een ander apparaat bedient die sessie.',
-  'stop-held': 'De stopknop (IO0) is ingedrukt. Laat hem eerst los.',
-  'auto-blocked': 'Die modus is uitgeschakeld: hij negeert de hoogtegrens.',
-  'not-calibrated': 'De laser kan pas aan na het instellen van de hoogtegrens (Beheer).',
-  'wrong-phase': 'Dat kan niet in deze stap.',
-  'need-worst-case-look': 'Markeren kan alleen in Ruit of Draaien.',
-  'need-both-marks': 'Markeer eerst de laagste en de hoogste stand.',
-  'need-horizontal-marks': 'Markeer ook links en rechts, of zet de zijgrens uit.',
-  'equal-ends': 'De twee standen zijn gelijk.',
-  'bad-pin': 'Pincode klopt niet.',
-  'locked': 'Te veel verkeerde pincodes. Wacht even.',
-  'not-calibrating': 'Er loopt geen kalibratie of debugsessie.',
-  'save-failed': 'Opslaan is mislukt, er is niets veranderd. Probeer het opnieuw.',
-  'bad-slot': 'Die plek bestaat niet.',
-  'empty-slot': 'Die plek is leeg: misschien heeft iemand anders hem net verwijderd.',
-  'bad-name': 'Die naam kan niet: 1 tot 32 tekens, zonder " of \\.',
-  'bad-steps': 'De show klopt niet: 1 tot 24 stappen, elk met een bestaande preset en 0,1 tot 600 seconden.',
-  'preset-in-use': 'Deze preset zit in een show. Haal hem daar eerst uit.',
-  'no-fixture': 'Er staat geen laser in de patch. Voeg hem toe in Beheer → Instellingen.',
-  'bad-patch': 'Dat past niet in de patch: lampen mogen niet overlappen of voorbij kanaal 512 lopen, en er mag maar één laser zijn.',
-};
-const STOP_TEXT = {
-  'button': 'Stopknop (IO0) ingedrukt: de laser is uit.',
-  'off': 'UIT ingedrukt: de laser is uit.',
-  'blackout': 'Alles is op 0 gezet: de laser is uit.',
-  'calibration-stopped': 'Kalibratie of debugsessie gestopt: de laser is uit.',
-  'calibration-timeout': 'Kalibratie of debugsessie gestopt (verbinding weg): de laser is uit.',
-  'calibration-owner-left': 'Kalibratie of debugsessie gestopt (telefoon weg): de laser is uit.',
-  'patch-changed': 'De patch (DMX-adressen) is gewijzigd: alles is uit. Is de laser verplaatst, dan moet de hoogtegrens opnieuw worden ingesteld.',
-  'calibration-saved': 'Nieuwe hoogtegrens opgeslagen: de laser is uit.',
-  'debug-stopped': 'Debugsessie gestopt: de laser is uit.',
-};
+// Firmware error codes and stop reasons are English identifiers; their texts are STR keys err.<code> and stop.<reason>.
+const errKey = (code) => (hasText(`err.${code}`) ? `err.${code}` : null);
+const stopKey = (reason) => (hasText(`stop.${reason}`) ? `stop.${reason}` : null);
 
 // --- helpers ------------------------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
@@ -571,15 +1304,16 @@ const pad3 = (v) => String(v).padStart(3, '0');
 const patternValue = (n) => Math.floor((n - 0.5) * 256 / PATTERN_COUNT);
 const patternNumber = (v) => Math.min(PATTERN_COUNT, Math.floor(v * PATTERN_COUNT / 256) + 1);
 const PATTERN_VALUES = Array.from({ length: PATTERN_COUNT }, (_, k) => patternValue(k + 1));
-const fmtSec = (t) => {
-  const s = t / 10;
-  if (s < 60) return `${String(Math.round(s * 10) / 10).replace('.', ',')} s`;
+// Hold times are in tenths of a second; the decimal mark follows the language (2,5 s or 2.5 s).
+const fmtSec = (tenths) => {
+  const s = tenths / 10;
+  if (s < 60) return `${String(Math.round(s * 10) / 10).replace('.', t('fmt.decimal'))} s`;
   const r = Math.round(s % 60);
   return `${Math.floor(s / 60)}:${pad2(r)} min`;
 };
-const fmtSecInput = (t) => String(t / 10).replace('.', ',');
+const fmtSecInput = (tenths) => String(tenths / 10).replace('.', t('fmt.decimal'));
 const quote = (name) => `‘${name}’`;
-const listText = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} en ${items[items.length - 1]}`);
+const listText = (items) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} ${t('fmt.and')} ${items[items.length - 1]}`);
 const encoder = new TextEncoder();
 // What the firmware accepts as a name: 1-32 bytes of UTF-8, no control characters, " or \.
 function cleanName(raw) {
@@ -603,10 +1337,12 @@ let libTimer = 0;
 let lastMsgAt = 0;               // any message proves the link is alive
 let reconnectMs = RECONNECT_MS;
 let offTimer = 0;
-let patterns = null;             // [{number, name, category, duplicateOf, strokes, box, points}]
+let patterns = null;             // [{number, name, nameEn, category, categoryEn, duplicateOf, strokes, box, points}]
 let patternsLoading = false;
 let pending = null;              // a library command waiting for its library echo
 let msgTimer = 0;
+let msgNow = null;               // the toast's { key, vars }
+let connNow = { key: 'conn.connecting', kind: '' };
 let deskStrips = [];
 let deskSig = '';
 let animId = 0;
@@ -635,9 +1371,19 @@ const totalHold = (steps) => steps.reduce((n, [, t]) => n + t, 0);
 
 // --- patterns and drawing ----------------------------------------------------------------------
 function patternInfo(n) { return patterns ? patterns[n - 1] || null : null; }
-function patternName(n) { const p = patternInfo(n); return p ? p.name : `Patroon ${n}`; }
+// English uses nameEn when the file has one; otherwise the Dutch name, then "Pattern 5".
+function patternName(n) {
+  const p = patternInfo(n);
+  return (p && ((lang === 'en' && p.nameEn) || p.name)) || t('pattern.n', { n });
+}
+// The Dutch category stays the internal key for filtering; only the label follows the language.
+function categoryLabel(category) {
+  if (lang !== 'en' || !patterns) return category;
+  const p = patterns.find((x) => x.category === category && x.categoryEn);
+  return p ? p.categoryEn : category;
+}
 function pickablePatterns(category) {
-  if (!patterns) return Array.from({ length: PATTERN_COUNT }, (_, k) => ({ number: k + 1, name: `Patroon ${k + 1}` })).filter((p) => p.number !== 48);
+  if (!patterns) return Array.from({ length: PATTERN_COUNT }, (_, k) => ({ number: k + 1 })).filter((p) => p.number !== 48);
   return patterns.filter((p) => !p.duplicateOf && (!category || p.category === category));
 }
 
@@ -653,7 +1399,8 @@ function prepPatterns(json) {
     }));
     const box = points ? { bx: (x0 + x1) / 2, by: (y0 + y1) / 2, half: Math.max(0.08, (x1 - x0) / 2, (y1 - y0) / 2) } : { bx: 0, by: 0, half: 1 };
     return {
-      number: k + 1, name: String(p.name || `Patroon ${k + 1}`), category: String(p.category || ''),
+      number: k + 1, name: String(p.name || ''), nameEn: String(p.nameEn || ''),
+      category: String(p.category || ''), categoryEn: String(p.categoryEn || ''),
       duplicateOf: Number(p.duplicateOf) || 0, strokes, box, points: Math.max(1, points),
     };
   });
@@ -819,12 +1566,12 @@ function queueRedraw() {
 function lookWords(ch, withPattern = true) {
   const words = [];
   if (withPattern) words.push(patternName(patternNumber(ch[1])));
-  if (ch[2] >= 128) words.push('draait');
-  if (ch[3] >= 128 || ch[4] >= 128) words.push('spiegelt');
-  if (ch[7] >= 192) words.push('pulseert');
-  else if (ch[7] >= 64) words.push('zoomt');
-  if (ch[9] >= 128) words.push('punten');
-  if (ch[0] < MODE_ON_MIN) words.push('laser uit');
+  if (ch[2] >= 128) words.push(t('look.spins'));
+  if (ch[3] >= 128 || ch[4] >= 128) words.push(t('look.flips'));
+  if (ch[7] >= 192) words.push(t('look.pulses'));
+  else if (ch[7] >= 64) words.push(t('look.zooms'));
+  if (ch[9] >= 128) words.push(t('look.dots'));
+  if (ch[0] < MODE_ON_MIN) words.push(t('look.off'));
   return words.join(' · ');
 }
 function colorSwatch(v) {
@@ -836,7 +1583,7 @@ function colorSwatch(v) {
 // --- sending ----------------------------------------------------------------------------------
 function send(text) {
   if (!isOpen) {
-    showMsg('Geen verbinding met de laser. Staat hij aan, gebruik dan de stopknop (IO0) of de schakelaar van de laser zelf.', 'error');
+    showMsg('msg.offline', 'error');
     return false;
   }
   ws.send(text);
@@ -876,12 +1623,21 @@ const playKey = (s) => (s && s.play ? `${s.play.show}:${s.play.step}` : '');
 function setPending(p) { pending = { ...p, at: now() }; }
 
 // --- toast ---------------------------------------------------------------------------------------
-function showMsg(text, kind) {
-  $('msgText').textContent = text;
+// A toast is an STR key plus its values, so a language switch can re-render it.
+// An array value is a list of names, shown as ‘a’, ‘b’ and ‘c’.
+function showMsg(key, kind, vars) {
+  msgNow = { key, vars };
+  renderMsg();
   $('msg').className = `toast ${kind || ''}`;
   $('msg').hidden = false;
   clearTimeout(msgTimer);
   msgTimer = setTimeout(hideMsg, MSG_MS[kind] || MSG_MS.warn);
+}
+function renderMsg() {
+  if (!msgNow) return;
+  const vars = msgNow.vars ? Object.fromEntries(Object.entries(msgNow.vars)
+    .map(([k, v]) => [k, Array.isArray(v) ? listText(v.map(quote)) : v])) : undefined;
+  $('msgText').textContent = t(msgNow.key, vars);
 }
 function hideMsg() { $('msg').hidden = true; }
 
@@ -894,8 +1650,8 @@ function renderHeader() {
   const act = $('tabAction');
   const overlay = ui.builder || ui.sheet || ui.editor;
   let label = '';
-  if (isOpen && !overlay && ui.tab === 'presets' && lib.presets.size) label = ui.editing ? 'Klaar' : 'Bewerken';
-  if (isOpen && !overlay && ui.tab === 'shows') label = '＋ Nieuwe show';
+  if (isOpen && !overlay && ui.tab === 'presets' && lib.presets.size) label = t(ui.editing ? 'nav.done' : 'common.edit');
+  if (isOpen && !overlay && ui.tab === 'shows') label = t('nav.newShow');
   act.hidden = !label;
   act.textContent = label;
   act.classList.toggle('on', ui.tab === 'presets' && ui.editing);
@@ -906,14 +1662,11 @@ function renderBanners() {
   const session = !!(st && st.cal);
   const debug = session && st.cal.phase === 'debug';
   $('sessionBanner').hidden = !session;
-  $('sessionBanner').textContent = debug ? 'DEBUG: geen begrenzing. De bediening is vergrendeld; UIT werkt altijd.'
-    : 'KALIBRATIE: begrenzing aangepast. De bediening is vergrendeld; UIT werkt altijd.';
+  $('sessionBanner').textContent = t(debug ? 'banner.debug' : 'banner.cal');
   $('stopBanner').hidden = !(st && st.stopHeld);
   $('noLaserBanner').hidden = !st || hasLaser();
   $('uncalBanner').hidden = !st || st.limits.calibrated || session || !hasLaser();
-  $('uncalText').textContent = st && st.settingsReset
-    ? 'De instellingen waren beschadigd en zijn gewist. De laser kan pas aan na het instellen van de hoogtegrens.'
-    : 'De laser kan pas aan na het instellen van de hoogtegrens.';
+  $('uncalText').textContent = t(st && st.settingsReset ? 'banner.uncalReset' : 'banner.uncal');
   $('libraryBanner').hidden = !(st && st.libraryReset);
   $('banners').hidden = [...$('banners').children].every((b) => b.hidden);
 }
@@ -937,27 +1690,27 @@ function renderSide() {
   const prog = $('nowProg');
   prog.hidden = true;
   $('nowSwatch').hidden = true;
-  if (!isOpen || !st) { setNow('Laser', 'Geen verbinding', 'Zit deze telefoon op de wifi van de lasercontroller?'); return; }
-  if (st.stopHeld) { setNow('Stopknop', 'IO0 ingedrukt', 'De laser blijft uit tot je hem loslaat.', 'n-stop'); return; }
+  if (!isOpen || !st) { setNow(t('side.laser'), t('conn.lost'), t('side.noConnHint')); return; }
+  if (st.stopHeld) { setNow(t('side.stopLabel'), t('side.stopName'), t('side.stopHint'), 'n-stop'); return; }
   if (st.cal) {
     const debug = st.cal.phase === 'debug';
-    setNow(debug ? 'Debug' : 'Kalibratie', 'Bediening vergrendeld', 'Met UIT stop je hem altijd.', 'n-sess');
+    setNow(t(debug ? 'side.debug' : 'side.cal'), t('side.locked'), t('side.lockedHint'), 'n-sess');
     return;
   }
-  if (!hasLaser()) { setNow('Laser', 'Geen laser', 'Niet in de patch. Voeg hem toe in Beheer → Instellingen.'); return; }
+  if (!hasLaser()) { setNow(t('side.laser'), t('side.noLaser'), t('side.noLaserHint')); return; }
   const ch = currentLook();
   const play = playInfo();
   if (play) {
-    setNow('Show loopt', play.show ? play.show.name : showName(st.play.show),
-      `Stap ${play.step + 1}/${play.steps}: ${presetName(play.presetSlot)} · nog ${Math.ceil(play.left / 1000)} s`, 'n-play');
+    setNow(t('side.playing'), play.show ? play.show.name : showName(st.play.show),
+      t('side.playMeta', { step: play.step + 1, steps: play.steps, preset: presetName(play.presetSlot), left: Math.ceil(play.left / 1000) }), 'n-play');
     renderProgress(prog, play);
   } else if (ch[0] < MODE_ON_MIN) {
-    const start = ui.tab === 'desk' ? 'Tik ZET AAN bij Modus, of kies een preset.' : 'Tik een preset om te starten.';
-    setNow('Nu', 'Laser uit', isCalibrated() ? start : 'Eerst de hoogtegrens instellen (Beheer).');
+    const start = t(ui.tab === 'desk' ? 'side.startDesk' : 'side.startPreset');
+    setNow(t('side.now'), t('side.laserOff'), isCalibrated() ? start : t('side.calFirst'));
   } else if (st.preset != null && lib.presets.has(st.preset)) {
-    setNow('Nu', presetName(st.preset), `Preset · ${lookWords(ch)}`);
+    setNow(t('side.now'), presetName(st.preset), t('side.presetMeta', { look: lookWords(ch) }));
   } else {
-    setNow('Nu', 'Eigen instelling', lookWords(ch));
+    setNow(t('side.now'), t('side.custom'), lookWords(ch));
   }
   if (ch[0] >= MODE_ON_MIN) {
     $('nowSwatch').hidden = false;
@@ -983,15 +1736,14 @@ function rebuildTiles() {
   const list = presetList();
   list.forEach((p) => host.append(makeTile(p)));
   if (!ui.editing && list.length < PRESET_SLOTS) {
-    const add = button('tile add', null, openBuilder, 'Nieuwe preset maken');
+    const add = button('tile add', null, openBuilder, t('tiles.newAria'));
     add.id = 'addTile';
-    add.append(document.createTextNode('＋ Nieuw'), el('small', '', 'Snelbouwer'));
+    add.append(document.createTextNode(t('tiles.new')), el('small', '', t('builder.title')));
     host.append(add);
   }
   if (!list.length) {
     const empty = el('div', 'empty');
-    empty.append(el('b', '', 'Nog geen presets'),
-      el('p', 'hint', 'Maak er een met ＋ Nieuw, of stel de laser in op de Lichttafel en tik ＋ Bewaar als preset.'));
+    empty.append(el('b', '', t('tiles.emptyTitle')), el('p', 'hint', t('tiles.emptyHint')));
     host.append(empty);
   }
   refreshTiles();
@@ -1003,13 +1755,13 @@ function makeTile(p) {
   const cv = el('canvas');
   const txt = el('div', 'txt');
   txt.append(el('div', 'name', p.name), el('div', 'meta', lookWords(p.ch)));
-  const hit = button('hit', null, () => onTileTap(p.slot), ui.editing ? `${p.name} verwijderen` : `${p.name} starten`);
-  const badge = el('span', 'badge', 'NU');
+  const hit = button('hit', null, () => onTileTap(p.slot), t(ui.editing ? 'tiles.delete' : 'tiles.start', { name: p.name }));
+  const badge = el('span', 'badge', t('tiles.now'));
   badge.hidden = true;
   tile.append(cv, txt, hit, badge);
   addThumb(cv, () => drawLook(cv, p.ch, { fill: 0.86, flatSize: true }));
   if (ui.editing) {
-    tile.append(button('del', '✕', () => askDelete(p.slot), `${p.name} verwijderen`));
+    tile.append(button('del', '✕', () => askDelete(p.slot), t('tiles.delete', { name: p.name })));
     if (ui.confirmSlot === p.slot) tile.append(makeConfirm(p));
   }
   return tile;
@@ -1017,11 +1769,11 @@ function makeTile(p) {
 function makeConfirm(p) {
   const box = el('div', 'confirm');
   const waiting = pending && pending.kind === 'preset-delete' && pending.slot === p.slot;
-  box.append(el('p', '', `${quote(p.name)} verwijderen?`));
+  box.append(el('p', '', t('tiles.confirm', { name: quote(p.name) })));
   const row = el('div');
-  const yes = button('btn red', waiting ? 'Bezig…' : 'Verwijder', () => deletePreset(p));
+  const yes = button('btn red', t(waiting ? 'tiles.busy' : 'tiles.yes'), () => deletePreset(p));
   yes.disabled = !!waiting;
-  row.append(yes, button('btn', 'Nee', () => { ui.confirmSlot = null; rebuildTiles(); }));
+  row.append(yes, button('btn', t('tiles.no'), () => { ui.confirmSlot = null; rebuildTiles(); }));
   box.append(row);
   return box;
 }
@@ -1069,7 +1821,7 @@ function builderLook(b) {
   return ch;
 }
 function suggestName(b) {
-  return cleanName(`${patternName(b.pattern || 1)}, ${COLORS[b.color].short.toLowerCase()}`);
+  return cleanName(`${patternName(b.pattern || 1)}, ${t(COLORS[b.color].short).toLowerCase()}`);
 }
 function openBuilder() {
   if (!canEdit()) return;
@@ -1130,30 +1882,30 @@ function renderBuilderHead() {
   const b = ui.builder;
   const tabs = $('bTabs');
   tabs.textContent = '';
-  BTABS.forEach(([key, label, value]) => {
-    const t = button(`btab${b.tab === key ? ' on' : ''}`, null, () => { ui.builder = { ...ui.builder, tab: key }; renderBuilder(true); });
-    t.dataset.tab = key;
-    t.setAttribute('role', 'tab');
-    t.setAttribute('aria-selected', String(b.tab === key));
-    t.append(el('small', '', label), el('span', '', value(b)));
-    tabs.append(t);
+  BTABS.forEach(([key, value]) => {
+    const tab = button(`btab${b.tab === key ? ' on' : ''}`, null, () => { ui.builder = { ...ui.builder, tab: key }; renderBuilder(true); });
+    tab.dataset.tab = key;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-selected', String(b.tab === key));
+    tab.append(el('small', '', t(`builder.tab.${key}`)), el('span', '', value(b)));
+    tabs.append(tab);
   });
-  $('bLook').textContent = b.pattern ? `#${b.pattern} ${patternName(b.pattern)}` : 'Kies een vorm';
+  $('bLook').textContent = b.pattern ? `#${b.pattern} ${patternName(b.pattern)}` : t('builder.pickShape');
   const [text, live] = builderStatus(b);
   $('bStatus').textContent = text;
   $('bStatus').className = `st${live ? ' live' : ''}`;
-  $('bName').placeholder = b.pattern ? suggestName(b) : 'Naam';
+  $('bName').placeholder = b.pattern ? suggestName(b) : t('builder.namePh');
   $('bSave').disabled = !canSaveBuilder(b);
 }
 function builderStatus(b) {
-  if (!isOpen) return ['Geen verbinding met de laser.', false];
-  if (st && st.cal) return ['Er loopt een kalibratie of debugsessie: even wachten.', false];
-  if (st && st.stopHeld) return ['De stopknop (IO0) is ingedrukt.', false];
-  if (!isCalibrated()) return ['De hoogtegrens is nog niet ingesteld: de laser blijft uit, en opslaan kan pas daarna.', false];
-  if (!b.pattern) return ['Er gaat pas iets naar de laser als je een vorm kiest.', false];
-  if (!freeSlot(lib.presets, PRESET_SLOTS)) return ['Alle 32 plekken zijn vol. Verwijder eerst een preset.', false];
-  if (valueOf(1) < MODE_ON_MIN) return ['De laser is uit. Tik een keuze om hem weer aan te zetten; daarna kun je opslaan.', false];
-  return ['Live op de laser. Elke keuze zie je meteen.', true];
+  if (!isOpen) return [t('builder.st.offline'), false];
+  if (st && st.cal) return [t('builder.st.session'), false];
+  if (st && st.stopHeld) return [t('builder.st.stop'), false];
+  if (!isCalibrated()) return [t('builder.st.uncal'), false];
+  if (!b.pattern) return [t('builder.st.noShape'), false];
+  if (!freeSlot(lib.presets, PRESET_SLOTS)) return [t('msg.presetsFull', { n: PRESET_SLOTS }), false];
+  if (valueOf(1) < MODE_ON_MIN) return [t('builder.st.off'), false];
+  return [t('builder.st.live'), true];
 }
 function canSaveBuilder(b) {
   return !!b.pattern && canDrive() && isCalibrated() && valueOf(1) >= MODE_ON_MIN && !!freeSlot(lib.presets, PRESET_SLOTS) &&
@@ -1173,8 +1925,8 @@ function optionCards(pane, items, current, onPick, describe) {
     const o = button(`opt${current === k ? ' on' : ''}`, null, () => onPick(k));
     o.dataset.opt = k;
     o.setAttribute('aria-pressed', String(current === k));
-    o.append(el('b', '', item.label));
-    const text = describe ? describe(item, k) : item.text;
+    o.append(el('b', '', t(item.label)));
+    const text = describe ? describe(item, k) : item.text && t(item.text);
     if (text) o.append(el('small', '', text));
     if (item.swatch) { const sw = el('span', 'sw'); sw.style.background = item.swatch; o.append(sw); }
     grid.append(o);
@@ -1186,20 +1938,21 @@ function paneShape(pane, b) {
   if (patterns) {
     const cats = el('div', 'cats');
     CATEGORIES.forEach((c) => {
-      const chip = button(`chip${b.cat === c ? ' on' : ''}`, c, () => { ui.builder = { ...ui.builder, cat: c }; renderBuilderPane(); $('bPane').scrollTop = 0; });
+      const chip = button(`chip${b.cat === c ? ' on' : ''}`, categoryLabel(c), () => { ui.builder = { ...ui.builder, cat: c }; renderBuilderPane(); $('bPane').scrollTop = 0; });
       chip.dataset.cat = c;
       cats.append(chip);
     });
     pane.append(cats);
   } else {
-    pane.append(el('p', 'pane-note', 'De tekeningen laden nog; kies zolang op nummer.'));
+    pane.append(el('p', 'pane-note', t('builder.loading')));
   }
   const grid = el('div', 'pgrid');
   pickablePatterns(patterns ? b.cat : '').forEach((p) => {
-    const cell = button(`pcell${b.pattern === p.number ? ' on' : ''}`, null, () => choose({ pattern: p.number }), `#${p.number} ${p.name}`);
+    const name = patternName(p.number);
+    const cell = button(`pcell${b.pattern === p.number ? ' on' : ''}`, null, () => choose({ pattern: p.number }), `#${p.number} ${name}`);
     cell.dataset.pattern = p.number;
     const cv = el('canvas');
-    cell.append(cv, el('span', '', p.name));
+    cell.append(cv, el('span', '', name));
     grid.append(cell);
     const look = [MODE_ON, patternValue(p.number), 0, 0, 0, 0, 0, 0, 0, 0];
     addThumb(cv, () => drawLook(cv, look, { fill: 0.78, glow: 3 }));
@@ -1218,33 +1971,31 @@ function paneColor(pane, b) {
   slider.max = 63;
   slider.value = b.mix;
   slider.id = 'mixSlider';
-  slider.setAttribute('aria-label', 'Welke mix (kanaal 9, 0 tot 63)');
+  slider.setAttribute('aria-label', t('builder.mixAria'));
   const move = (done) => { const v = clampInt(slider.value, 0, 63); lcd.textContent = pad3(v); slideBuilder({ mix: v }, 9, v, done); };
   slider.addEventListener('input', () => move(false));
   slider.addEventListener('change', () => move(true));
-  row.append(el('span', '', 'Mix'), slider, lcd);
-  pane.append(row, el('p', 'pane-note', 'Een vaste losse kleur kan deze laser niet: 0–63 geeft steeds een mix van kleuren.'));
+  row.append(el('span', '', t('builder.mix')), slider, lcd);
+  pane.append(row, el('p', 'pane-note', t('builder.mixNote')));
 }
 function paneMove(pane, b) {
   optionCards(pane, MOVES, b.move, (k) => choose({ move: k }));
-  pane.append(el('p', 'pane-note', 'Draaien en spiegelen gebruiken een vaste snelheid; fijner afstellen kan op de Lichttafel.'));
+  pane.append(el('p', 'pane-note', t('builder.moveNote')));
 }
 function paneSize(pane, b) {
-  const grid = optionCards(pane, SIZES, b.size, (k) => choose({ size: k }), (s) => `Kanaal 8 op ${s.value}.`);
+  const grid = optionCards(pane, SIZES, b.size, (k) => choose({ size: k }), (s) => t('builder.sizeValue', { v: s.value }));
   if (b.move === PULSE) {
     grid.querySelectorAll('.opt').forEach((o) => { o.disabled = true; });
-    pane.append(el('p', 'pane-note', 'Pulseren regelt de grootte zelf. Kies een andere beweging om een vaste grootte te kiezen.'));
+    pane.append(el('p', 'pane-note', t('builder.sizePulse')));
   } else {
-    pane.append(el('p', 'pane-note', 'Een hogere waarde is kleiner: zo werkt deze laser.'));
+    pane.append(el('p', 'pane-note', t('builder.sizeNote')));
   }
 }
 function paneHeight(pane, b) {
   const [low, high] = limits().ch7;
   optionCards(pane, HEIGHTS, b.height, (k) => choose({ height: k }),
-    (item, k) => `Kanaal 7 op ${heightValue(k)}${k === 0 ? ' (hoogste stand)' : k === 2 ? ' (laagste stand)' : ''}.`);
-  pane.append(el('p', 'pane-note', isCalibrated()
-    ? `Binnen jouw hoogtegrens (${low} tot ${high}). De ESP32 houdt hem daar altijd binnen.`
-    : 'Er is nog geen hoogtegrens ingesteld.'));
+    (item, k) => t(k === 0 ? 'builder.heightHigh' : k === 2 ? 'builder.heightLow' : 'builder.heightMid', { v: heightValue(k) }));
+  pane.append(el('p', 'pane-note', isCalibrated() ? t('builder.heightNote', { low, high }) : t('builder.heightNone')));
 }
 function paneDots(pane, b) {
   optionCards(pane, DOTS, b.dots, (k) => choose({ dots: k }));
@@ -1257,7 +2008,7 @@ function paneDots(pane, b) {
   slider.max = POS_MAX;
   slider.value = b.speed;
   slider.id = 'speedSlider';
-  slider.setAttribute('aria-label', 'Snelheid: links snel, rechts langzaam');
+  slider.setAttribute('aria-label', t('builder.speedAria'));
   const move = (done) => {
     const v = clampInt(slider.value, 0, POS_MAX);
     const value = DOTS[ui.builder.dots].base + v;
@@ -1266,15 +2017,15 @@ function paneDots(pane, b) {
   };
   slider.addEventListener('input', () => move(false));
   slider.addEventListener('change', () => move(true));
-  row.append(el('span', '', 'Snel'), slider, el('span', '', 'Langzaam'), lcd);
-  pane.append(row, el('p', 'pane-note', 'Hoe hoger kanaal 10 binnen lijnen of punten, hoe langzamer de laser tekent.'));
+  row.append(el('span', '', t('builder.fast')), slider, el('span', '', t('builder.slow')), lcd);
+  pane.append(row, el('p', 'pane-note', t('builder.speedNote')));
 }
 function saveBuilder() {
   const b = ui.builder;
   if (!b || !canSaveBuilder(b)) return;
   const name = cleanName($('bName').value) || suggestName(b);
   const slot = freeSlot(lib.presets, PRESET_SLOTS);
-  if (!name) { showMsg(ERROR_TEXT['bad-name'], 'error'); return; }
+  if (!name) { showMsg('err.bad-name', 'error'); return; }
   flush();
   applyBuilder(b, false);   // the save stores the live look, so it must be complete (it is on: canSaveBuilder)
   if (send(`preset save ${slot} ${name}`)) setPending({ kind: 'preset-save', slot, name, from: 'builder' });
@@ -1284,7 +2035,7 @@ function saveBuilder() {
 // --- "＋ Bewaar als preset" ------------------------------------------------------------------------------
 function openSheet() {
   if (!canEdit()) return;
-  if (!freeSlot(lib.presets, PRESET_SLOTS)) { showMsg('Alle 32 plekken zijn vol. Verwijder eerst een preset.', 'warn'); return; }
+  if (!freeSlot(lib.presets, PRESET_SLOTS)) { showMsg('msg.presetsFull', 'warn', { n: PRESET_SLOTS }); return; }
   ui.sheet = true;
   ui.builder = null;
   ui.editor = null;
@@ -1299,12 +2050,11 @@ function renderSheet() {
   const ch = currentLook();
   const n = patternNumber(ch[1]);
   $('sLook').textContent = `#${n} ${patternName(n)}`;
-  $('sLookMeta').textContent = lookWords(ch, false) || 'Zoals de laser nu staat.';
+  $('sLookMeta').textContent = lookWords(ch, false) || t('sheet.asNow');
   $('sName').placeholder = cleanName(patternName(n));
   const slot = freeSlot(lib.presets, PRESET_SLOTS);
-  $('sHint').textContent = ch[0] < MODE_ON_MIN
-    ? 'Let op: de laser staat uit, dus deze preset is donker. Handig als pauze in een show.'
-    : `Bewaart alle 10 kanalen zoals de laser nu staat${slot ? `, op plek ${slot} van ${PRESET_SLOTS}` : ''}.`;
+  $('sHint').textContent = ch[0] < MODE_ON_MIN ? t('sheet.dark')
+    : slot ? t('sheet.hintSlot', { slot, total: PRESET_SLOTS }) : t('sheet.hint');
   $('sHint').className = `hint${ch[0] < MODE_ON_MIN ? ' warn' : ''}`;
   $('sSave').disabled = !canEdit() || !slot || !!pending;
   startAnim();
@@ -1313,7 +2063,7 @@ function saveSheet() {
   const slot = freeSlot(lib.presets, PRESET_SLOTS);
   if (!slot || !canEdit()) return;
   const name = cleanName($('sName').value) || cleanName($('sName').placeholder);
-  if (!name) { showMsg(ERROR_TEXT['bad-name'], 'error'); return; }
+  if (!name) { showMsg('err.bad-name', 'error'); return; }
   flush();
   if (send(`preset save ${slot} ${name}`)) setPending({ kind: 'preset-save', slot, name, from: 'sheet' });
   renderSheet();
@@ -1326,12 +2076,11 @@ function rebuildShows() {
   const list = showList();
   if (!list.length) {
     const card = el('div', 'card');
-    card.append(el('b', '', 'Nog geen shows'),
-      el('p', 'hint', 'Een show speelt presets na elkaar af, elk zo lang als jij wilt, en begint dan opnieuw. De ESP32 speelt hem zelf: je telefoon mag op slot of weg.'));
-    const add = button('btn light', '＋ Nieuwe show', () => openEditor(null));
+    card.append(el('b', '', t('shows.emptyTitle')), el('p', 'hint', t('shows.emptyHint')));
+    const add = button('btn light', t('nav.newShow'), () => openEditor(null));
     add.disabled = !lib.presets.size;
     card.append(add);
-    if (!lib.presets.size) card.append(el('p', 'hint', 'Maak eerst een paar presets.'));
+    if (!lib.presets.size) card.append(el('p', 'hint', t('shows.needPresets')));
     host.append(card);
   }
   list.forEach((s) => host.append(makeShowCard(s)));
@@ -1344,17 +2093,17 @@ function makeShowCard(s) {
   const info = el('div');
   info.append(el('div', 'sname', s.name), el('div', 'smeta', ''));
   const acts = el('div', 'acts');
-  const edit = button('btn', 'Bewerken', () => openEditor(s.slot), `${s.name} bewerken`);
+  const edit = button('btn', t('common.edit'), () => openEditor(s.slot), t('shows.editAria', { name: s.name }));
   edit.dataset.edit = s.slot;
   const play = button('play', '▶', () => togglePlay(s.slot));
   play.dataset.play = s.slot;
   acts.append(edit, play);
   const chips = el('div', 'steplist');
-  s.steps.forEach(([p, t], k) => {
+  s.steps.forEach(([p, tenths], k) => {
     const chip = el('div', 'stepchip');
     chip.dataset.step = k;
     const cv = el('canvas');
-    chip.append(cv, el('span', '', presetName(p)), el('b', '', fmtSec(t)));
+    chip.append(cv, el('span', '', presetName(p)), el('b', '', fmtSec(tenths)));
     chips.append(chip);
     const preset = lib.presets.get(p);
     if (preset) addThumb(cv, () => drawLook(cv, preset.ch, { fill: 0.86, glow: 2, line: 1.3, flatSize: true }));
@@ -1372,11 +2121,11 @@ function refreshShows() {
     const btn = card.querySelector('.play');
     btn.textContent = playing ? '■' : '▶';
     btn.classList.toggle('stop', playing);
-    btn.setAttribute('aria-label', playing ? `${s ? s.name : 'Show'} stoppen` : `${s ? s.name : 'Show'} afspelen`);
+    btn.setAttribute('aria-label', t(playing ? 'shows.stopAria' : 'shows.playAria', { name: s ? s.name : 'Show' }));
     card.querySelectorAll('.stepchip').forEach((c) => c.classList.toggle('cur', playing && Number(c.dataset.step) === play.step));
     const meta = card.querySelector('.smeta');
-    if (playing) meta.textContent = `Speelt · stap ${play.step + 1}/${play.steps} · nog ${Math.ceil(play.left / 1000)} s`;
-    else if (s) meta.textContent = `${s.steps.length} ${s.steps.length === 1 ? 'stap' : 'stappen'} · ${fmtSec(totalHold(s.steps))} per ronde · blijft lopen zonder telefoon`;
+    if (playing) meta.textContent = t('shows.playing', { step: play.step + 1, steps: play.steps, left: Math.ceil(play.left / 1000) });
+    else if (s) meta.textContent = t('shows.meta', { steps: stepsText(s.steps.length), time: fmtSec(totalHold(s.steps)) });
   });
 }
 function togglePlay(slot) {
@@ -1390,7 +2139,7 @@ function togglePlay(slot) {
 function openEditor(slot) {
   if (!canEdit()) return;
   const s = slot != null ? lib.shows.get(slot) : null;
-  if (slot == null && !freeSlot(lib.shows, SHOW_SLOTS)) { showMsg('Alle 16 plekken voor shows zijn vol. Verwijder eerst een show.', 'warn'); return; }
+  if (slot == null && !freeSlot(lib.shows, SHOW_SLOTS)) { showMsg('msg.showsFull', 'warn', { n: SHOW_SLOTS }); return; }
   ui.editor = { slot: s ? s.slot : null, steps: s ? s.steps.map(([p, t]) => [p, t]) : [], picker: !s };
   clearTimeout(ui.deleteArmed);
   ui.deleteArmed = 0;
@@ -1418,7 +2167,7 @@ function renderEditor() {
   const host = $('eSteps');
   host.textContent = '';
   e.steps.forEach(([p, t], k) => host.append(makeStepRow(p, t, k, e.steps.length)));
-  const add = button('addstep', '＋ Stap toevoegen', () => { ui.editor = { ...ui.editor, picker: true }; renderEditor(); });
+  const add = button('addstep', t('editor.add'), () => { ui.editor = { ...ui.editor, picker: true }; renderEditor(); });
   add.id = 'eAdd';
   add.disabled = e.steps.length >= MAX_STEPS;
   host.append(add);
@@ -1429,39 +2178,40 @@ function renderEditor() {
 function renderEditorHead() {
   const e = ui.editor;
   const n = e.steps.length;
-  $('eCount').textContent = `${n} ${n === 1 ? 'stap' : 'stappen'}${n >= MAX_STEPS ? ' (maximum)' : ''}`;
-  $('eTotal').textContent = n ? `${fmtSec(totalHold(e.steps))} per ronde, daarna begint hij opnieuw.` : 'Voeg minstens één stap toe.';
+  $('eCount').textContent = n >= MAX_STEPS ? t('editor.max', { steps: stepsText(n) }) : stepsText(n);
+  $('eTotal').textContent = n ? t('editor.total', { time: fmtSec(totalHold(e.steps)) }) : t('editor.empty');
   $('eDelete').hidden = e.slot == null;
-  $('eDelete').textContent = ui.deleteArmed ? 'Zeker? Tik nog eens' : 'Verwijderen';
+  $('eDelete').textContent = t(ui.deleteArmed ? 'editor.sure' : 'common.delete');
   $('eDelete').className = `btn${ui.deleteArmed ? ' red' : ''}`;
   $('eSave').disabled = !n || !canEdit() || !!pending;
 }
-function makeStepRow(p, t, k, count) {
+function makeStepRow(p, tenths, k, count) {
   const row = el('div', 'srow');
   row.dataset.k = k;
   const cv = el('canvas');
   const preset = lib.presets.get(p);
-  row.append(el('span', 'no', String(k + 1)), cv, el('div', 'nm', preset ? preset.name : `Preset ${p} (weg)`));
+  const n = k + 1;
+  row.append(el('span', 'no', String(n)), cv, el('div', 'nm', preset ? preset.name : t('editor.gone', { slot: p })));
   if (preset) addThumb(cv, () => drawLook(cv, preset.ch, { fill: 0.84, glow: 2, line: 1.3, flatSize: true }));
   const hold = el('div', 'hold');
   const input = el('input', 'lcd');
   input.type = 'text';
   input.inputMode = 'decimal';
-  input.value = fmtSecInput(t);
-  input.setAttribute('aria-label', `Stap ${k + 1}: seconden`);
+  input.value = fmtSecInput(tenths);
+  input.setAttribute('aria-label', t('editor.secAria', { n }));
   const update = (value) => setSteps(ui.editor.steps.map((s, i) => (i === k ? [s[0], value] : s)));
-  input.addEventListener('change', () => update(parseHold(input.value, t)));
+  input.addEventListener('change', () => update(parseHold(input.value, tenths)));
   input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') input.blur(); });
-  hold.append(button('ib', '−', () => update(stepHold(t, -1)), `Stap ${k + 1} korter`), input, el('span', 'unit', 's'),
-    button('ib', '+', () => update(stepHold(t, 1)), `Stap ${k + 1} langer`));
+  hold.append(button('ib', '−', () => update(stepHold(tenths, -1)), t('editor.shorter', { n })), input, el('span', 'unit', 's'),
+    button('ib', '+', () => update(stepHold(tenths, 1)), t('editor.longer', { n })));
   const btns = el('div', 'rowbtns');
   const swap = (a, b) => setSteps(ui.editor.steps.map((s, i) => (i === a ? ui.editor.steps[b] : i === b ? ui.editor.steps[a] : s)));
-  const up = button('ib', '↑', () => swap(k, k - 1), `Stap ${k + 1} omhoog`);
+  const up = button('ib', '↑', () => swap(k, k - 1), t('editor.up', { n }));
   up.disabled = k === 0;
   up.dataset.up = k;
-  const down = button('ib', '↓', () => swap(k, k + 1), `Stap ${k + 1} omlaag`);
+  const down = button('ib', '↓', () => swap(k, k + 1), t('editor.down', { n }));
   down.disabled = k === count - 1;
-  const remove = button('ib', '✕', () => setSteps(ui.editor.steps.filter((_, i) => i !== k)), `Stap ${k + 1} weghalen`);
+  const remove = button('ib', '✕', () => setSteps(ui.editor.steps.filter((_, i) => i !== k)), t('editor.remove', { n }));
   btns.append(up, down, remove);
   row.append(hold, btns);
   return row;
@@ -1479,7 +2229,7 @@ function renderPicker() {
       renderEditor();
       const list = $('eSteps');
       list.scrollTop = list.scrollHeight;
-    }, `${p.name} als stap toevoegen`);
+    }, t('editor.pickAria', { name: p.name }));
     tile.dataset.pick = p.slot;
     const cv = el('canvas');
     const txt = el('div', 'txt');
@@ -1493,7 +2243,7 @@ function saveShow() {
   const e = ui.editor;
   if (!e || !e.steps.length || !canEdit()) return;
   const slot = e.slot != null ? e.slot : freeSlot(lib.shows, SHOW_SLOTS);
-  if (!slot) { showMsg('Alle 16 plekken voor shows zijn vol.', 'warn'); return; }
+  if (!slot) { showMsg('msg.showsFullShort', 'warn', { n: SHOW_SLOTS }); return; }
   const name = cleanName($('eName').value) || `Show ${slot}`;
   const steps = e.steps.map(([p, t]) => `${p}:${t}`).join(',');
   if (send(`show save ${slot} ${steps} ${name}`)) setPending({ kind: 'show-save', slot, name });
@@ -1542,42 +2292,42 @@ function zoneIndex(ch, v) { return (ZONES[ch] || []).findIndex(([a, b]) => v >= 
 function zoneText(i, v) {
   const ch = i + 1;
   const L = limits();
-  if (ch === 1) return v >= MODE_ON_MIN ? 'Aan' : 'Uit';
+  if (ch === 1) return t(v >= MODE_ON_MIN ? 'zone.on' : 'zone.off');
   if (ch === 2) return patternName(patternNumber(v));
   if (ch === 7) {
-    if (!L.calibrated) return 'Geen grens';
-    if (v === L.ch7[0]) return 'Laagst';
-    if (v === L.ch7[1]) return 'Hoogst';
-    return 'Hoogte';
+    if (!L.calibrated) return t('zone.noLimit');
+    if (v === L.ch7[0]) return t('zone.lowest');
+    if (v === L.ch7[1]) return t('zone.highest');
+    return t('zone.height');
   }
-  if (ch === 6 && L.ch6.on) return v === 0 ? 'Midden' : 'Links';
+  if (ch === 6 && L.ch6.on) return t(v === 0 ? 'zone.center' : 'zone.left');
   const zone = (ZONES[ch] || [])[zoneIndex(ch, v)];
-  let text = zone ? zone[2] : '';
-  if (ch === 10) { const s = v % 128; text += s < 43 ? ' · snel' : s < 86 ? ' · middel' : ' · traag'; }
+  let text = zone ? t(zone[2]) : '';
+  if (ch === 10) { const s = v % 128; text += ` · ${t(s < 43 ? 'zone.fast' : s < 86 ? 'zone.medium' : 'zone.slow')}`; }
   return text;
 }
 function buildDesk() {
   const desk = $('desk');
   dragging.clear();   // the old tracks are gone, so their pointerup will never come
   desk.textContent = '';
-  deskStrips = CHANNELS.map((c, i) => buildStrip(desk, c, i));
+  deskStrips = Array.from({ length: CH_COUNT }, (_, i) => buildStrip(desk, i));
   const L = limits();
   deskSig = JSON.stringify([L.ch6.on, L.calibrated]);
   renderTip();
 }
-function buildStrip(desk, c, i) {
-  if (i === 0) return buildPowerStrip(desk, c);
+function buildStrip(desk, i) {
+  if (i === 0) return buildPowerStrip(desk);
   const ch = i + 1;
   const spec = faderSpec(i);
   const strip = el('div', `strip${spec.steps ? ' snap' : ''}${i === 1 ? ' wide' : ''}`);
   strip.dataset.ch = ch;
-  const lbl = button('lbl', c.key, (e) => { e.stopPropagation(); toggleTip(i); }, `${c.name}: uitleg`);
+  const lbl = button('lbl', chanShort(i), (e) => { e.stopPropagation(); toggleTip(i); }, t('desk.helpAria', { name: chanName(i) }));
   const lcd = el('div', 'lcd', '000');
   const mid = el('div', 'smid');
   const track = el('div', 'track');
   track.tabIndex = 0;
   track.setAttribute('role', 'slider');
-  track.setAttribute('aria-label', `Kanaal ${ch}: ${c.name}`);
+  track.setAttribute('aria-label', t('desk.trackAria', { n: ch, name: chanName(i) }));
   track.setAttribute('aria-orientation', 'vertical');
   track.append(el('div', 'slot'));
   let zoneEls = [];
@@ -1601,7 +2351,7 @@ function buildStrip(desk, c, i) {
     info = el('div', 'pinfo');
     const cv = el('canvas');
     const steps = el('div', 'pstep');
-    steps.append(button('ib', '▼', () => stepPattern(-1), 'Vorig patroon'), button('ib', '▲', () => stepPattern(1), 'Volgend patroon'));
+    steps.append(button('ib', '▼', () => stepPattern(-1), t('desk.prev')), button('ib', '▲', () => stepPattern(1), t('desk.next')));
     info.append(cv, el('div', 'pnum', ''), el('div', 'pcat', ''), steps);
     mid.append(info);
     addThumb(cv, () => drawLook(cv, [MODE_ON, valueOf(2), 0, 0, 0, 0, 0, 0, 0, 0], { fill: 0.8, glow: 3 }));
@@ -1613,14 +2363,14 @@ function buildStrip(desk, c, i) {
   return { i, strip, lbl, lcd, track, cap, zone, zoneEls, info, shownPattern: 0 };
 }
 // CH1 has only two useful values (0 = uit, 96 = aan), so it is a switch you tap, not a fader you drag.
-function buildPowerStrip(desk, c) {
+function buildPowerStrip(desk) {
   const strip = el('div', 'strip');
   strip.dataset.ch = 1;
-  const lbl = button('lbl', c.key, (e) => { e.stopPropagation(); toggleTip(0); }, `${c.name}: uitleg`);
+  const lbl = button('lbl', chanShort(0), (e) => { e.stopPropagation(); toggleTip(0); }, t('desk.helpAria', { name: chanName(0) }));
   const lcd = el('div', 'lcd', '000');
   const mid = el('div', 'smid');
-  const power = button('power', null, togglePower, 'Laser aan of uit');
-  power.append(el('span', 'lamp'), el('span', 'word', 'UIT'));
+  const power = button('power', null, togglePower, t('desk.power'));
+  power.append(el('span', 'lamp'), el('span', 'word', t('desk.turnOn')));   // refreshDesk sets the real word
   mid.append(power);
   const zone = el('div', 'zone');
   strip.append(el('div', 'num', '01'), lbl, lcd, mid, zone);
@@ -1680,7 +2430,7 @@ function deskSet(i, v) {
   if (!canDrive()) return;
   const ch = i + 1;
   if (ch === 1 && v >= MODE_ON_MIN && !isCalibrated()) {
-    showMsg(ERROR_TEXT['not-calibrated'], 'warn');
+    showMsg('err.not-calibrated', 'warn');
     refreshDesk();
     return;
   }
@@ -1701,7 +2451,7 @@ function refreshDesk() {
       s.zone.textContent = zoneText(s.i, v);
       s.power.classList.toggle('on', isOn);
       s.power.setAttribute('aria-pressed', String(isOn));
-      s.power.querySelector('.word').textContent = isOn ? 'AAN' : 'ZET AAN';  // off: say what a tap does
+      s.power.querySelector('.word').textContent = t(isOn ? 'desk.on' : 'desk.turnOn');  // off: say what a tap does
       s.lbl.classList.toggle('open', ui.tipCh === s.i);
       return;
     }
@@ -1721,7 +2471,7 @@ function refreshDesk() {
       const n = patternNumber(v);
       const p = patternInfo(n);
       s.info.querySelector('.pnum').textContent = `#${n}`;
-      s.info.querySelector('.pcat').textContent = p ? p.category : '';
+      s.info.querySelector('.pcat').textContent = p ? categoryLabel(p.category) : '';
       if (s.shownPattern !== n) { s.shownPattern = n; drawLook(s.info.querySelector('canvas'), [MODE_ON, v, 0, 0, 0, 0, 0, 0, 0, 0], { fill: 0.8, glow: 3 }); }
     }
   });
@@ -1749,14 +2499,14 @@ function renderTip() {
   const tip = el('div', 'tip');
   tip.id = 'tip';
   tip.setAttribute('role', 'dialog');
-  tip.setAttribute('aria-label', `Uitleg ${CHANNELS[i].name}`);
+  tip.setAttribute('aria-label', t('desk.tipAria', { name: chanName(i) }));
   const h = el('h4');
-  h.append(el('span', '', `${CHANNELS[i].key} · ${CHANNELS[i].name}`), button('', '✕', () => toggleTip(i), 'Uitleg sluiten'));
+  h.append(el('span', '', `${chanShort(i)} · ${chanName(i)}`), button('', '✕', () => toggleTip(i), t('desk.tipClose')));
   tip.append(h, el('p', '', g.what));
   tip.append(zoneList(g.zones, 'ul', 'li'));
   (g.warn ? [g.warn] : []).forEach((w) => tip.append(el('div', 'warn', `⚠ ${w}`)));
-  (g.notes || []).forEach(([text, isTest]) => { const p = el('p', '', text); if (isTest) p.append(el('span', 'test', 'TESTEN')); tip.append(p); });
-  tip.append(button('more', 'Meer in Uitleg →', () => { ui.guide = `ch${i + 1}`; switchTab('guide'); }));
+  (g.notes || []).forEach(([text, isTest]) => { const p = el('p', '', text); if (isTest) p.append(el('span', 'test', t('guide.test'))); tip.append(p); });
+  tip.append(button('more', t('desk.more'), () => { ui.guide = `ch${i + 1}`; switchTab('guide'); }));
   const desk = $('desk');
   desk.append(tip);
   const strip = deskStrips[i].strip;
@@ -1769,7 +2519,7 @@ function zoneList(zones, tag, itemTag) {
   zones.forEach((z) => {
     const item = el(itemTag);
     const text = el('span', '', z.t);
-    if (z.test) text.append(el('span', 'test', 'TESTEN'));
+    if (z.test) text.append(el('span', 'test', t('guide.test')));
     item.append(el('b', '', z.r), text);
     list.append(item);
   });
@@ -1779,87 +2529,70 @@ function zoneList(zones, tag, itemTag) {
 // --- uitleg (guide) ------------------------------------------------------------------------------------
 // Per channel: what it does, zones [range, text, TESTEN], warnings and notes. Real
 // behaviour from the user's hardware test (2026-10-23); unconfirmed claims say TESTEN.
-function zone(lo, hi, r, t, test) { return { lo, hi, r, t, test: !!test }; }
+// The texts are STR keys guide.ch<n>.*, built per call so they follow the language and the limits.
+function zone(lo, hi, r, text, test) { return { lo, hi, r, t: text, test: !!test }; }
 function guideFor(i) {
   const L = limits();
   const [low, high] = L.ch7;
-  const flip = (axis, as) => ({
-    what: `Spiegelt het patroon ${axis}. Tussenstanden lijken in 3D om een ${as} as te draaien.`,
-    zones: [zone(0, 127, '0–127', 'Vaste stand.', true), zone(128, 255, '128–255', 'Blijft spiegelen; hoger = sneller (volgens de handleiding).', true)],
+  const flip = (n) => ({
+    what: t(`guide.ch${n}.what`),
+    zones: [zone(0, 127, '0–127', t('guide.flip.z0'), true), zone(128, 255, '128–255', t('guide.flip.z1'), true)],
   });
+  const sideLo = Math.min(...L.ch6.range), sideHi = Math.max(...L.ch6.range);
   const side = L.ch6.on
-    ? (Math.min(...L.ch6.range) === 0 && Math.max(...L.ch6.range) === POS_MAX
-      ? 'De zijgrens staat op volle breedte (0–127): de schuif loopt over 0–127 en de automatische beweging is geblokkeerd.'
-      : `De schuif loopt over jouw zijgrens: ${Math.min(...L.ch6.range)} tot ${Math.max(...L.ch6.range)}.`)
-    : 'Er is geen zijgrens: de schuif loopt over 0–255.';
+    ? (sideLo === 0 && sideHi === POS_MAX ? t('guide.side.full') : t('guide.side.range', { lo: sideLo, hi: sideHi }))
+    : t('guide.side.none');
   const table = [
-    { what: 'Zet de laser aan of uit: tik op de schakelaar. Zo zet je hem ook weer aan na UIT, zonder eerst een preset te kiezen.',
-      zones: [zone(0, 63, '0–63', 'Uit: donker.'), zone(64, 127, '64–127', 'Aan (handmatig): de andere kanalen bepalen wat je ziet. De schakelaar zet 96.'),
-        zone(128, 255, '128–255', 'Automatisch en geluid: uitgeschakeld. Daar negeert de laser de hoogtegrens, dus de ESP32 stuurt dan 0.')],
-      notes: [['Aan kan pas als de hoogtegrens is ingesteld (Beheer).', false]] },
-    { what: 'Welke vorm de laser tekent. Er zijn 51 patronen, ongeveer elke 5 stappen een volgende (#1 = 0–4). De namen en tekeningen zijn van jou.',
-      zones: [zone(0, 255, '0–255', 'De schuif klikt van patroon naar patroon.')],
-      notes: [['#48 is precies hetzelfde als #47, en staat daarom niet in de kiezers. Geen enkel patroon beweegt uit zichzelf.', false]] },
-    { what: 'Draait het patroon, zoals een wijzer van de klok.',
-      zones: [zone(0, 127, '0–127', 'Vaste hoek. Op 64 wordt #1 Vierkant een ruit.'), zone(128, 191, '128–191', 'Draait rond, de ene kant op.', true),
-        zone(192, 255, '192–255', 'Draait rond, de andere kant op.', true)],
-      warn: 'Gedraaid komt het patroon lager dan recht. Daarom meet je de hoogtegrens met de ruit of draaiend.',
-      notes: [['Of een hogere waarde sneller draait, is nog niet getest.', true]] },
-    flip('links↔rechts', 'staande'),
-    flip('boven↔onder', 'liggende'),
-    { what: 'Schuift het hele patroon opzij.',
-      zones: [zone(0, 0, '0', 'Midden: geen verschuiving.'), zone(1, 127, '1–127', 'Alleen naar links; hoger = verder.'),
-        zone(128, 255, '128–255', 'Beweegt zelf heen en weer, ook naar rechts. Geblokkeerd zolang de zijgrens aan staat.')],
-      notes: [[side, false], ['Handmatig naar rechts is nog niet gevonden (misschien samen met horizontaal spiegelen).', true]] },
-    { what: L.calibrated
-      ? `Schuift het patroon omhoog en omlaag. De schuif beslaat alleen jouw veilige bereik: onderaan ${low} (laagste stand), bovenaan ${high} (hoogste stand).`
-      : 'Schuift het patroon omhoog en omlaag. Er is nog geen hoogtegrens ingesteld, dus de laser kan nog niet aan.',
-      zones: [zone(0, 64, '0–64', 'Positie. Op 64 staat hij hoog (daar begint de kalibratie).'), zone(65, 127, '65–127', 'Doet iets anders; wat precies is nog onbekend.', true),
-        zone(128, 255, '128–255', 'Beweegt zelf op en neer: altijd geblokkeerd.')],
-      warn: 'De ESP32 houdt de straal altijd binnen de grens, ook in presets en shows. De grens stel je per locatie in onder Beheer.',
-      notes: L.calibrated && low > high ? [['Bij jouw opstelling is een hoger getal lager.', false]] : [] },
-    { what: 'Hoe groot het patroon is.',
-      zones: [zone(0, 63, '0–63', 'Vaste grootte. Hoger = KLEINER: 0 is het grootst.'), zone(64, 127, '64–127', 'Groeit steeds van klein naar groot.', true),
-        zone(128, 191, '128–191', 'Krimpt steeds van groot naar klein.', true), zone(192, 255, '192–255', 'Pulseert: steeds groter en kleiner (zoomsnelheid).', true)],
-      notes: [['De zoomcirkels (#17, #29 en #30) veranderen alleen van grootte met dit kanaal.', false]] },
-    { what: 'De kleur. Eén vaste losse kleur kiezen kan deze laser niet.',
-      zones: [zone(0, 63, '0–63', 'Mix: meerdere kleuren tegelijk. De waarde kiest de mix.'), zone(64, 127, '64–127', 'Volgens de handleiding ook mengen; het verschil met 0–63 is nog onbekend.', true),
-        zone(128, 191, '128–191', 'Eén kleur tegelijk, die steeds wisselt.'), zone(192, 255, '192–255', 'Alle kleuren, steeds wisselend.')],
-      notes: [['Of de waarde binnen 128–255 de wisselsnelheid regelt, is nog niet getest.', true]] },
-    { what: 'Doorgetrokken lijnen of alleen puntjes, en hoe snel de laser tekent.',
-      zones: [zone(0, 127, '0–127', 'Lijnen. 0 is het snelst; hoger = langzamer.'), zone(128, 255, '128–255', 'Alleen punten. 128 is het snelst; hoger = langzamer.')] },
+    { what: t('guide.ch1.what'),
+      zones: [zone(0, 63, '0–63', t('guide.ch1.z0')), zone(64, 127, '64–127', t('guide.ch1.z1')), zone(128, 255, '128–255', t('guide.ch1.z2'))],
+      notes: [[t('guide.ch1.note'), false]] },
+    { what: t('guide.ch2.what'),
+      zones: [zone(0, 255, '0–255', t('guide.ch2.z0'))],
+      notes: [[t('guide.ch2.note'), false]] },
+    { what: t('guide.ch3.what'),
+      zones: [zone(0, 127, '0–127', t('guide.ch3.z0')), zone(128, 191, '128–191', t('guide.ch3.z1'), true),
+        zone(192, 255, '192–255', t('guide.ch3.z2'), true)],
+      warn: t('guide.ch3.warn'),
+      notes: [[t('guide.ch3.note'), true]] },
+    flip(4),
+    flip(5),
+    { what: t('guide.ch6.what'),
+      zones: [zone(0, 0, '0', t('guide.ch6.z0')), zone(1, 127, '1–127', t('guide.ch6.z1')), zone(128, 255, '128–255', t('guide.ch6.z2'))],
+      notes: [[side, false], [t('guide.ch6.note'), true]] },
+    { what: L.calibrated ? t('guide.ch7.what', { low, high }) : t('guide.ch7.whatNone'),
+      zones: [zone(0, 64, '0–64', t('guide.ch7.z0')), zone(65, 127, '65–127', t('guide.ch7.z1'), true), zone(128, 255, '128–255', t('guide.ch7.z2'))],
+      warn: t('guide.ch7.warn'),
+      notes: L.calibrated && low > high ? [[t('guide.ch7.note'), false]] : [] },
+    { what: t('guide.ch8.what'),
+      zones: [zone(0, 63, '0–63', t('guide.ch8.z0')), zone(64, 127, '64–127', t('guide.ch8.z1'), true),
+        zone(128, 191, '128–191', t('guide.ch8.z2'), true), zone(192, 255, '192–255', t('guide.ch8.z3'), true)],
+      notes: [[t('guide.ch8.note'), false]] },
+    { what: t('guide.ch9.what'),
+      zones: [zone(0, 63, '0–63', t('guide.ch9.z0')), zone(64, 127, '64–127', t('guide.ch9.z1'), true),
+        zone(128, 191, '128–191', t('guide.ch9.z2')), zone(192, 255, '192–255', t('guide.ch9.z3'))],
+      notes: [[t('guide.ch9.note'), true]] },
+    { what: t('guide.ch10.what'),
+      zones: [zone(0, 127, '0–127', t('guide.ch10.z0')), zone(128, 255, '128–255', t('guide.ch10.z1'))] },
   ];
   return table[i];
 }
+// The two intro topics: a title, paragraphs (STR keys, **bold** and [TEST] marked) and a warning.
 const GUIDE_INTRO = {
-  basis: { title: 'Zo werkt het', parts: [
-    ['Je telefoon praat via ', { b: 'de wifi van de ESP32' }, ' met de ESP32. Die stuurt de laser 40 keer per seconde aan via de DMX-kabel: 10 kanalen, vanaf zijn DMX-adres (standaard 1).'],
-    [{ b: 'Presets' }, ' zijn opgeslagen looks van alle 10 kanalen. Tik een tegel en de laser laat hem zien. Een nieuwe maak je met ＋ Nieuw (de snelbouwer), of stel de laser in op de Lichttafel en tik ＋ Bewaar als preset.'],
-    [{ b: 'Shows' }, ' spelen presets na elkaar, elk zo lang als jij wilt, en beginnen dan opnieuw. De ESP32 speelt de show zelf: je telefoon mag op slot, naar een andere app of van de wifi.'],
-    [{ b: 'Lichttafel' }, ': alle 10 kanalen met de hand. Tik op een naam voor uitleg. Een schuif bewegen neemt het over van een lopende show.'],
-    [{ b: 'Beheer' }, ' (met pincode): de hoogtegrens instellen, kanalen uitproberen in Debug, het DMX-adres en de pincode.'],
-    [{ test: true }, ' betekent: nog niet op de echte laser bevestigd. Probeer het uit in Beheer → Debug.'],
-  ] },
-  veilig: { title: 'Veiligheid', parts: [
-    [{ b: 'UIT' }, ' zet de laser meteen uit, vanaf elke telefoon, ook tijdens een show, kalibratie of debugsessie.'],
-    ['De stopknop ', { b: 'IO0' }, ' op de ESP32 doet hetzelfde zonder telefoon. Zolang je hem inhoudt blijft alles uit; loslaten zet niets terug aan.'],
-    ['De ESP32 houdt de straal binnen de hoogtegrens en de zijgrens, ook in presets en shows, in elk DMX-pakket opnieuw.'],
-    ['Zonder ingestelde grens kan de laser niet aan. Na een herstart is hij uit, en een show start nooit vanzelf.'],
-    ['De automatische en geluidsmodus van de laser zijn uitgeschakeld: die negeren de hoogtegrens.'],
-  ], warn: 'IO0 is een handige stop, geen noodstop. De echte uitknop is de schakelaar van de laser zelf. Richt de laser nooit op mensen.' },
+  basis: { parts: 6 },
+  veilig: { parts: 5, warn: true },
 };
-// Example looks for the guide pictures: [caption, channels].
+// Example looks for the guide pictures: [caption STR key or plain text, channels].
 const look = (n, extra) => { const ch = [MODE_ON, patternValue(n), 0, 0, 0, 0, 0, 0, 0, 0]; Object.entries(extra || {}).forEach(([k, v]) => { ch[Number(k) - 1] = v; }); return ch; };
 const GUIDE_PICTURES = {
-  ch2: [['#21 Ster', look(21)], ['#25 Hart', look(25, { 9: 30 })], ['#49 Zigzag', look(49, { 9: 50 })]],
-  ch3: [['0: recht', look(1)], ['64: ruit', look(1, { 3: 64 })]],
-  ch8: [['0: groot', look(2)], ['30', look(2, { 8: 30 })], ['60: klein', look(2, { 8: 60 })]],
-  ch9: [['Mix', look(22, { 9: 20 })], ['Eén kleur, wisselend', look(22, { 9: 160 })], ['Alle kleuren', look(22, { 9: 224 })]],
-  ch10: [['Lijnen', look(2)], ['Punten', look(2, { 10: 128 })]],
+  ch2: [['guide.pic.star', look(21)], ['guide.pic.heart', look(25, { 9: 30 })], ['guide.pic.zigzag', look(49, { 9: 50 })]],
+  ch3: [['guide.pic.straight', look(1)], ['guide.pic.diamond', look(1, { 3: 64 })]],
+  ch8: [['guide.pic.large', look(2)], ['30', look(2, { 8: 30 })], ['guide.pic.small', look(2, { 8: 60 })]],
+  ch9: [[COLORS[0].label, look(22, { 9: 20 })], [COLORS[1].label, look(22, { 9: 160 })], [COLORS[2].label, look(22, { 9: 224 })]],
+  ch10: [[DOTS[0].label, look(2)], [DOTS[1].label, look(2, { 10: 128 })]],
 };
 function guideTopics() {
-  const short = ['Modus', 'Patroon', 'Rotatie', 'Spiegelen H', 'Spiegelen V', 'Positie H', 'Positie V', 'Grootte', 'Kleur', 'Lijnen / punten'];
-  return [['basis', '', 'Zo werkt het'], ['veilig', '', 'Veiligheid'], ...short.map((label, i) => [`ch${i + 1}`, String(i + 1), label])];
+  const channels = Array.from({ length: CH_COUNT }, (_, i) => [`ch${i + 1}`, String(i + 1), t(`chan.${i + 1}.topic`)]);
+  return [['basis', '', t('guide.basis.title')], ['veilig', '', t('guide.veilig.title')], ...channels];
 }
 function renderGuide() {
   const nav = $('gnav');
@@ -1874,21 +2607,21 @@ function renderGuide() {
   art.textContent = '';
   const intro = GUIDE_INTRO[ui.guide];
   if (intro) {
-    art.append(el('h3', '', intro.title));
-    intro.parts.forEach((parts) => art.append(richText(parts)));
-    if (intro.warn) art.append(el('div', 'gwarn', `⚠ ${intro.warn}`));
+    art.append(el('h3', '', t(`guide.${ui.guide}.title`)));
+    for (let k = 1; k <= intro.parts; k += 1) art.append(richText(t(`guide.${ui.guide}.p${k}`)));
+    if (intro.warn) art.append(el('div', 'gwarn', `⚠ ${t(`guide.${ui.guide}.warn`)}`));
     return;
   }
   const i = Number(ui.guide.slice(2)) - 1;
   const g = guideFor(i);
-  art.append(el('h3', '', `CH${i + 1} · ${CHANNELS[i].name}`), el('p', '', g.what));
+  art.append(el('h3', '', `CH${i + 1} · ${chanName(i)}`), el('p', '', g.what));
   const pics = GUIDE_PICTURES[ui.guide];
   if (pics) {
     const row = el('div', 'illus');
     pics.forEach(([caption, ch]) => {
       const fig = el('figure');
       const cv = el('canvas');
-      fig.append(cv, el('figcaption', '', caption));
+      fig.append(cv, el('figcaption', '', hasText(caption) ? t(caption) : caption));
       row.append(fig);
       addThumb(cv, () => drawLook(cv, ch, { fill: 0.78 }));
     });
@@ -1896,15 +2629,17 @@ function renderGuide() {
   }
   art.append(zoneList(g.zones, 'div', 'div'));
   if (g.warn) art.append(el('div', 'gwarn', `⚠ ${g.warn}`));
-  (g.notes || []).forEach(([text, isTest]) => { const p = el('p', 'gnote', text); if (isTest) p.append(el('span', 'test', 'TESTEN')); art.append(p); });
+  (g.notes || []).forEach(([text, isTest]) => { const p = el('p', 'gnote', text); if (isTest) p.append(el('span', 'test', t('guide.test'))); art.append(p); });
   queueRedraw();
 }
-function richText(parts) {
+// A guide paragraph: **bold** becomes <b>, [TEST] the TESTEN badge; everything else is plain text.
+function richText(text) {
   const p = el('p');
-  parts.forEach((part) => {
-    if (typeof part === 'string') p.append(document.createTextNode(part));
-    else if (part.b) p.append(el('b', '', part.b));
-    else if (part.test) p.append(el('span', 'test', 'TESTEN'));
+  text.split(/(\*\*[^*]+\*\*|\[TEST\])/).forEach((part) => {
+    if (!part) return;
+    if (part === '[TEST]') p.append(el('span', 'test', t('guide.test')));
+    else if (part.startsWith('**') && part.endsWith('**')) p.append(el('b', '', part.slice(2, -2)));
+    else p.append(document.createTextNode(part));
   });
   return p;
 }
@@ -2061,33 +2796,37 @@ function resolvePending() {
   if (kind === 'preset-save') {
     if (from === 'builder') ui.builder = null;
     if (from === 'sheet') ui.sheet = false;
-    showMsg(`${quote(name)} is bewaard als preset.`, 'ok');
+    showMsg('msg.presetSaved', 'ok', { name: quote(name) });
   } else if (kind === 'preset-delete') {
     ui.confirmSlot = null;
-    showMsg(`${quote(name)} is verwijderd.`, 'ok');
+    showMsg('msg.presetDeleted', 'ok', { name: quote(name) });
   } else if (kind === 'show-save') {
     ui.editor = null;
-    showMsg(`Show ${quote(name)} is bewaard.`, 'ok');
+    showMsg('msg.showSaved', 'ok', { name: quote(name) });
   } else {
     ui.editor = null;
-    showMsg(`Show ${quote(name)} is verwijderd.`, 'ok');
+    showMsg('msg.showDeleted', 'ok', { name: quote(name) });
   }
 }
 function onStop(msg) {
   const reason = String(msg.reason || '');
-  showMsg(STOP_TEXT[reason] || `De laser is gestopt (${reason}).`, reason === 'calibration-saved' ? 'ok' : 'stop');
+  const key = stopKey(reason);
+  showMsg(key || 'stop.unknown', reason === 'calibration-saved' ? 'ok' : 'stop', key ? undefined : { reason });
   clearLocal();
 }
-function errorText(code) {
+// An error toast as [key, values]. The show names of preset-in-use are a list (see renderMsg).
+function errorMsg(code) {
   if (code === 'preset-in-use' && pending && pending.kind === 'preset-delete') {
     const users = pending.users && pending.users.length ? pending.users : showsUsing(pending.slot).map((s) => s.name);
-    if (users.length) return `${quote(pending.name)} zit nog in ${users.length === 1 ? 'de show' : 'de shows'} ${listText(users.map(quote))}. Haal hem daar eerst uit.`;
+    if (users.length) return [users.length === 1 ? 'err.inUse.one' : 'err.inUse.other', { name: quote(pending.name), shows: users }];
   }
-  return ERROR_TEXT[code] || `Fout van de laser: ${code}`;
+  const key = errKey(code);
+  return key ? [key] : ['err.unknown', { code }];
 }
 function onError(msg) {
   const code = String(msg.code || '');
-  showMsg(errorText(code), 'error');
+  const [key, vars] = errorMsg(code);
+  showMsg(key, 'error', vars);
   if (pending) {
     if (pending.kind === 'preset-delete') ui.confirmSlot = null;
     pending = null;
@@ -2110,21 +2849,26 @@ function onMessage(data) {
 }
 
 // --- connection ---------------------------------------------------------------------------------------
-function setConn(text, kind) {
+function setConn(key, kind) {
+  connNow = { key, kind };
+  renderConn();
+}
+function renderConn() {
+  const text = t(connNow.key);
   $('conn').textContent = text;
-  $('conn').className = `conn ${kind}`;
+  $('conn').className = `conn ${connNow.kind}`;
   $('conn').title = text;
 }
 function connect() {
   if (document.hidden || ws) return;
-  setConn('Verbinden…', '');
+  setConn('conn.connecting', '');
   const sock = new WebSocket(`ws://${location.hostname || '192.168.4.1'}:81/`);
   ws = sock;
   sock.onopen = () => {
     isOpen = true;
     lastMsgAt = Date.now();
     reconnectMs = RECONNECT_MS;
-    setConn('Verbonden', 'ok');
+    setConn('conn.connected', 'ok');
     libSeen = false;
     clearTimeout(libTimer);
     libTimer = setTimeout(() => { if (isOpen && !libSeen) ws.send('lib'); }, LIB_WAIT_MS);
@@ -2144,7 +2888,7 @@ function lostConnection(sock) {
   pending = null;
   clearTimeout(libTimer);
   clearLocal();   // nothing queued survives a reconnect
-  setConn('Geen verbinding', 'bad');
+  setConn('conn.lost', 'bad');
   render();
   setTimeout(connect, reconnectMs);
   reconnectMs = Math.min(reconnectMs * 2, RECONNECT_MAX_MS);
@@ -2167,9 +2911,32 @@ function checkLink() {
 }
 // Closing on hide only frees the slot; the laser and a running show keep going (rule 3).
 function closeSocket() { dropSocket(); }
-document.addEventListener('visibilitychange', () => { if (document.hidden) closeSocket(); else { connect(); startAnim(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) closeSocket(); else { syncLang(); connect(); startAnim(); } });
 window.addEventListener('pagehide', closeSocket);
-window.addEventListener('pageshow', () => connect());
+window.addEventListener('pageshow', () => { syncLang(); connect(); });
+
+// --- language switch ----------------------------------------------------------------------------------
+// Re-renders every text the script builds from the last state and library, so nothing waits for the next message.
+function setLang(l) {
+  if (l !== 'nl' && l !== 'en') return;
+  lang = l;
+  try { localStorage.setItem(LANG_KEY, l); } catch (e) { /* storage blocked: the choice lasts until a reload */ }
+  document.documentElement.lang = l;
+  applyStatic();
+  renderLangSwitch();
+  renderConn();
+  renderMsg();
+  rebuildAll();
+  render();
+}
+// A switch made on /admin applies here when this page shows again.
+// Picks up a switch made on the other page. Only a stored choice counts: with storage blocked, a choice
+// made here must not fall back to the phone's language after an app switch.
+function syncLang() {
+  let saved = null;
+  try { saved = localStorage.getItem(LANG_KEY); } catch (e) { /* storage blocked: keep the current language */ }
+  if ((saved === 'nl' || saved === 'en') && saved !== lang) setLang(saved);
+}
 
 // --- wiring -----------------------------------------------------------------------------------------
 [...$('nav').children].forEach((b) => b.addEventListener('click', () => switchTab(b.dataset.tab)));
@@ -2178,6 +2945,8 @@ $('tabAction').addEventListener('click', () => {
   else if (ui.tab === 'shows') openEditor(null);
 });
 $('msg').addEventListener('click', hideMsg);
+// Never locked or disabled: it works before a connection and during a session.
+document.querySelectorAll('#langSwitch [data-lang]').forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
 $('offBtn').addEventListener('click', () => {
   if (document.activeElement) document.activeElement.blur();
   clearLocal();
@@ -2185,7 +2954,7 @@ $('offBtn').addEventListener('click', () => {
   clearTimeout(offTimer);
   offTimer = setTimeout(() => {
     if (!st || st.ch[0] >= MODE_ON_MIN) {
-      showMsg('De laser heeft UIT niet bevestigd. Gebruik de stopknop (IO0) of de schakelaar van de laser zelf.', 'error');
+      showMsg('msg.offUnconfirmed', 'error');
     }
   }, OFF_CONFIRM_MS);
 });
@@ -2220,11 +2989,15 @@ setInterval(() => {
   dropStaleLocal();
   if (pending && now() - pending.at > PENDING_MS) {
     pending = null;
-    showMsg('De laser gaf geen antwoord. Kijk of het gelukt is.', 'warn');
+    showMsg('msg.noAnswer', 'warn');
     render();
   }
   if (st && st.play) { renderSide(); refreshShows(); }
 }, TICK_MS);
+document.documentElement.lang = lang;
+applyStatic();
+renderLangSwitch();
+renderConn();
 rebuildAll();
 render();
 connect();
