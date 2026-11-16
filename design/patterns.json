@@ -6,6 +6,7 @@
    "number": 1,
    "dmxValue": 2,
    "name": "Vierkant",
+   "nameEn": "Square",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -682,6 +683,7 @@
    "number": 2,
    "dmxValue": 7,
    "name": "Cirkel",
+   "nameEn": "Circle",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -854,6 +856,7 @@
    "number": 3,
    "dmxValue": 12,
    "name": "Horizontale lijn",
+   "nameEn": "Horizontal line",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -918,6 +921,7 @@
    "number": 4,
    "dmxValue": 17,
    "name": "Verticale lijn",
+   "nameEn": "Vertical line",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -978,6 +982,7 @@
    "number": 5,
    "dmxValue": 22,
    "name": "Schuine lijn ↘",
+   "nameEn": "Diagonal line ↘",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -1102,6 +1107,7 @@
    "number": 6,
    "dmxValue": 27,
    "name": "Halve cirkel rechts",
+   "nameEn": "Half circle right",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -1286,6 +1292,7 @@
    "number": 7,
    "dmxValue": 32,
    "name": "Halve cirkel boven",
+   "nameEn": "Half circle top",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -1458,6 +1465,7 @@
    "number": 8,
    "dmxValue": 37,
    "name": "Driehoek",
+   "nameEn": "Triangle",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -1898,6 +1906,7 @@
    "number": 9,
    "dmxValue": 42,
    "name": "Kleiner-dan-teken <",
+   "nameEn": "Less-than sign <",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -2134,6 +2143,7 @@
    "number": 10,
    "dmxValue": 47,
    "name": "Dubbele horizontale lijn",
+   "nameEn": "Double horizontal line",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -2248,6 +2258,7 @@
    "number": 11,
    "dmxValue": 52,
    "name": "Dubbele verticale lijn",
+   "nameEn": "Double vertical line",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -2378,6 +2389,7 @@
    "number": 12,
    "dmxValue": 57,
    "name": "Onderbroken horizontale lijn",
+   "nameEn": "Dashed horizontal line",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -2520,6 +2532,7 @@
    "number": 13,
    "dmxValue": 62,
    "name": "Onderbroken verticale lijn",
+   "nameEn": "Dashed vertical line",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -2614,6 +2627,7 @@
    "number": 14,
    "dmxValue": 67,
    "name": "Trap, begint liggend",
+   "nameEn": "Stairs, starting flat",
    "note": "Trap van 5 lijnen; begint linksboven met een horizontale lijn.",
    "movesByItself": false,
    "strokes": [
@@ -2918,6 +2932,7 @@
    "number": 15,
    "dmxValue": 72,
    "name": "Trap, begint staand",
+   "nameEn": "Stairs, starting upright",
    "note": "Trap van 5 lijnen; begint linksboven met een verticale lijn.",
    "movesByItself": false,
    "strokes": [
@@ -3226,6 +3241,7 @@
    "number": 16,
    "dmxValue": 77,
    "name": "Muzieknoten ♫",
+   "nameEn": "Music notes ♫",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -4242,6 +4258,7 @@
    "number": 17,
    "dmxValue": 82,
    "name": "Zoomcirkel",
+   "nameEn": "Zoom circle",
    "note": "Grootte hangt af van CH8: van een punt in het midden tot een cirkel aan de rand. Beweegt niet uit zichzelf.",
    "movesByItself": false,
    "strokes": [
@@ -4418,6 +4435,7 @@
    "number": 18,
    "dmxValue": 87,
    "name": "Dennenboom",
+   "nameEn": "Pine tree",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -5334,6 +5352,7 @@
    "number": 19,
    "dmxValue": 92,
    "name": "Cijfer 3",
+   "nameEn": "Number 3",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -6406,6 +6425,7 @@
    "number": 20,
    "dmxValue": 97,
    "name": "Halve cirkel onder",
+   "nameEn": "Half circle bottom",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -6630,6 +6650,7 @@
    "number": 21,
    "dmxValue": 102,
    "name": "Ster",
+   "nameEn": "Star",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -7598,6 +7619,7 @@
    "number": 22,
    "dmxValue": 107,
    "name": "Sinusgolf",
+   "nameEn": "Sine wave",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -7994,6 +8016,7 @@
    "number": 23,
    "dmxValue": 112,
    "name": "Cijfer 2",
+   "nameEn": "Number 2",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -8790,6 +8813,7 @@
    "number": 24,
    "dmxValue": 117,
    "name": "Cijfer 1",
+   "nameEn": "Number 1",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -9258,6 +9282,7 @@
    "number": 25,
    "dmxValue": 122,
    "name": "Hart",
+   "nameEn": "Heart",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -9726,6 +9751,7 @@
    "number": 26,
    "dmxValue": 128,
    "name": "Vier hoekpunten",
+   "nameEn": "Four corners",
    "note": "Enkel de vier hoeken",
    "movesByItself": false,
    "strokes": [
@@ -9760,6 +9786,7 @@
    "number": 27,
    "dmxValue": 133,
    "name": "Appel",
+   "nameEn": "Apple",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -10544,6 +10571,7 @@
    "number": 28,
    "dmxValue": 138,
    "name": "Stippelcirkel",
+   "nameEn": "Dotted circle",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -11014,6 +11042,7 @@
    "number": 29,
    "dmxValue": 143,
    "name": "Twee zoomcirkels",
+   "nameEn": "Two zoom circles",
    "note": "Zoals #17, maar met twee cirkels. Grootte via CH8; beweegt niet uit zichzelf.",
    "movesByItself": false,
    "strokes": [
@@ -11304,6 +11333,7 @@
    "number": 30,
    "dmxValue": 148,
    "name": "Zoomcirkel in cirkel",
+   "nameEn": "Zoom circle in circle",
    "note": "Zoals #17 en #29. Grootte via CH8; beweegt niet uit zichzelf.",
    "movesByItself": false,
    "strokes": [
@@ -11758,6 +11788,7 @@
    "number": 31,
    "dmxValue": 153,
    "name": "Driehoek met Y",
+   "nameEn": "Triangle with Y",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -12784,6 +12815,7 @@
    "number": 32,
    "dmxValue": 158,
    "name": "Plusteken",
+   "nameEn": "Plus sign",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -13762,6 +13794,7 @@
    "number": 33,
    "dmxValue": 163,
    "name": "Vierkant in cirkel",
+   "nameEn": "Square in circle",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -14788,6 +14821,7 @@
    "number": 34,
    "dmxValue": 168,
    "name": "Driehoek in driehoek",
+   "nameEn": "Triangle in triangle",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -15402,6 +15436,7 @@
    "number": 35,
    "dmxValue": 173,
    "name": "Molentje (5 streepjes)",
+   "nameEn": "Pinwheel (5 dashes)",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -15710,6 +15745,7 @@
    "number": 36,
    "dmxValue": 178,
    "name": "Y-vorm",
+   "nameEn": "Y shape",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -15914,6 +15950,7 @@
    "number": 37,
    "dmxValue": 183,
    "name": "Drie schuine streepjes",
+   "nameEn": "Three slanted dashes",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -16022,6 +16059,7 @@
    "number": 38,
    "dmxValue": 188,
    "name": "Vijfhoek",
+   "nameEn": "Pentagon",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -16398,6 +16436,7 @@
    "number": 39,
    "dmxValue": 193,
    "name": "Klavertje vier",
+   "nameEn": "Four-leaf clover",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -17056,6 +17095,7 @@
    "number": 40,
    "dmxValue": 198,
    "name": "Vier driehoeken",
+   "nameEn": "Four triangles",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -17514,6 +17554,7 @@
    "number": 41,
    "dmxValue": 203,
    "name": "Pijl ←",
+   "nameEn": "Arrow ←",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -18032,6 +18073,7 @@
    "number": 42,
    "dmxValue": 208,
    "name": "Zandloper",
+   "nameEn": "Hourglass",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -18606,6 +18648,7 @@
    "number": 43,
    "dmxValue": 213,
    "name": "Werpster met cirkel",
+   "nameEn": "Throwing star with circle",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -19192,6 +19235,7 @@
    "number": 44,
    "dmxValue": 218,
    "name": "Propeller, 3 bladen",
+   "nameEn": "Propeller, 3 blades",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -19656,6 +19700,7 @@
    "number": 45,
    "dmxValue": 223,
    "name": "Knoop",
+   "nameEn": "Knot",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -20600,6 +20645,7 @@
    "number": 46,
    "dmxValue": 228,
    "name": "Omlijnde pijlpunt →",
+   "nameEn": "Outlined arrowhead →",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -21572,6 +21618,7 @@
    "number": 47,
    "dmxValue": 233,
    "name": "Ruit",
+   "nameEn": "Diamond",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -21816,6 +21863,7 @@
    "number": 48,
    "dmxValue": 238,
    "name": "Ruit",
+   "nameEn": "Diamond",
    "note": "Precies hetzelfde als #47 (dubbel in de laser).",
    "movesByItself": false,
    "strokes": [
@@ -21981,6 +22029,7 @@
    "number": 49,
    "dmxValue": 243,
    "name": "Zigzag",
+   "nameEn": "Zigzag",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -22313,6 +22362,7 @@
    "number": 50,
    "dmxValue": 248,
    "name": "Propeller, 4 bladen",
+   "nameEn": "Propeller, 4 blades",
    "note": "",
    "movesByItself": false,
    "strokes": [
@@ -23095,6 +23145,7 @@
    "number": 51,
    "dmxValue": 253,
    "name": "Vliegend tapijt",
+   "nameEn": "Flying carpet",
    "note": "",
    "movesByItself": false,
    "strokes": [
