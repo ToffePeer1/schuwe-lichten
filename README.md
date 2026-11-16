@@ -16,7 +16,7 @@ whatever the phone asks for. Everything fits in a small 3D-printed box with an X
 
 ## Features
 
-- **Phone page, no app.** Join the ESP32's WiFi and open `http://192.168.4.1` in the browser. Made for landscape. The interface is in Dutch.
+- **Phone page, no app.** Join the ESP32's WiFi and open `http://192.168.4.1` in the browser. Made for landscape. The interface is in Dutch or English: switch with NL | EN next to the off button. Each phone remembers its choice; the first visit follows the phone's language.
 - **Presets** with drawings of the actual patterns, a **quick builder** (shape, colour, movement, size, height, lines/dots, shown live on the laser),
   and a **lighting-desk page** with a fader per channel and an explanation behind every label.
 - **Shows:** a looping list of presets with hold times. The ESP32 plays them itself, so the phone can lock, switch apps or leave the WiFi.

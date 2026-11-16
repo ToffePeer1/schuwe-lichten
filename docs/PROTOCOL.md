@@ -127,4 +127,4 @@ Error codes: `bad-command`, `not-admin`, `serial-only`, `calibration-busy`, `not
 Stop reasons: `button` (IO0), `off`, `blackout` (`0`), `calibration-stopped`, `calibration-timeout` (no heartbeat), `calibration-owner-left`,
 `patch-changed`, `calibration-saved`, `debug-stopped`.
 
-The pages translate codes and reasons to Dutch. `tools/mock_firmware/mock_firmware.py` implements this protocol in Python for the UI tests.
+The pages translate codes and reasons to Dutch or English (the page's NL | EN switch). The one human-readable string the firmware sends, `cal.stepName`, is Dutch; the admin page translates the known names. `tools/mock_firmware/mock_firmware.py` implements this protocol in Python for the UI tests.
