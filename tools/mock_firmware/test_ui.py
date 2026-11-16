@@ -283,9 +283,13 @@ class Ui:
         self.log = log
         self.js_errors: list[str] = []
 
-    def open(self, path: str, label: str, size: tuple[int, int] = LANDSCAPE) -> tuple[Page, int | None]:
+    def open(
+        self, path: str, label: str, size: tuple[int, int] = LANDSCAPE, locale: str = "nl-NL"
+    ) -> tuple[Page, int | None]:
+        # A fresh context has no saved language, so the page follows the locale: Dutch unless a test asks otherwise.
         context = self.browser.new_context(
-            viewport={"width": size[0], "height": size[1]}, device_scale_factor=2, is_mobile=True, has_touch=True
+            viewport={"width": size[0], "height": size[1]}, device_scale_factor=2, is_mobile=True, has_touch=True,
+            locale=locale,
         )
         page = context.new_page()
         page.on("pageerror", lambda exc: self.js_errors.append(f"{label}: {exc}"))
@@ -1464,6 +1468,83 @@ def test_back_link(ui: Ui) -> None:
 
 
 # --- protocol checks with raw clients ------------------------------------------------------------------
+LANG_JS = """() => ({
+  lang: document.documentElement.lang,
+  pressed: [...document.querySelectorAll('#langSwitch button')].map((b) => b.dataset.lang + ':' + b.getAttribute('aria-pressed')),
+  sameKeys: JSON.stringify(Object.keys(STR.nl)) === JSON.stringify(Object.keys(STR.en)),
+  keys: Object.keys(STR.en).length,
+})"""
+# Dutch words that must not be visible on an English main page (nav, side card, presets tab).
+DUTCH_ON_INDEX = ("Lichttafel", "Uitleg", "Bewaar als preset", "Beheer", "Bewerken", "Verbonden")
+
+
+def same_row(page: Page, a: str, b: str) -> bool:
+    ra, rb = page.locator(a).first.bounding_box(), page.locator(b).first.bounding_box()
+    return bool(ra and rb and ra["y"] < rb["y"] + rb["height"] and rb["y"] < ra["y"] + ra["height"])
+
+
+def check_lang(ui: Ui, page: Page, label: str, want: str) -> None:
+    info = page.evaluate(LANG_JS)
+    ui.r.check(f"lang: {label} is {want}", info["lang"] == want, str(info["lang"]))
+    ui.r.check(f"lang: {label} toggle shows {want}", f"{want}:true" in info["pressed"], ", ".join(info["pressed"]))
+    ui.r.check(f"lang: {label} has the same keys in nl and en", info["sameKeys"], f"{info['keys']} en keys")
+
+
+def test_language(ui: Ui) -> None:
+    r = ui.r
+    # An English phone starts in English; nothing is stored yet in a fresh context.
+    i, i_id = ui.open("/", "index-en", locale="en-US")
+    page_ready(i)
+    check_lang(ui, i, "index on an English phone", "en")
+    r.check("lang: OFF button in English", text(i, "#offBtn").strip() == "OFF", text(i, "#offBtn"))
+    visible = i.locator("body").inner_text()
+    dutch = [w for w in DUTCH_ON_INDEX if w in visible]
+    r.check("lang: no Dutch left on the English main page", not dutch, ", ".join(dutch))
+    ui.index_layout(i, "index_en")
+    ui.shot(i, "index_en")
+    # Switching sends nothing to the laser.
+    mark = ui.log.mark()
+    i.click('#langSwitch button[data-lang="nl"]')
+    check_lang(ui, i, "index after tapping NL", "nl")
+    r.check("lang: NL switches OFF to UIT", text(i, "#offBtn").strip() == "UIT", text(i, "#offBtn"))
+    i.wait_for_timeout(300)
+    sent = [m for m in ui.log.msgs(mark, i_id) if m not in ("hb", "?")]
+    r.check("lang: switching the language sends no command", not sent, ", ".join(sent))
+    i.reload()
+    page_ready(i)
+    check_lang(ui, i, "index after a reload", "nl")
+    # The admin page in the same browser shares the choice, and a switch there reaches the main page.
+    a = i.context.new_page()
+    a.on("pageerror", lambda exc: ui.js_errors.append(f"admin-en: {exc}"))
+    a.goto(BASE + "/admin")
+    page_ready(a)
+    check_lang(ui, a, "admin with Dutch stored", "nl")
+    a.click('#langSwitch button[data-lang="en"]')
+    check_lang(ui, a, "admin after tapping EN", "en")
+    r.check("lang: admin login button in English", text(a, "#loginBtn").strip() == "Log in", text(a, "#loginBtn"))
+    i.evaluate("document.dispatchEvent(new Event('visibilitychange'))")
+    check_lang(ui, i, "index after a switch on admin", "en")
+    i.context.close()
+    # Portrait: the toggle sits on the same row as OFF, to its right, on both pages.
+    for path, label in (("/", "index"), ("/admin", "admin")):
+        p, _ = ui.open(path, f"{label}-en-portrait", PORTRAIT, locale="en-US")
+        page_ready(p)
+        right = p.evaluate("() => document.getElementById('langSwitch').getBoundingClientRect().left >= "
+                           "document.getElementById('offBtn').getBoundingClientRect().right - 1")
+        r.check(f"lang: {label} portrait toggle next to OFF", same_row(p, "#langSwitch", "#offBtn") and right)
+        if label == "index":
+            ui.index_layout(p, "index_en_portrait")
+        else:
+            ui.layout(p, "admin_en_portrait")
+        ui.shot(p, f"{label}_en_portrait")
+        p.context.close()
+
+
+def page_ready(page: Page) -> None:
+    page.wait_for_function("() => document.getElementById('offBtn') && document.getElementById('langSwitch')")
+    page.wait_for_timeout(400)
+
+
 def test_protocol(r: Results) -> None:
     """State-machine checks on the mock with raw clients (the pages prevent most of these)."""
     owner, other = Raw(), Raw()
@@ -1854,14 +1935,23 @@ def test_protocol_no_laser(r: Results, owner: Raw, other: Raw) -> None:
     other.event("off", "stop")
 
 
+def string_tables(src: str) -> dict[str, str]:
+    """The nl and en blocks of a page's STR table, as source text."""
+    table = re.search(r"\nconst STR = \{\n(.*?)\n\};", src, re.S)
+    body = table.group(1) if table else ""
+    parts = re.split(r"\n  (nl|en): \{\n", "\n" + body)
+    return dict(zip(parts[1::2], parts[2::2]))
+
+
 def test_sources(r: Results) -> None:
     for path, label, codes in ((ADMIN_HTML, "admin", ERROR_CODES), (INDEX_HTML, "index", ERROR_CODES + LIBRARY_ERROR_CODES)):
         src = path.read_text(encoding="utf-8")
-        for table, keys in (("ERROR_TEXT", codes), ("STOP_TEXT", STOP_REASONS)):
-            block = re.search(table + r" = \{(.*?)\n\};", src, re.S)
-            body = block.group(1) if block else ""
-            missing = [k for k in keys if not re.search(r"(^|\s)'?" + re.escape(k) + r"'?\s*:", body)]
-            r.check(f"{label}: every {table} entry translated", not missing, ", ".join(missing))
+        tables = string_tables(src)
+        r.check(f"{label}: STR has nl and en", set(tables) == {"nl", "en"}, ", ".join(tables))
+        for lang, body in tables.items():
+            for prefix, keys in (("err", codes), ("stop", STOP_REASONS)):
+                missing = [k for k in keys if f"'{prefix}.{k}':" not in body]
+                r.check(f"{label}: every {prefix} code translated ({lang})", not missing, ", ".join(missing))
         stale = [word for word in OBSOLETE_IN_PAGES if word in src]
         r.check(f"{label}: nothing left of the removed features", not stale, ", ".join(stale))
 
@@ -1907,6 +1997,7 @@ def run_browser_tests(r: Results, log: MockLog) -> list[str]:
         test_logout(ui, a, a_id)
         test_portrait(ui)
         test_back_link(ui)
+        test_language(ui)
         browser.close()
         return ui.js_errors
 
