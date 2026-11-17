@@ -151,9 +151,71 @@ Command parseLim(const Tokens& t) {
   return Command{};
 }
 
-// "patch <slot> none" or "patch <slot> laser|head <address>". Whether the
-// footprint fits and doesn't overlap is checked against the whole patch later.
+bool parseFixtureType(const char* word, FixtureType* out) {
+  if (is(word, "laser")) {
+    *out = FixtureType::Laser;
+  } else if (is(word, "head")) {
+    *out = FixtureType::Head;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+bool parseAddress(const char* token, uint16_t* out) {
+  unsigned address = 0;
+  if (!parseNumber(token, 3, &address) || address < 1 || address > DMX_UNIVERSE_SIZE) {
+    return false;
+  }
+  *out = static_cast<uint16_t>(address);
+  return true;
+}
+
+// "none", or "laser:<address>" / "head:<address>". Overwrites the ':'.
+bool parsePatchEntry(char* entry, PatchSlot* out) {
+  if (is(entry, "none")) {
+    *out = PatchSlot{};
+    return true;
+  }
+  char* colon = std::strchr(entry, ':');
+  if (colon == nullptr) {
+    return false;
+  }
+  *colon = '\0';
+  return parseFixtureType(entry, &out->type) && parseAddress(colon + 1, &out->address);
+}
+
+// "patch set <entry>,<entry>,<entry>,<entry>": every slot at once, so a page
+// can move fixtures around without an overlapping patch halfway through.
+Command parsePatchAll(const char* list) {
+  char buffer[MAX_LINE_LENGTH + 1];
+  std::strncpy(buffer, list, MAX_LINE_LENGTH);
+  buffer[MAX_LINE_LENGTH] = '\0';
+  Command command = make(CommandType::SetPatchAll);
+  char* entry = buffer;
+  for (uint8_t i = 0; i < MAX_FIXTURES; ++i) {
+    char* comma = std::strchr(entry, ',');
+    const bool isLast = i == MAX_FIXTURES - 1;
+    if ((comma == nullptr) != isLast) {
+      return Command{};  // too few or too many entries
+    }
+    if (comma != nullptr) {
+      *comma = '\0';
+    }
+    if (!parsePatchEntry(entry, &command.patch.slots[i])) {
+      return Command{};
+    }
+    entry = isLast ? entry : comma + 1;
+  }
+  return command;
+}
+
+// "patch <slot> none", "patch <slot> laser|head <address>" or "patch set ...".
+// Whether the footprints fit and don't overlap is checked against the whole patch later.
 Command parsePatch(const Tokens& t) {
+  if (t.count == 3 && is(t.items[1], "set")) {
+    return parsePatchAll(t.items[2]);
+  }
   unsigned slot = 0;
   if (t.count < 3 || !parseNumber(t.items[1], 1, &slot) || slot < 1 || slot > MAX_FIXTURES) {
     return Command{};
@@ -163,18 +225,10 @@ Command parsePatch(const Tokens& t) {
   if (t.count == 3 && is(t.items[2], "none")) {
     return command;
   }
-  unsigned address = 0;
-  if (t.count != 4 || !parseNumber(t.items[3], 3, &address) || address < 1 || address > DMX_UNIVERSE_SIZE) {
+  if (t.count != 4 || !parseFixtureType(t.items[2], &command.fixtureType) ||
+      !parseAddress(t.items[3], &command.address)) {
     return Command{};
   }
-  if (is(t.items[2], "laser")) {
-    command.fixtureType = FixtureType::Laser;
-  } else if (is(t.items[2], "head")) {
-    command.fixtureType = FixtureType::Head;
-  } else {
-    return Command{};
-  }
-  command.address = static_cast<uint16_t>(address);
   return command;
 }
 

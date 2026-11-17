@@ -183,8 +183,29 @@ input[type=range] { flex: 1; min-width: 0; height: 28px; margin: 0; accent-color
 .edhead { display: flex; align-items: baseline; gap: 10px; }
 .edname { font: 800 16px/1.2 var(--sans); letter-spacing: -.01em; }
 
+/* ---- Lichten: the patch (which fixture at which DMX address) ---- */
+.fixview { display: flex; flex-direction: column; gap: 10px; }
+.fixcard { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; }
+.frows { display: grid; gap: 2px; }
+.frow { display: grid; grid-template-columns: 16px auto 70px 64px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 46px; }
+.fno { font: 700 13px var(--mono); color: var(--label); }
+.fseg { grid-auto-columns: auto; }
+.fseg button { padding: 0 11px; }
+.faddr { font: 700 17px var(--mono); padding: 7px 6px; text-align: center; -moz-appearance: textfield; appearance: textfield; }
+.faddr::-webkit-inner-spin-button, .faddr::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.faddr:disabled { opacity: .3; }
+.frow.bad .faddr { box-shadow: inset 0 0 0 2px var(--danger); }
+.fp { font-size: 14px; white-space: nowrap; }
+.fp.none { color: var(--faint); }
+.fmsg { font-size: 11.5px; line-height: 1.3; font-weight: 600; color: var(--danger-text); }
+.fixfoot { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; }
+.fixnote { display: grid; gap: 2px; min-width: 0; }
+.fixfoot .btn { min-height: 48px; }
+.hint.err { color: var(--danger-text); font-weight: 600; }
+.btn.danger { background: var(--danger); color: #fff; }
+
 /* ---- Instellingen ---- */
-.set { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: start; }
+.set { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
 .set .card { display: flex; flex-direction: column; gap: 8px; }
 .setcol { display: grid; gap: 10px; }
 .set .v { font-size: 15px; font-weight: 800; line-height: 1.25; }
@@ -214,6 +235,18 @@ input[type=range] { flex: 1; min-width: 0; height: 28px; margin: 0; accent-color
   .ov, .set, .login, .sessgrid, .dbgintro { grid-template-columns: minmax(0, 1fr); }
   .login { align-items: start; gap: 18px; }
   .tiles { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+  .nav { gap: 14px; }
+  .frow { grid-template-columns: 16px 84px minmax(0, 1fr); grid-template-areas: "no seg seg" ". addr fp" ". msg msg"; row-gap: 6px; padding: 8px 0;
+    border-top: 1px solid var(--line); }
+  .frow:first-child { border-top: 0; }
+  .fno { grid-area: no; }
+  .fseg { grid-area: seg; justify-self: start; }
+  .faddr { grid-area: addr; }
+  .fp { grid-area: fp; }
+  .fmsg { grid-area: msg; }
+  .fmsg:empty { display: none; }
+  .fixfoot { grid-template-columns: 1fr 1fr; }
+  .fixnote { grid-column: 1 / -1; }
 }
 </style>
 </head>
@@ -225,6 +258,7 @@ input[type=range] { flex: 1; min-width: 0; height: 28px; margin: 0; accent-color
       <nav class="nav" id="nav" aria-label="Onderdelen" data-t-aria="top.navAria" hidden>
         <button type="button" data-tab="kalibratie" class="on" data-t="tab.cal">Kalibratie</button>
         <button type="button" data-tab="debug" data-t="tab.debug">Debug</button>
+        <button type="button" data-tab="lichten" data-t="tab.fixtures">Lichten</button>
         <button type="button" data-tab="instellingen" data-t="tab.settings">Instellingen</button>
       </nav>
       <span class="toptitle" id="topTitle" data-t="top.title">Beheer</span>
@@ -353,6 +387,22 @@ input[type=range] { flex: 1; min-width: 0; height: 28px; margin: 0; accent-color
         </div>
       </section>
 
+      <!-- Lichten: the patch -->
+      <section id="view-fixtures" class="fixview" hidden>
+        <div class="card fixcard">
+          <div class="label" data-t="fix.title">Lichten op de DMX-lijn</div>
+          <div class="frows" id="fixRows"></div>
+        </div>
+        <div class="fixfoot">
+          <div class="fixnote">
+            <p class="hint" id="fixStatus" aria-live="polite"></p>
+            <p class="hint" data-t="fix.hint">Zet op elk licht zelf hetzelfde DMX-adres. De volgorde op de kabel maakt niet uit.</p>
+          </div>
+          <button type="button" class="btn" id="fixUndo" data-t="fix.undo">Terugzetten</button>
+          <button type="button" class="btn light" id="fixSave" data-t="adj.save">Opslaan</button>
+        </div>
+      </section>
+
       <!-- Instellingen -->
       <section id="view-settings" class="set" hidden>
         <div class="setcol">
@@ -362,15 +412,6 @@ input[type=range] { flex: 1; min-width: 0; height: 28px; margin: 0; accent-color
             <div class="v" id="setHWords">–</div>
           </div>
           <button type="button" class="btn" id="logoutBtn" data-t="set.logout">Uitloggen</button>
-        </div>
-        <div class="card">
-          <div class="label" data-t="set.addr">DMX-adres</div>
-          <div class="v"><span data-t="set.now">Nu</span> <span class="num" id="addrNow">–</span></div>
-          <div class="row">
-            <input class="field" id="addrInput" type="number" inputmode="numeric" min="1" max="503" aria-label="Nieuw DMX-adres (1 tot 503)" data-t-aria="set.addrAria">
-            <button type="button" class="btn" id="addrBtn" data-t="set.addrBtn">Wijzigen</button>
-          </div>
-          <p class="hint" data-t="set.addrHint">Zet het adres op de laser zelf ook zo. Na een wijziging gaat alles uit en moet je opnieuw kalibreren.</p>
         </div>
         <div class="card">
           <div class="label" data-t="set.pin">Pincode wijzigen</div>
@@ -441,6 +482,7 @@ const STR = {
     'top.title': 'Beheer',
     'tab.cal': 'Kalibratie',
     'tab.debug': 'Debug',
+    'tab.fixtures': 'Lichten',
     'tab.settings': 'Instellingen',
     'conn.connecting': 'Verbinden…',
     'conn.ok': 'Verbonden',
@@ -571,17 +613,30 @@ const STR = {
     'dbg.fact7': 'Doet boven 64 iets anders; 64 = hoog.',
     'dbg.fact9': 'Kan geen vaste enkele kleur kiezen.',
     'dbg.fact10': 'Lijnen of punten; hoger = langzamer.',
+    // Lichten (the patch)
+    'fix.title': 'Lichten op de DMX-lijn',
+    'fix.typeAria': 'Soort licht op plek {n}',
+    'fix.addrAria': 'DMX-adres op plek {n} (1 tot 512)',
+    'fix.none': 'Geen',
+    'fix.laser': 'Laser',
+    'fix.head': 'Bewegend hoofd',
+    'fix.err.addr': 'Kies een adres van 1 tot 512.',
+    'fix.err.past': 'Loopt tot kanaal {last}, voorbij 512. Het hoogste adres is {max}.',
+    'fix.err.overlap': 'Overlapt met plek {n} ({range}).',
+    'fix.err.twoLasers': 'Er mag maar één laser zijn: plek {n} is al de laser.',
+    'fix.hint': 'Zet op elk licht zelf hetzelfde DMX-adres. De volgorde op de kabel maakt niet uit.',
+    'fix.unchanged': 'Nog niets gewijzigd.',
+    'fix.invalid': 'Los eerst de rode meldingen op.',
+    'fix.warnOff': 'Opslaan zet alle lichten uit.',
+    'fix.warnMoved': 'De laser krijgt een andere plek of een ander adres: daarna moet je opnieuw kalibreren.',
+    'fix.warnRemoved': 'De laser gaat uit de patch: zet je hem terug, dan moet je opnieuw kalibreren.',
+    'fix.warnAdded': 'Kalibreer de laser na het opslaan, anders kan hij niet aan.',
+    'fix.sure': 'Zeker? Tik nog eens',
+    'fix.undo': 'Terugzetten',
+    'fix.saveFailed': 'Opslaan is mislukt. De oude patch blijft gelden. Probeer het opnieuw.',
     // Instellingen
     'set.savedLimit': 'Opgeslagen grens',
     'set.logout': 'Uitloggen',
-    'set.addr': 'DMX-adres',
-    'set.now': 'Nu',
-    'set.addrAria': 'Nieuw DMX-adres (1 tot 503)',
-    'set.addrBtn': 'Wijzigen',
-    'set.addrHint': 'Zet het adres op de laser zelf ook zo. Na een wijziging gaat alles uit en moet je opnieuw kalibreren.',
-    'set.noLaser': '– (geen laser in de patch)',
-    'set.addrRange': 'Een DMX-adres is een getal van {min} tot {max}.',
-    'set.addrSame': 'Dat is al het huidige adres.',
     'set.pin': 'Pincode wijzigen',
     'set.pinOld': 'Huidige pincode',
     'set.pinNew': 'Nieuwe pincode',
@@ -630,7 +685,7 @@ const STR = {
     'msg.saved': 'Opgeslagen.',
     'saved.limits': 'Opgeslagen. De nieuwe grens geldt nu.',
     'saved.pin': 'Pincode gewijzigd. Onthoud de nieuwe!',
-    'saved.addr': 'DMX-adres opgeslagen.',
+    'saved.patch': 'Patch opgeslagen.',
     // firmware error codes
     'err.bad-command': 'De laser begreep die opdracht niet.',
     'err.not-admin': 'Je bent niet (meer) ingelogd. Log opnieuw in.',
@@ -649,7 +704,7 @@ const STR = {
     'err.locked': 'Te veel verkeerde pincodes. Wacht even en probeer het opnieuw.',
     'err.not-calibrating': 'Er loopt geen kalibratie of debugsessie (meer).',
     'err.save-failed': 'Opslaan is mislukt. De oude grens blijft gelden. Probeer het opnieuw.',
-    'err.no-fixture': 'Er staat geen laser in de patch. Geef hem een DMX-adres bij Instellingen.',
+    'err.no-fixture': 'Er staat geen laser in de patch. Zet hem erin bij Lichten.',
     'err.bad-patch': 'Dat past niet in de patch: lampen mogen niet overlappen of voorbij kanaal 512 lopen, en er mag maar één laser zijn.',
     // firmware stop reasons
     'stop.button': 'Stopknop (IO0) ingedrukt: de laser is uit.',
@@ -672,6 +727,7 @@ const STR = {
     'top.title': 'Admin',
     'tab.cal': 'Calibration',
     'tab.debug': 'Debug',
+    'tab.fixtures': 'Fixtures',
     'tab.settings': 'Settings',
     'conn.connecting': 'Connecting…',
     'conn.ok': 'Connected',
@@ -801,17 +857,30 @@ const STR = {
     'dbg.fact7': 'Does something else above 64; 64 = high.',
     'dbg.fact9': "Can't pick a fixed single color.",
     'dbg.fact10': 'Lines or dots; higher = slower.',
+    // Lichten (the patch)
+    'fix.title': 'Fixtures on the DMX line',
+    'fix.typeAria': 'Fixture type in slot {n}',
+    'fix.addrAria': 'DMX address in slot {n} (1 to 512)',
+    'fix.none': 'None',
+    'fix.laser': 'Laser',
+    'fix.head': 'Moving head',
+    'fix.err.addr': 'Pick an address from 1 to 512.',
+    'fix.err.past': 'Runs to channel {last}, past 512. The highest address is {max}.',
+    'fix.err.overlap': 'Overlaps slot {n} ({range}).',
+    'fix.err.twoLasers': 'There can be only one laser: slot {n} already is the laser.',
+    'fix.hint': "Set the same DMX address on each fixture itself. The order on the cable doesn't matter.",
+    'fix.unchanged': 'Nothing changed yet.',
+    'fix.invalid': 'Fix the red messages first.',
+    'fix.warnOff': 'Saving switches every light off.',
+    'fix.warnMoved': 'The laser gets another slot or address: you will have to calibrate again.',
+    'fix.warnRemoved': 'The laser leaves the patch: if you add it back, you will have to calibrate again.',
+    'fix.warnAdded': "Calibrate the laser after saving, or it can't turn on.",
+    'fix.sure': 'Sure? Tap again',
+    'fix.undo': 'Undo changes',
+    'fix.saveFailed': 'Saving failed. The old patch still applies. Try again.',
     // Instellingen
     'set.savedLimit': 'Saved limit',
     'set.logout': 'Log out',
-    'set.addr': 'DMX address',
-    'set.now': 'Now',
-    'set.addrAria': 'New DMX address (1 to 503)',
-    'set.addrBtn': 'Change',
-    'set.addrHint': 'Set the same address on the laser itself. After a change, everything turns off and you have to calibrate again.',
-    'set.noLaser': '– (no laser in the patch)',
-    'set.addrRange': 'A DMX address is a number from {min} to {max}.',
-    'set.addrSame': 'That is already the current address.',
     'set.pin': 'Change PIN',
     'set.pinOld': 'Current PIN',
     'set.pinNew': 'New PIN',
@@ -860,7 +929,7 @@ const STR = {
     'msg.saved': 'Saved.',
     'saved.limits': 'Saved. The new limit applies now.',
     'saved.pin': 'PIN changed. Remember the new one!',
-    'saved.addr': 'DMX address saved.',
+    'saved.patch': 'Patch saved.',
     // firmware error codes
     'err.bad-command': "The laser didn't understand that command.",
     'err.not-admin': "You're not logged in (anymore). Log in again.",
@@ -879,7 +948,7 @@ const STR = {
     'err.locked': 'Too many wrong PINs. Wait a moment and try again.',
     'err.not-calibrating': 'No calibration or debug session is running (anymore).',
     'err.save-failed': 'Saving failed. The old limit still applies. Try again.',
-    'err.no-fixture': 'There is no laser in the patch. Give it a DMX address in Settings.',
+    'err.no-fixture': 'There is no laser in the patch. Add it under Fixtures.',
     'err.bad-patch': "That doesn't fit the patch: lights can't overlap or run past channel 512, and there can be only one laser.",
     // firmware stop reasons
     'stop.button': 'Stop button (IO0) pressed: the laser is off.',
@@ -946,9 +1015,11 @@ const MSG_MS = { ok: 5000, warn: 9000, error: 9000, stop: 9000 };
 const POS_MAX = 127;
 const RAW_MAX = 255;
 const FULL_WIDTH = [0, POS_MAX];
-const ADDR_MIN = 1;
-const ADDR_MAX = 503;        // the laser's 10 channels must fit in 512
 const MAX_FIXTURES = 4;      // patch slots 1-4
+const DMX_LAST = 512;
+const FIX_TYPES = ['none', 'laser', 'head'];
+const FIX_CHANNELS = { none: 0, laser: 10, head: 19 };   // lib/laser_core/src/fixtures.h
+const CONFIRM_MS = 4000;     // the second tap on Opslaan must come within this time
 const PIN_RE = /^[0-9]{6,8}$/;
 const NUDGES = [-10, -1, 1, 10];
 const WORST_CASE_LOOKS = ['diamond', 'spin'];
@@ -999,7 +1070,9 @@ let startAt = -Infinity;
 let axis = 7;
 let lastPhase = '';
 let dbgCh = 1;
-let addrDirty = false;
+let fixDraft = null;         // the patch being edited, [{ type, addr (text) }] x4; null = the saved one
+let fixArmed = 0;            // timer: Opslaan was tapped once and waits for the second tap
+let fixPending = '';         // the 'patch set' entries sent, until the state shows them or an error comes
 let msgTimer = 0;
 let msgCode = '';
 let msgKey = '';             // the toast's text key and variables, so a language switch can redraw it
@@ -1015,15 +1088,6 @@ const kindOf = (cal) => (cal && cal.phase === 'debug' ? 'debug' : 'cal');
 const limitsOf = () => (st && st.limits && typeof st.limits === 'object' ? st.limits : {});
 const fixturesOf = () => (st && Array.isArray(st.fixtures) ? st.fixtures.filter((f) => f && typeof f === 'object') : []);
 const laserOf = () => fixturesOf().find((f) => f.type === 'laser') || null;
-// The patch slot for "patch <slot> laser <addr>": the laser's own, else the first free one
-// (so adding the laser never replaces another fixture), else slot 1.
-function laserPatchSlot() {
-  const laser = laserOf();
-  if (laser && Number.isInteger(laser.slot)) return laser.slot;
-  const used = new Set(fixturesOf().map((f) => f.slot));
-  for (let slot = 1; slot <= MAX_FIXTURES; slot += 1) if (!used.has(slot)) return slot;
-  return 1;
-}
 
 // --- sending --------------------------------------------------------------------
 function send(text) {
@@ -1262,9 +1326,154 @@ function nudgeRaw(d) {
   renderDebug();
 }
 
+// --- Lichten: the patch ------------------------------------------------------------
+// Four rows, one per patch slot. The page checks the patch the way the firmware does (checkPatch),
+// so the message sits on the row to fix; the firmware checks again and has the last word.
+// Saving sends one 'patch set', after a second tap, because it switches every light off.
+function buildFixRow(k) {
+  const n = k + 1;
+  const row = el('div', 'frow');
+  row.dataset.slot = n;
+  const seg = el('div', 'seg fseg');
+  seg.setAttribute('role', 'group');
+  const typeBtns = FIX_TYPES.map((type) => {
+    const b = elT('button', '', `fix.${type}`);
+    b.type = 'button';
+    b.dataset.type = type;
+    b.addEventListener('click', () => editFixture(k, { type }));
+    seg.append(b);
+    return b;
+  });
+  const addr = el('input', 'field faddr');
+  addr.type = 'number';
+  addr.inputMode = 'numeric';
+  addr.min = '1';
+  addr.max = String(DMX_LAST);
+  addr.placeholder = '–';
+  addr.addEventListener('input', () => editFixture(k, { addr: addr.value.trim() }));
+  addr.addEventListener('keydown', (e) => { if (e.key === 'Enter') addr.blur(); });
+  const fp = el('span', 'fp num', '–');
+  const msg = el('p', 'fmsg');
+  row.append(el('span', 'fno', String(n)), seg, addr, fp, msg);
+  onLang(() => {
+    seg.setAttribute('aria-label', t('fix.typeAria', { n }));
+    addr.setAttribute('aria-label', t('fix.addrAria', { n }));
+  });
+  $('fixRows').append(row);
+  return { row, typeBtns, addr, fp, msg };
+}
+const fixRows = Array.from({ length: MAX_FIXTURES }, (_, k) => buildFixRow(k));
+
+const isAddr = (text) => /^[0-9]{1,3}$/.test(text) && Number(text) >= 1 && Number(text) <= DMX_LAST;
+const fixLast = (e) => Number(e.addr) + FIX_CHANNELS[e.type] - 1;
+const fixSpan = (e) => (e.type !== 'none' && isAddr(e.addr) ? [Number(e.addr), fixLast(e)] : null);
+const fixEntry = (e) => (e.type === 'none' ? 'none' : `${e.type}:${Number(e.addr)}`);
+const patchEntries = (patch) => patch.map(fixEntry).join(',');
+function patchFromState() {
+  const out = Array.from({ length: MAX_FIXTURES }, () => ({ type: 'none', addr: '' }));
+  fixturesOf().forEach((f) => {
+    if (Number.isInteger(f.slot) && f.slot >= 1 && f.slot <= MAX_FIXTURES && FIX_CHANNELS[f.type]) {
+      out[f.slot - 1] = { type: f.type, addr: String(f.addr) };
+    }
+  });
+  return out;
+}
+const fixShown = () => fixDraft || patchFromState();
+const sameAsSaved = (patch) => patchEntries(patch) === patchEntries(patchFromState());
+
+// The lowest address where a fixture of this type fits between the others ('' when there is none).
+function freeAddress(patch, k, type) {
+  const size = FIX_CHANNELS[type];
+  const taken = patch.filter((e, i) => i !== k).map(fixSpan).filter(Boolean);
+  for (let a = 1; a + size - 1 <= DMX_LAST; a += 1) {
+    const hit = taken.find(([x, y]) => a <= y && x <= a + size - 1);
+    if (!hit) return String(a);
+    a = hit[1];   // continue right after the fixture in the way
+  }
+  return '';
+}
+function editFixture(k, change) {
+  const base = fixShown();
+  let next = { ...base[k], ...change };
+  if (change.type && change.type !== 'none' && !isAddr(next.addr)) next = { ...next, addr: freeAddress(base, k, change.type) };
+  fixDraft = base.map((e, i) => (i === k ? next : e));
+  disarmFix();
+  renderFixtures();
+}
+// Per row null, or [text key, values]: the address, past 512, a second laser, an overlap.
+function fixProblems(patch) {
+  const firstLaser = patch.findIndex((e) => e.type === 'laser');
+  return patch.map((e, k) => {
+    if (e.type === 'none') return null;
+    const own = fixSpan(e);
+    if (!own) return ['fix.err.addr'];
+    if (own[1] > DMX_LAST) return ['fix.err.past', { last: own[1], max: DMX_LAST - FIX_CHANNELS[e.type] + 1 }];
+    if (e.type === 'laser' && k !== firstLaser) return ['fix.err.twoLasers', { n: firstLaser + 1 }];
+    const j = patch.findIndex((o, i) => {
+      const s = i !== k && fixSpan(o);
+      return !!s && own[0] <= s[1] && s[0] <= own[1];
+    });
+    if (j < 0) return null;
+    const [a, b] = fixSpan(patch[j]);
+    return ['fix.err.overlap', { n: j + 1, range: `${a}–${b}` }];
+  });
+}
+// Like the firmware's isLaserMoved: the limit only holds for the slot and address it was calibrated on.
+function laserChange(patch) {
+  const before = patchFromState();
+  const was = before.findIndex((e) => e.type === 'laser');
+  const is = patch.findIndex((e) => e.type === 'laser');
+  if (was < 0) return is < 0 ? '' : 'fix.warnAdded';
+  if (is < 0) return 'fix.warnRemoved';
+  return was !== is || Number(before[was].addr) !== Number(patch[is].addr) ? 'fix.warnMoved' : '';
+}
+function disarmFix() {
+  clearTimeout(fixArmed);
+  fixArmed = 0;
+}
+function renderFixtures() {
+  const patch = fixShown();
+  const problems = fixProblems(patch);
+  patch.forEach((e, k) => {
+    const r = fixRows[k];
+    r.typeBtns.forEach((b) => {
+      const on = b.dataset.type === e.type;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    const isNone = e.type === 'none';
+    r.addr.disabled = isNone;
+    const want = isNone ? '' : e.addr;
+    if (r.addr.value !== want) r.addr.value = want;   // never while it already says the same: keeps the caret
+    const span = fixSpan(e);
+    r.fp.textContent = span ? `${span[0]}–${span[1]}` : '–';
+    r.fp.classList.toggle('none', !span);
+    const p = problems[k];
+    r.msg.textContent = p ? t(p[0], p[1]) : '';
+    r.row.classList.toggle('bad', !!p);
+  });
+  const changed = !sameAsSaved(patch);
+  const valid = problems.every((p) => !p);
+  const note = $('fixStatus');
+  if (changed && valid) {
+    const laser = laserChange(patch);
+    note.textContent = laser ? `${t('fix.warnOff')} ${t(laser)}` : t('fix.warnOff');
+    note.className = 'hint warn';
+  } else {
+    note.textContent = t(changed ? 'fix.invalid' : 'fix.unchanged');
+    note.className = `hint${changed ? ' err' : ''}`;
+  }
+  const canSave = changed && valid && isOpen && !!st && !!st.admin && !st.cal && !fixPending;
+  if (!canSave) disarmFix();
+  $('fixSave').disabled = !canSave;
+  $('fixSave').textContent = t(fixArmed ? 'fix.sure' : 'adj.save');
+  $('fixSave').className = `btn ${fixArmed ? 'danger' : 'light'}`;
+  $('fixUndo').disabled = !changed;
+}
+
 // --- rendering -------------------------------------------------------------------
-const VIEWS = ['connecting', 'login', 'overview', 'adjust', 'check', 'debug-idle', 'debug', 'settings', 'busy'];
-const TAB_VIEWS = { kalibratie: 'overview', debug: 'debug-idle', instellingen: 'settings' };
+const VIEWS = ['connecting', 'login', 'overview', 'adjust', 'check', 'debug-idle', 'debug', 'fixtures', 'settings', 'busy'];
+const TAB_VIEWS = { kalibratie: 'overview', debug: 'debug-idle', lichten: 'fixtures', instellingen: 'settings' };
 function currentView() {
   if (!isOpen || !st) return 'connecting';
   if (!st.admin) return authPending && autoAuth ? 'connecting' : 'login';
@@ -1289,6 +1498,7 @@ function render() {
   if (view === 'check') renderCheck();
   if (view === 'debug-idle') $('dbgStartBtn').disabled = !!st.stopHeld;
   if (view === 'debug') renderDebug();
+  if (view === 'fixtures') renderFixtures();
   if (view === 'settings') renderSettings();
   if (view === 'busy') $('busyLabel').textContent = t(kindOf(st.cal) === 'debug' ? 'tab.debug' : 'tab.cal');
 }
@@ -1375,9 +1585,6 @@ function renderOverview() {
 function renderSettings() {
   fillLimitWords($('setLimitWords'));
   fillSideWords($('setHWords'), `${t('lim.side')}: `);
-  const laser = laserOf();
-  $('addrNow').textContent = laser ? laser.addr : t('set.noLaser');
-  if (!addrDirty && document.activeElement !== $('addrInput')) $('addrInput').value = laser ? laser.addr : '';
 }
 
 function lookHint(cal) {
@@ -1485,6 +1692,8 @@ function onSessionState(cal) {
 function onState(msg) {
   if (!Array.isArray(msg.fixtures) || !msg.limits) return;
   st = msg;
+  if (fixPending && patchEntries(patchFromState()) === fixPending) fixPending = '';
+  if (fixDraft && sameAsSaved(fixDraft)) fixDraft = null;   // saved, or edited back: follow the patch again
   if (st.admin) {
     wasAdmin = true;
   } else if (wasAdmin) {
@@ -1553,7 +1762,14 @@ function onStop(msg) {
 
 function onError(msg) {
   const code = String(msg.code || '');
-  showMsg(hasKey(`err.${code}`) ? `err.${code}` : 'msg.laserError', 'error', { vars: { code }, code });
+  const forPatch = lastSaveCmd === 'patch';   // the draft stays, so it can be fixed and saved again
+  if (forPatch) {
+    lastSaveCmd = '';
+    fixPending = '';
+    disarmFix();
+  }
+  const key = forPatch && code === 'save-failed' ? 'fix.saveFailed' : hasKey(`err.${code}`) ? `err.${code}` : 'msg.laserError';
+  showMsg(key, 'error', { vars: { code }, code });
   if (code === 'bad-pin') pendingPin = null;
   if (wake.want && !myCal()) stopWake();
   if (isOpen) ws.send('?');   // resync: undo optimistic values
@@ -1615,6 +1831,8 @@ function connect() {
     autoAuth = false;
     wasAdmin = false;
     lastPhase = '';
+    fixPending = '';
+    disarmFix();
     clearLocal();
     stopWake();
     setConn('lost');
@@ -1704,7 +1922,7 @@ $('loginForm').addEventListener('submit', (e) => {
 });
 $('pinInput').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/[^0-9]/g, ''); });
 
-[...$('nav').children].forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
+[...$('nav').children].forEach((b) => b.addEventListener('click', () => { tab = b.dataset.tab; disarmFix(); render(); }));
 $('msg').addEventListener('click', hideMsg);
 // Never disabled: works before login and without a connection.
 [...$('langSwitch').children].forEach((b) => b.addEventListener('click', () => setLang(b.dataset.lang)));
@@ -1743,19 +1961,24 @@ $('offBtn').addEventListener('click', () => {
   send('off');
 });
 
-$('addrInput').addEventListener('input', () => { addrDirty = true; });
-$('addrBtn').addEventListener('click', () => {
-  const raw = $('addrInput').value.trim();
-  const n = Number(raw);
-  if (!/^[0-9]+$/.test(raw) || n < ADDR_MIN || n > ADDR_MAX) {
-    showMsg('set.addrRange', 'error', { vars: { min: ADDR_MIN, max: ADDR_MAX } });
+// Two taps, no dialog: the first arms (the status line already says what saving does), the second sends.
+$('fixSave').addEventListener('click', () => {
+  if ($('fixSave').disabled) return;
+  if (!fixArmed) {
+    fixArmed = setTimeout(() => { fixArmed = 0; if (document.body.dataset.view === 'fixtures') renderFixtures(); }, CONFIRM_MS);
+    renderFixtures();
     return;
   }
-  const laser = laserOf();
-  if (laser && n === Number(laser.addr)) { showMsg('set.addrSame', 'warn'); return; }
-  lastSaveCmd = 'addr';
-  addrDirty = false;
-  send(`patch ${laserPatchSlot()} laser ${n}`);
+  disarmFix();
+  const entries = patchEntries(fixShown());
+  lastSaveCmd = 'patch';
+  if (send(`patch set ${entries}`)) fixPending = entries;
+  renderFixtures();
+});
+$('fixUndo').addEventListener('click', () => {
+  fixDraft = null;
+  disarmFix();
+  renderFixtures();
 });
 
 $('pinBtn').addEventListener('click', () => {

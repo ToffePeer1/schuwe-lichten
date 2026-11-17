@@ -255,8 +255,12 @@ Outcome handleSetPatch(const Context& ctx, const Command& command) {
     return withError(ctx, ErrorCode::CalibrationBusy);
   }
   Settings settings = ctx.settings;
-  const bool isEmpty = command.fixtureType == FixtureType::None;
-  settings.patch.slots[command.fixture - 1] = PatchSlot{command.fixtureType, isEmpty ? uint16_t{1} : command.address};
+  if (command.type == CommandType::SetPatchAll) {
+    settings.patch = command.patch;
+  } else {
+    const bool isEmpty = command.fixtureType == FixtureType::None;
+    settings.patch.slots[command.fixture - 1] = isEmpty ? PatchSlot{} : PatchSlot{command.fixtureType, command.address};
+  }
   if (checkPatch(settings.patch) != PatchStatus::Ok) {
     return withError(ctx, ErrorCode::BadPatch);
   }
@@ -353,6 +357,7 @@ Outcome handleAdmin(const Context& ctx, const Command& command, const Source& so
     case CommandType::ChangePin:
       return handleChangePin(ctx, command, nowMs);
     case CommandType::SetPatch:
+    case CommandType::SetPatchAll:
       return handleSetPatch(ctx, command);
     case CommandType::CalStart:
     case CommandType::DbgStart: {

@@ -30,6 +30,7 @@ enum class CommandType : uint8_t {
   ChangePin,      // "pin <old> <new>"
   PinReset,       // "pin reset" (serial only)
   SetPatch,       // "patch <1-4> none" or "patch <1-4> laser|head <1-512>"
+  SetPatchAll,    // "patch set <none|laser:addr|head:addr>,..." for all 4 slots at once
   CalStart,       // "cal start"
   CalStop,        // "cal stop": ends a calibration or debug session
   CalAlive,       // "cal alive": operator action (kept for compatibility; there is no idle limit)
@@ -65,6 +66,7 @@ struct Command {
   uint16_t value = 0;    // SetChannel
   FixtureType fixtureType = FixtureType::None;  // SetPatch
   uint16_t address = 0;                         // SetPatch: the fixture's CH1 on the DMX line
+  Patch patch;                                  // SetPatchAll
   char pin[PIN_MAX_DIGITS + 1] = {};     // Auth, ChangePin (old)
   char newPin[PIN_MAX_DIGITS + 1] = {};  // ChangePin (new)
   // Library commands. Ranges and name content are validated by the library,

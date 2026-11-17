@@ -89,6 +89,24 @@ void test_admin_settings_commands() {
   TEST_ASSERT_EQUAL(CommandType::Invalid, typeOf("auto off"));
 }
 
+void test_whole_patch_in_one_command() {
+  const Command all = parseCommand("patch set Head:1,none,laser:30,head:200");
+  TEST_ASSERT_EQUAL(CommandType::SetPatchAll, all.type);
+  TEST_ASSERT_EQUAL(FixtureType::Head, all.patch.slots[0].type);
+  TEST_ASSERT_EQUAL_UINT16(1, all.patch.slots[0].address);
+  TEST_ASSERT_EQUAL(FixtureType::None, all.patch.slots[1].type);
+  TEST_ASSERT_EQUAL(FixtureType::Laser, all.patch.slots[2].type);
+  TEST_ASSERT_EQUAL_UINT16(30, all.patch.slots[2].address);
+  TEST_ASSERT_EQUAL_UINT16(200, all.patch.slots[3].address);
+  const char* bad[] = {"patch set", "patch set laser:1,none,none", "patch set laser:1,none,none,none,none",
+                       "patch set lamp:1,none,none,none", "patch set laser,none,none,none", "patch set laser:0,none,none,none",
+                       "patch set laser:513,none,none,none", "patch set none:5,none,none,none", "patch set laser:1,,none,none",
+                       "patch set laser:1 none none none"};
+  for (const char* line : bad) {
+    TEST_ASSERT_EQUAL_MESSAGE(CommandType::Invalid, typeOf(line), line);
+  }
+}
+
 void test_calibration_commands() {
   TEST_ASSERT_EQUAL(CommandType::CalStart, typeOf("cal start"));
   TEST_ASSERT_EQUAL(CommandType::CalStop, typeOf("cal stop"));
@@ -204,6 +222,7 @@ int runAllTests() {
   RUN_TEST(test_auth_and_pin_commands);
   RUN_TEST(test_bad_pins_are_invalid);
   RUN_TEST(test_admin_settings_commands);
+  RUN_TEST(test_whole_patch_in_one_command);
   RUN_TEST(test_calibration_commands);
   RUN_TEST(test_malformed_lines_are_invalid);
   RUN_TEST(test_valid_pin_format);

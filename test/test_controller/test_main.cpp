@@ -636,6 +636,18 @@ void test_adding_the_head_keeps_the_laser_calibrated() {
   TEST_ASSERT_EQUAL_UINT16(11, ctx.settings.patch.slots[1].address);
 }
 
+void test_whole_patch_changes_at_once() {
+  // Swapping addresses one slot at a time would overlap halfway; all at once it doesn't.
+  const Context swapped = patched(laserAndHead(), "patch set laser:20,head:1,none,none");
+  TEST_ASSERT_EQUAL_UINT16(20, swapped.settings.patch.slots[0].address);
+  TEST_ASSERT_EQUAL_UINT16(1, swapped.settings.patch.slots[1].address);
+  TEST_ASSERT_FALSE(swapped.settings.limits.isCalibrated);  // the laser moved
+  const Context ctx = laserAndHead();
+  TEST_ASSERT_EQUAL(ErrorCode::BadPatch, run(ctx, "patch set laser:1,head:5,none,none", ADMIN).error);
+  TEST_ASSERT_EQUAL(ErrorCode::NotAdmin, run(ctx, "patch set laser:1,none,none,none", GUEST).error);
+  TEST_ASSERT_FALSE(run(ctx, "patch set laser:1,head:11,none,none", ADMIN).hasSettingsToSave);  // unchanged
+}
+
 void test_bad_patches_are_refused() {
   const Context ctx = calibrated(30, 100);
   TEST_ASSERT_EQUAL(ErrorCode::BadPatch, run(ctx, "patch 2 head 10", ADMIN).error);   // overlaps the laser's CH10
@@ -836,6 +848,7 @@ int runAllTests() {
   RUN_TEST(test_saved_or_deleted_preset_updates_the_loaded_mark);
   RUN_TEST(test_preset_saved_after_blackout_is_marked_loaded);
   RUN_TEST(test_adding_the_head_keeps_the_laser_calibrated);
+  RUN_TEST(test_whole_patch_changes_at_once);
   RUN_TEST(test_bad_patches_are_refused);
   RUN_TEST(test_head_channels_have_no_limits);
   RUN_TEST(test_channel_numbers_follow_the_fixture_type);
