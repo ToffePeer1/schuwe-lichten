@@ -13,13 +13,13 @@
 #include "library_service.h"
 #include "wifi_secrets.h"
 
-// The pages are embedded at build time (board_build.embed_txtfiles, NUL-terminated).
-extern const char INDEX_HTML_START[] asm("_binary_src_web_index_html_start");
-extern const char INDEX_HTML_END[] asm("_binary_src_web_index_html_end");
-extern const char ADMIN_HTML_START[] asm("_binary_src_web_admin_html_start");
-extern const char ADMIN_HTML_END[] asm("_binary_src_web_admin_html_end");
-extern const char PATTERNS_JSON_START[] asm("_binary_src_web_patterns_json_start");
-extern const char PATTERNS_JSON_END[] asm("_binary_src_web_patterns_json_end");
+// The pages are embedded gzipped at build time (tools/gzip_pages.py, board_build.embed_files; not NUL-terminated).
+extern const char INDEX_HTML_START[] asm("_binary_build_web_index_html_gz_start");
+extern const char INDEX_HTML_END[] asm("_binary_build_web_index_html_gz_end");
+extern const char ADMIN_HTML_START[] asm("_binary_build_web_admin_html_gz_start");
+extern const char ADMIN_HTML_END[] asm("_binary_build_web_admin_html_gz_end");
+extern const char PATTERNS_JSON_START[] asm("_binary_build_web_patterns_json_gz_start");
+extern const char PATTERNS_JSON_END[] asm("_binary_build_web_patterns_json_gz_end");
 
 namespace {
 
@@ -364,10 +364,11 @@ void expireIdleAdmins(uint32_t nowMs) {
   }
 }
 
-void sendPage(const char* start, const char* end) {
-  const size_t length = static_cast<size_t>(end - start) - 1;  // drop the NUL
-  httpServer.sendHeader("Cache-Control", "no-store");
-  httpServer.send_P(200, "text/html", start, length);
+// Sends an embedded gzipped file; the browser unpacks it.
+void sendGzipped(const char* type, const char* start, const char* end, bool noStore) {
+  if (noStore) httpServer.sendHeader("Cache-Control", "no-store");
+  httpServer.sendHeader("Content-Encoding", "gzip");
+  httpServer.send_P(200, type, start, static_cast<size_t>(end - start));
 }
 
 }  // namespace
@@ -379,12 +380,10 @@ bool webUiBegin(SharedLaserState* state, bool wasSettingsReset) {
   if (!WiFi.softAP(AP_SSID, AP_PASSWORD, AP_CHANNEL, 0, AP_MAX_CONNECTIONS)) {
     return false;
   }
-  httpServer.on("/", HTTP_GET, []() { sendPage(INDEX_HTML_START, INDEX_HTML_END); });
-  httpServer.on("/admin", HTTP_GET, []() { sendPage(ADMIN_HTML_START, ADMIN_HTML_END); });
-  httpServer.on("/patterns.json", HTTP_GET, []() {
-    const size_t length = static_cast<size_t>(PATTERNS_JSON_END - PATTERNS_JSON_START) - 1;  // drop the NUL
-    httpServer.send_P(200, "application/json", PATTERNS_JSON_START, length);
-  });
+  httpServer.on("/", HTTP_GET, []() { sendGzipped("text/html", INDEX_HTML_START, INDEX_HTML_END, true); });
+  httpServer.on("/admin", HTTP_GET, []() { sendGzipped("text/html", ADMIN_HTML_START, ADMIN_HTML_END, true); });
+  httpServer.on("/patterns.json", HTTP_GET,
+                []() { sendGzipped("application/json", PATTERNS_JSON_START, PATTERNS_JSON_END, false); });
   httpServer.onNotFound([]() { httpServer.send(404, "text/plain", "not found"); });
   httpServer.begin();
 

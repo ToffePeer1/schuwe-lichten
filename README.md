@@ -93,7 +93,7 @@ They are no guarantee for other units, even of the same model.
   The loop task runs the WiFi access point, the web server, the WebSocket and the USB serial console.
 - **Storage:** settings (limits, patch, PIN) live in NVS as one CRC-checked blob. Presets and shows live on LittleFS.
   Both are verified after every write and survive firmware updates.
-- **`src/web/`**: the two pages and the pattern drawings, embedded in the firmware. Serial and WebSocket speak the same text protocol,
+- **`src/web/`**: the two pages and the pattern drawings, embedded in the firmware gzipped (`tools/gzip_pages.py` runs before each build). Serial and WebSocket speak the same text protocol,
   see [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
 Built with [PlatformIO](https://platformio.org/) (Arduino core 2.0.17), [esp_dmx](https://github.com/someweisguy/esp_dmx) and
