@@ -2660,8 +2660,8 @@ function builderStatus(b) {
   return [t('builder.st.live'), true];
 }
 function canSaveBuilder(b) {
-  return !!b.pattern && canDrive() && isCalibrated() && valueOf(1) >= MODE_ON_MIN && !!freeSlot(lib.presets, PRESET_SLOTS) &&
-    !pending;
+  return !!b.pattern && st && st.laserSlot != null && canDrive() && isCalibrated() && valueOf(1) >= MODE_ON_MIN &&
+    !!freeSlot(lib.presets, PRESET_SLOTS) && !pending;
 }
 function renderBuilderPane() {
   const b = ui.builder;
@@ -2972,7 +2972,12 @@ function openEditor(slot) {
   if (s) renderEditor();
   else addStep();   // a new show starts with picking its first preset
 }
-function closeEditor() { ui.editor = null; render(); }
+function closeEditor() {
+  clearTimeout(ui.deleteArmed);
+  ui.deleteArmed = 0;
+  ui.editor = null;
+  render();
+}
 function setEditor(change) { ui.editor = { ...ui.editor, ...change }; renderEditor(); }
 function setStep(k, change) { setEditor({ steps: ui.editor.steps.map((s, i) => (i === k ? { ...s, ...change } : s)) }); }
 function stepHold(t, dir) {
@@ -3161,10 +3166,18 @@ function setMode(k, mode) {
 // --- the picker over the step list: a preset for one fixture in one step, or a show to play -------------------
 function openPicker(k, slot, kind) { setEditor({ picker: { k, slot, kind } }); }
 function closePicker() { setEditor({ picker: null }); }
-// A step may play any other show, except (as a convenience; the firmware checks loops on save) one that already plays this show.
+// How many levels deep a show goes, itself included (1 = it plays no other show).
+function showDepth(slot, depth = 1) {
+  const show = lib.shows.get(slot);
+  if (!show || depth > SHOW_MAX_DEPTH + 1) return depth;
+  return show.steps.reduce((d, s) => (s.sub ? Math.max(d, showDepth(s.sub, depth + 1)) : d), depth);
+}
+// A step may play any other show, except (as a convenience; the firmware checks on save) one that already
+// plays this show, or one so deeply nested itself that this show would go past SHOW_MAX_DEPTH.
 function pickableShows() {
   const self = ui.editor.slot;
-  return showList().filter((s) => s.slot !== self && !(self != null && playsShow(s.slot, self)));
+  return showList().filter((s) => s.slot !== self && !(self != null && playsShow(s.slot, self))
+    && 1 + showDepth(s.slot) <= SHOW_MAX_DEPTH);
 }
 function renderPicker() {
   const e = ui.editor;
@@ -3907,14 +3920,14 @@ function normLibrary(m) {
   (Array.isArray(m.presets) ? m.presets : []).forEach((p) => {
     const slot = Number(p && p.slot);
     const type = p && p.type;
-    if (!Number.isInteger(slot) || !Object.prototype.hasOwnProperty.call(FX_CHANNELS, type) || !Array.isArray(p.ch)
-      || p.ch.length < FX_CHANNELS[type]) return;
+    if (!Number.isInteger(slot) || slot < 1 || slot > PRESET_SLOTS || !Object.prototype.hasOwnProperty.call(FX_CHANNELS, type)
+      || !Array.isArray(p.ch) || p.ch.length < FX_CHANNELS[type]) return;
     presets.set(slot, { slot, type, name: String(p.name || `Preset ${slot}`), ch: p.ch.slice(0, FX_CHANNELS[type]).map((v) => clampInt(v, 0, RAW_MAX)) });
   });
   (Array.isArray(m.shows) ? m.shows : []).forEach((s) => {
     const slot = Number(s && s.slot);
     const steps = s && typeof s.steps === 'string' ? parseSteps(s.steps) : null;
-    if (!Number.isInteger(slot) || !steps) return;
+    if (!Number.isInteger(slot) || slot < 1 || slot > SHOW_SLOTS || !steps) return;
     shows.set(slot, { slot, name: String(s.name || `Show ${slot}`), steps });
   });
   return { presets, shows };
