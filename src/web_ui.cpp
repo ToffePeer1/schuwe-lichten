@@ -13,17 +13,17 @@
 #include "library_service.h"
 #include "wifi_secrets.h"
 
-// The pages are embedded at build time (board_build.embed_txtfiles, NUL-terminated).
-extern const char INDEX_HTML_START[] asm("_binary_src_web_index_html_start");
-extern const char INDEX_HTML_END[] asm("_binary_src_web_index_html_end");
-extern const char ADMIN_HTML_START[] asm("_binary_src_web_admin_html_start");
-extern const char ADMIN_HTML_END[] asm("_binary_src_web_admin_html_end");
-extern const char PATTERNS_JSON_START[] asm("_binary_src_web_patterns_json_start");
-extern const char PATTERNS_JSON_END[] asm("_binary_src_web_patterns_json_end");
+// The pages are embedded gzipped at build time (tools/gzip_pages.py, board_build.embed_files; not NUL-terminated).
+extern const char INDEX_HTML_START[] asm("_binary_build_web_index_html_gz_start");
+extern const char INDEX_HTML_END[] asm("_binary_build_web_index_html_gz_end");
+extern const char ADMIN_HTML_START[] asm("_binary_build_web_admin_html_gz_start");
+extern const char ADMIN_HTML_END[] asm("_binary_build_web_admin_html_gz_end");
+extern const char PATTERNS_JSON_START[] asm("_binary_build_web_patterns_json_gz_start");
+extern const char PATTERNS_JSON_END[] asm("_binary_build_web_patterns_json_gz_end");
 
 namespace {
 
-constexpr size_t STATE_JSON_SIZE = 1024;
+constexpr size_t STATE_JSON_SIZE = 2048;  // 4 fixtures of up to 19 channels (~600 B), a session, a show
 constexpr size_t LIBRARY_JSON_SIZE = 10240;  // 32 presets + 16 shows of 24 steps, worst case ~8 KB
 constexpr size_t EVENT_JSON_SIZE = 128;
 
@@ -121,24 +121,41 @@ void addCalibration(JsonWriter& json, const laser::Context& ctx, uint8_t num) {
   json.add("]}");
 }
 
+// The patched fixtures: slot, type, address, the requested channels and the last loaded preset.
+void addFixtures(JsonWriter& json, const laser::Context& ctx) {
+  json.add("\"fixtures\":[");
+  bool isFirst = true;
+  for (uint8_t i = 0; i < laser::MAX_FIXTURES; ++i) {
+    const laser::PatchSlot& slot = ctx.settings.patch.slots[i];
+    if (slot.type == laser::FixtureType::None) {
+      continue;
+    }
+    json.add("%s{\"slot\":%u,\"type\":\"%s\",\"addr\":%u,\"ch\":[", isFirst ? "" : ",", i + 1,
+             laser::fixtureTypeName(slot.type), slot.address);
+    for (uint8_t ch = 0; ch < laser::channelCount(slot.type); ++ch) {
+      json.add(ch == 0 ? "%u" : ",%u", ctx.fixtures[i].channels[ch]);
+    }
+    const uint8_t preset = ctx.fixtures[i].loadedPreset;
+    if (preset == 0) {
+      json.add("],\"preset\":null}");
+    } else {
+      json.add("],\"preset\":%u}", preset);
+    }
+    isFirst = false;
+  }
+  json.add("]");
+}
+
 bool buildStateJson(char* out, size_t size, const laser::Context& ctx, uint32_t nowMs, uint8_t num) {
   const laser::Limits& l = ctx.settings.limits;
   const bool isAdmin = isValidSlot(num) && slots[num].isAdmin;
   JsonWriter json(out, size);
-  json.add("{\"type\":\"state\",\"ch\":[");
-  for (size_t i = 0; i < laser::CHANNEL_COUNT; ++i) {
-    json.add(i == 0 ? "%u" : ",%u", ctx.state.channels[i]);
-  }
-  json.add("],\"limits\":{\"ch7\":[%u,%u],\"ch6\":{\"on\":%s,\"range\":[%u,%u]},\"calibrated\":%s,\"allowAuto\":false},",
+  json.add("{\"type\":\"state\",");
+  addFixtures(json, ctx);
+  json.add(",\"limits\":{\"ch7\":[%u,%u],\"ch6\":{\"on\":%s,\"range\":[%u,%u]},\"calibrated\":%s,\"allowAuto\":false},",
            l.ch7Low, l.ch7High, boolText(l.ch6Enabled), l.ch6Left, l.ch6Right, boolText(l.isCalibrated));
-  json.add("\"addr\":%u,\"stopHeld\":%s,\"admin\":%s,", ctx.settings.dmxAddress, boolText(ctx.button.isHeld),
-           boolText(isAdmin));
+  json.add("\"stopHeld\":%s,\"admin\":%s,", boolText(ctx.button.isHeld), boolText(isAdmin));
   addCalibration(json, ctx, num);
-  if (ctx.loadedPreset == 0) {
-    json.add(",\"preset\":null");
-  } else {
-    json.add(",\"preset\":%u", ctx.loadedPreset);
-  }
   const laser::Playback& play = ctx.playback;
   if (!play.isPlaying) {
     json.add(",\"play\":null");
@@ -347,10 +364,11 @@ void expireIdleAdmins(uint32_t nowMs) {
   }
 }
 
-void sendPage(const char* start, const char* end) {
-  const size_t length = static_cast<size_t>(end - start) - 1;  // drop the NUL
-  httpServer.sendHeader("Cache-Control", "no-store");
-  httpServer.send_P(200, "text/html", start, length);
+// Sends an embedded gzipped file; the browser unpacks it.
+void sendGzipped(const char* type, const char* start, const char* end, bool noStore) {
+  if (noStore) httpServer.sendHeader("Cache-Control", "no-store");
+  httpServer.sendHeader("Content-Encoding", "gzip");
+  httpServer.send_P(200, type, start, static_cast<size_t>(end - start));
 }
 
 }  // namespace
@@ -362,12 +380,10 @@ bool webUiBegin(SharedLaserState* state, bool wasSettingsReset) {
   if (!WiFi.softAP(AP_SSID, AP_PASSWORD, AP_CHANNEL, 0, AP_MAX_CONNECTIONS)) {
     return false;
   }
-  httpServer.on("/", HTTP_GET, []() { sendPage(INDEX_HTML_START, INDEX_HTML_END); });
-  httpServer.on("/admin", HTTP_GET, []() { sendPage(ADMIN_HTML_START, ADMIN_HTML_END); });
-  httpServer.on("/patterns.json", HTTP_GET, []() {
-    const size_t length = static_cast<size_t>(PATTERNS_JSON_END - PATTERNS_JSON_START) - 1;  // drop the NUL
-    httpServer.send_P(200, "application/json", PATTERNS_JSON_START, length);
-  });
+  httpServer.on("/", HTTP_GET, []() { sendGzipped("text/html", INDEX_HTML_START, INDEX_HTML_END, true); });
+  httpServer.on("/admin", HTTP_GET, []() { sendGzipped("text/html", ADMIN_HTML_START, ADMIN_HTML_END, true); });
+  httpServer.on("/patterns.json", HTTP_GET,
+                []() { sendGzipped("application/json", PATTERNS_JSON_START, PATTERNS_JSON_END, false); });
   httpServer.onNotFound([]() { httpServer.send(404, "text/plain", "not found"); });
   httpServer.begin();
 

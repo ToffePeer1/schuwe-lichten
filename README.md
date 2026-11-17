@@ -16,7 +16,7 @@ whatever the phone asks for. Everything fits in a small 3D-printed box with an X
 
 ## Features
 
-- **Phone page, no app.** Join the ESP32's WiFi and open `http://192.168.4.1` in the browser. Made for landscape. The interface is in Dutch.
+- **Phone page, no app.** Join the ESP32's WiFi and open `http://192.168.4.1` in the browser. Made for landscape. The interface is in Dutch or English: switch with NL | EN next to the off button. Each phone remembers its choice; the first visit follows the phone's language.
 - **Presets** with drawings of the actual patterns, a **quick builder** (shape, colour, movement, size, height, lines/dots, shown live on the laser),
   and a **lighting-desk page** with a fader per channel and an explanation behind every label.
 - **Shows:** a looping list of presets with hold times. The ESP32 plays them itself, so the phone can lock, switch apps or leave the WiFi.
@@ -91,9 +91,9 @@ They are no guarantee for other units, even of the same model.
   presets and shows, and the text protocol parser. It has no Arduino dependencies, so it is unit-tested on the PC.
 - **`src/`**: the firmware around it. A DMX task (core 1, on the task watchdog) sends a fresh frame every 25 ms and plays shows.
   The loop task runs the WiFi access point, the web server, the WebSocket and the USB serial console.
-- **Storage:** settings (limits, DMX address, PIN) live in NVS as one CRC-checked blob. Presets and shows live on LittleFS.
+- **Storage:** settings (limits, patch, PIN) live in NVS as one CRC-checked blob. Presets and shows live on LittleFS.
   Both are verified after every write and survive firmware updates.
-- **`src/web/`**: the two pages and the pattern drawings, embedded in the firmware. Serial and WebSocket speak the same text protocol,
+- **`src/web/`**: the two pages and the pattern drawings, embedded in the firmware gzipped (`tools/gzip_pages.py` runs before each build). Serial and WebSocket speak the same text protocol,
   see [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
 Built with [PlatformIO](https://platformio.org/) (Arduino core 2.0.17), [esp_dmx](https://github.com/someweisguy/esp_dmx) and

@@ -8,8 +8,10 @@
 
 #include "auth.h"
 #include "calibration.h"
+#include "fixtures.h"
 #include "laser_core.h"
 #include "library.h"
+#include "moving_head.h"
 #include "protocol.h"
 #include "settings_blob.h"
 #include "stop_button.h"
@@ -40,6 +42,8 @@ enum class ErrorCode : uint8_t {
   BadName,
   BadSteps,
   PresetInUse,
+  NoFixture,  // nothing patched where the command points (or no laser for a laser-only action)
+  BadPatch,   // the new patch would overlap, run past slot 512 or hold two lasers
 };
 
 enum class StopReason : uint8_t {
@@ -50,13 +54,13 @@ enum class StopReason : uint8_t {
   CalibrationStopped,
   CalibrationTimeout,
   CalibrationOwnerLeft,
-  AddressChanged,
+  PatchChanged,
   CalibrationSaved,
   DebugStopped,
 };
 
 enum class AuthEvent : uint8_t { None, Granted, Rejected, Locked };
-enum class CommitKind : uint8_t { Limits, Pin, Address };
+enum class CommitKind : uint8_t { Limits, Pin, Patch };
 
 const char* errorCodeName(ErrorCode code);
 const char* stopReasonName(StopReason reason);
@@ -71,15 +75,20 @@ struct Playback {
   ActiveShow show;
 };
 
+// What one patched fixture was asked to do. Its frame applies the type's rules on top.
+struct FixtureState {
+  FixtureChannels channels{};
+  uint8_t loadedPreset = 0;  // last loaded preset slot, 0 = none / changed by hand
+};
+
 struct Context {
-  State state;
+  FixtureState fixtures[MAX_FIXTURES];  // by patch slot (settings.patch)
   Settings settings;
-  CalSession cal;
+  CalSession cal;  // calibration and debug sessions are for the laser
   StopButton button;
   PinGuard guard;
   char factoryPin[PIN_MAX_DIGITS + 1] = {};
-  Playback playback;          // never persisted: a reboot is dark (rule 1)
-  uint8_t loadedPreset = 0;   // last loaded preset slot, 0 = none / changed by hand
+  Playback playback;  // drives the laser; never persisted: a reboot is dark (rule 1)
 };
 
 struct Outcome {
@@ -115,16 +124,25 @@ Outcome clientLeft(const Context& ctx, uint8_t slot);
 // Applies settings after they were persisted and verified.
 Outcome commitSettings(const Context& ctx, const Settings& saved, CommitKind kind);
 
-// The 10 laser channels to put on the wire right now.
-Channels frameFor(const Context& ctx);
+// What the fixture in this patch slot puts on the wire right now: its type's
+// rules applied (the laser's limits, a calibration look), all 0 while IO0 is held.
+FixtureChannels fixtureFrame(const Context& ctx, uint8_t index);
+
+// The whole DMX universe: every fixture's frame at its address, every other slot 0.
+Universe buildUniverse(const Context& ctx);
+
+// The laser's requested and outgoing channels (all 0 when no laser is patched).
+Channels laserChannels(const Context& ctx);
+Channels laserFrame(const Context& ctx);
 
 bool isFactoryPin(const Context& ctx);
 
 ErrorCode libraryError(LibraryStatus status);
 
-// Library actions (explicit user commands, rule 5). Refused during a
-// calibration/debug session, while IO0 is held, and (rule 8) if the look would
-// light the laser while uncalibrated. Loading stops any running show.
+// Library actions (explicit user commands, rule 5). They act on the laser
+// (no-fixture when none is patched). Refused during a calibration/debug
+// session, while IO0 is held, and (rule 8) if the look would light the laser
+// while uncalibrated. Loading stops any running show.
 Outcome loadPreset(const Context& ctx, uint16_t slot, const Channels& look);
 Outcome startShow(const Context& ctx, uint16_t slot, const ActiveShow& show, uint32_t nowMs);
 // Stops advancing; the current look stays.

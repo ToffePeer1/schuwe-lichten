@@ -8,7 +8,6 @@
 #include <soc/uart_periph.h>
 
 #include <atomic>
-#include <cstring>
 
 #include "config.h"
 
@@ -19,8 +18,7 @@ constexpr uint32_t DMX_TASK_STACK_BYTES = 6144;  // the tick copies the Context 
 constexpr UBaseType_t DMX_TASK_PRIORITY = 3;  // above the Arduino loop task (1)
 constexpr BaseType_t DMX_TASK_CORE = 1;       // same core as the driver ISR; WiFi runs on core 0
 
-static_assert(laser::DMX_ADDRESS_MAX + laser::CHANNEL_COUNT - 1 < DMX_PACKET_SIZE,
-              "the laser footprint must fit in one DMX universe at every address");
+static_assert(sizeof(laser::Universe) == DMX_PACKET_SIZE, "one universe is one DMX packet, start code included");
 
 std::atomic<uint32_t> framesSent{0};
 std::atomic<uint32_t> sendFailures{0};
@@ -29,17 +27,12 @@ TaskHandle_t dmxTaskHandle = nullptr;
 void dmxTask(void* arg) {
   auto* state = static_cast<SharedLaserState*>(arg);
   esp_task_wdt_add(nullptr);  // a hung DMX task reboots into the boot blackout
-  static uint8_t packet[DMX_PACKET_SIZE];
   TickType_t lastWake = xTaskGetTickCount();
   for (;;) {
     const bool isStopLevelLow = digitalRead(PIN_STOP_BUTTON) == LOW;
-    const FrameOutput frame = state->frameTick(isStopLevelLow);
-    // Rebuilt from zeros every frame: slot 0 = start code, every other slot dark.
-    std::memset(packet, 0, sizeof(packet));
-    if (frame.dmxAddress >= laser::DMX_ADDRESS_MIN && frame.dmxAddress <= laser::DMX_ADDRESS_MAX) {
-      std::memcpy(&packet[frame.dmxAddress], frame.channels.data(), frame.channels.size());
-    }
-    dmx_write(DMX_PORT, packet, DMX_PACKET_SIZE);
+    // Built from zeros every frame (laser::buildUniverse): every fixture at its address, every other slot dark.
+    const laser::Universe packet = state->frameTick(isStopLevelLow);
+    dmx_write(DMX_PORT, packet.data(), DMX_PACKET_SIZE);
     const bool isSent = dmx_send_num(DMX_PORT, DMX_PACKET_SIZE) == DMX_PACKET_SIZE &&
                         dmx_wait_sent(DMX_PORT, DMX_TIMEOUT_TICK);
     (isSent ? framesSent : sendFailures).fetch_add(1, std::memory_order_relaxed);

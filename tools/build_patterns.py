@@ -3,7 +3,7 @@
 Reads design/patterns.json (names, categories and hand-drawn traces of all 51 laser
 patterns, mapped by hand on one unit; another unit of the same model may differ)
 and keeps only what the page needs:
-number, name, category, duplicateOf and the strokes. Strokes are simplified with
+number, name, category (each also in English: nameEn, categoryEn), duplicateOf and the strokes. Strokes are simplified with
 Ramer-Douglas-Peucker and quantised to 2 decimals, so the file stays small enough
 to embed in the firmware and serve at /patterns.json.
 
@@ -73,8 +73,25 @@ def compact_stroke(stroke: list[list[float]]) -> list[list[float | int]]:
     return out
 
 
+CATEGORY_EN = {
+    "Vormen": "Shapes",
+    "Lijnen": "Lines",
+    "Bogen en golven": "Arcs and waves",
+    "Figuren": "Figures",
+    "Cijfers": "Numbers",
+    "Zoomcirkels": "Zoom circles",
+}
+
+
 def compact_pattern(p: dict) -> dict:
-    out = {"number": int(p["number"]), "name": str(p["name"]), "category": str(p.get("category", ""))}
+    category = str(p.get("category", ""))
+    out = {
+        "number": int(p["number"]),
+        "name": str(p["name"]),
+        "nameEn": str(p.get("nameEn", "")),
+        "category": category,
+        "categoryEn": CATEGORY_EN.get(category, ""),
+    }
     if p.get("duplicateOf"):
         out["duplicateOf"] = int(p["duplicateOf"])
     out["strokes"] = [s for s in (compact_stroke(s) for s in p.get("strokes", [])) if s]
@@ -88,6 +105,8 @@ def validate(patterns: list[dict]) -> None:
     for p in patterns:
         if not p["name"] or not p["category"]:
             raise SystemExit(f"pattern {p['number']} has no name or category")
+        if not p["nameEn"] or not p["categoryEn"]:
+            raise SystemExit(f"pattern {p['number']} has no English name or category (nameEn, CATEGORY_EN)")
         if not p["strokes"]:
             raise SystemExit(f"pattern {p['number']} has no drawing")
 

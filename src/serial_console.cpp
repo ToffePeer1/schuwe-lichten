@@ -18,10 +18,12 @@ size_t lineLength = 0;
 bool isDiscardingLine = false;
 
 void printHelp() {
-  Serial.println("commands: '<ch> <value>' (e.g. '7 40'), '0' = all zero, 'off' = CH1 0, '?' = status");
+  Serial.println("commands: '<ch> <value>' (e.g. '7 40'), '0' = all zero, 'off' = all off, '?' = status");
+  Serial.println("  'f<1-4>' in front picks a fixture: 'f2 7 255', 'f2 off' (no prefix: f1, or all for 0/off)");
   Serial.println("admin (no PIN on USB): cal start|stop, cal look square|diamond|spin,");
   Serial.println("  lim mark low7|high7|left6|right6, lim h on|off, lim save, lim check|redo (optional check),");
-  Serial.println("  dbg start|stop (raw channels, NO limits), addr <1-503>, pin <old> <new>, pin reset");
+  Serial.println("  dbg start|stop (raw laser channels, NO limits), pin <old> <new>, pin reset,");
+  Serial.println("  patch <1-4> none|laser <addr>|head <addr> (which light sits at which DMX address)");
   Serial.println("library: preset save <1-32> <name>, preset load|delete <slot>, lib (list),");
   Serial.println("  show save <1-16> <p:t,...> <name> (t in 0.1 s), show play <slot>, show stop, show delete <slot>");
 }
@@ -110,12 +112,14 @@ void reportResult(SharedLaserState& state, const laser::Command& command, const 
     printLibrary();
   }
   if (command.type == laser::CommandType::Status || result.isSaved) {
-    printLaserStatus(state);  // fresh snapshot: a save may already have ended calibration
+    printStatus(state);  // fresh snapshot: a save may already have ended calibration
   } else if (o.error == laser::ErrorCode::None && result.stop == laser::StopReason::None &&
              laser::isActive(o.ctx.cal)) {
     printCalibration(o.ctx.cal);
   } else if (o.error == laser::ErrorCode::None && command.type == laser::CommandType::SetChannel) {
-    Serial.printf("ok CH%u=%u\n", command.channel, o.ctx.state.channels[command.channel - 1]);
+    const uint8_t fixture = command.fixture == 0 ? 1 : command.fixture;
+    Serial.printf("ok f%u CH%u=%u\n", fixture, command.channel,
+                  o.ctx.fixtures[fixture - 1].channels[command.channel - 1]);
   }
 }
 
@@ -136,25 +140,46 @@ void handleLine(SharedLaserState& state, const char* line) {
 
 void serialConsoleBegin() { printHelp(); }
 
-void printLaserStatus(SharedLaserState& state) {
+void printPatch(const laser::Patch& patch) {
+  bool isEmpty = true;
+  for (uint8_t i = 0; i < laser::MAX_FIXTURES; ++i) {
+    const laser::PatchSlot& slot = patch.slots[i];
+    if (slot.type != laser::FixtureType::None) {
+      Serial.printf("%s f%u %s @%u-%u", isEmpty ? "patch:" : ",", i + 1, laser::fixtureTypeName(slot.type),
+                    slot.address, laser::lastAddress(slot));
+      isEmpty = false;
+    }
+  }
+  Serial.println(isEmpty ? "patch: empty, nothing is sent" : "");
+}
+
+void printStatus(SharedLaserState& state) {
   uint32_t nowMs = 0;
   const laser::Context ctx = state.snapshot(&nowMs);
   const laser::Limits& l = ctx.settings.limits;
-  Serial.print("channels:");
-  for (size_t i = 0; i < laser::CHANNEL_COUNT; ++i) {
-    Serial.printf(" %u=%u", static_cast<unsigned>(i + 1), ctx.state.channels[i]);
+  printPatch(ctx.settings.patch);
+  for (uint8_t i = 0; i < laser::MAX_FIXTURES; ++i) {
+    const uint8_t count = laser::channelCount(ctx.settings.patch.slots[i].type);
+    if (count == 0) {
+      continue;
+    }
+    const laser::FixtureChannels frame = laser::fixtureFrame(ctx, i);
+    Serial.printf("f%u channels:", i + 1);
+    for (uint8_t ch = 0; ch < count; ++ch) {
+      Serial.printf(" %u=%u", ch + 1, ctx.fixtures[i].channels[ch]);
+    }
+    Serial.printf("\nf%u on the wire:", i + 1);
+    for (uint8_t ch = 0; ch < count; ++ch) {
+      Serial.printf(" %u", frame[ch]);
+    }
+    Serial.println();
   }
-  const laser::Channels frame = laser::frameFor(ctx);
-  Serial.print("\non the wire:");
-  for (size_t i = 0; i < laser::CHANNEL_COUNT; ++i) {
-    Serial.printf(" %u", frame[i]);
-  }
-  Serial.printf("\nlimits: %s ch7 low=%u high=%u%s, ch6 %s", l.isCalibrated ? "calibrated" : "NOT calibrated",
+  Serial.printf("laser limits: %s ch7 low=%u high=%u%s, ch6 %s", l.isCalibrated ? "calibrated" : "NOT calibrated",
                 l.ch7Low, l.ch7High, l.ch7Low > l.ch7High ? " (inverted)" : "", l.ch6Enabled ? "on" : "off");
   if (l.ch6Enabled) {
     Serial.printf(" %u..%u", l.ch6Left, l.ch6Right);
   }
-  Serial.printf(", DMX address %u\n", ctx.settings.dmxAddress);
+  Serial.println();
   printCalibration(ctx.cal);
   Serial.printf("stop button (IO0): %s%s\n", ctx.button.isHeld ? "HELD" : "released",
                 ctx.button.isArmed ? "" : " (not armed yet)");

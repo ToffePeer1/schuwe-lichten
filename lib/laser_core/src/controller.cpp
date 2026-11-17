@@ -32,21 +32,47 @@ Outcome toSave(const Context& ctx, const Settings& settings, CommitKind kind) {
   return outcome;
 }
 
-// Every way out of a session lands on all channels 0, with no show running.
-Context endCalibration(const Context& ctx) {
+FixtureType typeAt(const Context& ctx, uint8_t index) { return ctx.settings.patch.slots[index].type; }
+
+uint8_t laserAt(const Context& ctx) { return laserIndex(ctx.settings.patch); }
+
+State laserStateAt(const Context& ctx, uint8_t index) { return State{toLaserChannels(ctx.fixtures[index].channels)}; }
+
+// A laser look as the laser fixture stores it: inside the current limits.
+FixtureChannels clampedLook(const Channels& look, const Limits& limits) {
+  return toFixtureChannels(reclamp(State{look}, limits).channels);
+}
+
+// The show drives the laser (shows only hold laser looks for now).
+bool isShowDriving(const Context& ctx, uint8_t index) { return ctx.playback.isPlaying && index == laserAt(ctx); }
+
+// The type's "off": the laser's CH1 to 0, the head's light channels and macro to 0.
+FixtureChannels offChannels(FixtureType type, const FixtureChannels& channels) {
+  switch (type) {
+    case FixtureType::Laser:
+      return toFixtureChannels(laserOff(State{toLaserChannels(channels)}).channels);
+    case FixtureType::Head:
+      return headOff(channels);
+    case FixtureType::None:
+      break;
+  }
+  return FixtureChannels{};
+}
+
+// Every fixture to 0 with no show running: boot, sessions, patch changes.
+Context darkenAll(const Context& ctx) {
   Context next = ctx;
-  next.cal = CalSession{};
-  next.state = blackout();
+  for (FixtureState& fixture : next.fixtures) {
+    fixture = FixtureState{};
+  }
   next.playback = Playback{};
-  next.loadedPreset = 0;
   return next;
 }
 
-// Off/blackout/manual take-over: the show stops and nothing resumes it.
-Context stopPlayback(const Context& ctx) {
-  Context next = ctx;
-  next.playback = Playback{};
-  next.loadedPreset = 0;
+// Every way out of a session lands on all channels 0, with no show running.
+Context endCalibration(const Context& ctx) {
+  Context next = darkenAll(ctx);
+  next.cal = CalSession{};
   return next;
 }
 
@@ -104,42 +130,81 @@ Outcome fromCalResult(const Context& ctx, const CalResult& calResult) {
   return result(next);
 }
 
-// "off" and "0": accepted from anyone, always, and they end calibration.
-Outcome handleStop(const Context& ctx, CommandType type) {
-  const StopReason reason = type == CommandType::Blackout ? StopReason::Blackout : StopReason::Off;
+// "off" and "0": accepted from anyone, always, and they end a session. Without
+// a fixture prefix they act on every fixture.
+Outcome handleStop(const Context& ctx, const Command& command) {
+  const bool isBlackout = command.type == CommandType::Blackout;
+  const StopReason reason = isBlackout ? StopReason::Blackout : StopReason::Off;
   if (isActive(ctx.cal)) {
     return withStop(endCalibration(ctx), reason);
   }
-  Context next = stopPlayback(ctx);
-  next.state = type == CommandType::Blackout ? blackout() : laserOff(ctx.state);
-  return withStop(next, reason);
+  Context next = ctx;
+  for (uint8_t i = 0; i < MAX_FIXTURES; ++i) {
+    if (command.fixture != 0 && i != command.fixture - 1) {
+      continue;
+    }
+    if (isShowDriving(next, i)) {
+      next.playback = Playback{};  // nothing resumes it
+    }
+    FixtureState& fixture = next.fixtures[i];
+    fixture.channels = isBlackout ? FixtureChannels{} : offChannels(typeAt(next, i), fixture.channels);
+    fixture.loadedPreset = 0;
+  }
+  // Only a stop of every fixture is announced to all phones; "f2 off" is a normal change.
+  return command.fixture == 0 ? withStop(next, reason) : result(next);
+}
+
+// During a session only its owner may move the laser, within what the session allows.
+Outcome handleSessionChannel(const Context& ctx, const Command& command, const Source& source, uint8_t index,
+                             uint32_t nowMs) {
+  if (!isOwner(ctx.cal, source) || index != laserAt(ctx)) {
+    return withError(ctx, ErrorCode::CalibrationBusy);
+  }
+  const uint8_t value = static_cast<uint8_t>(command.value);
+  const CalResult moved = ctx.cal.phase == CalPhase::Debug
+                              ? calSetRaw(ctx.cal, command.channel, value, nowMs)  // rule 9: raw
+                              : calSetPosition(ctx.cal, command.channel, value, nowMs);
+  if (moved.status != CalStatus::Ok) {
+    return withError(ctx, ErrorCode::CalibrationBusy);  // calibration pins every other channel
+  }
+  Context next = ctx;
+  next.cal = moved.session;
+  return result(next);
 }
 
 Outcome handleSetChannel(const Context& ctx, const Command& command, const Source& source, uint32_t nowMs) {
   if (ctx.button.isHeld) {
     return withError(ctx, ErrorCode::StopHeld);
   }
-  const uint8_t value = static_cast<uint8_t>(command.value);
+  // Without a prefix a command is for fixture 1, except during a session: that is about the laser.
+  const uint8_t index = command.fixture != 0 ? static_cast<uint8_t>(command.fixture - 1)
+                        : isActive(ctx.cal)  ? laserAt(ctx)
+                                             : 0;
+  if (index >= MAX_FIXTURES || typeAt(ctx, index) == FixtureType::None) {
+    return withError(ctx, ErrorCode::NoFixture);
+  }
+  const FixtureType type = typeAt(ctx, index);
+  if (command.channel < 1 || command.channel > channelCount(type)) {
+    return withError(ctx, ErrorCode::BadCommand);
+  }
   if (isActive(ctx.cal)) {
-    if (!isOwner(ctx.cal, source)) {
-      return withError(ctx, ErrorCode::CalibrationBusy);
-    }
-    const CalResult moved = ctx.cal.phase == CalPhase::Debug
-                                ? calSetRaw(ctx.cal, command.channel, value, nowMs)  // rule 9: raw
-                                : calSetPosition(ctx.cal, command.channel, value, nowMs);
-    if (moved.status != CalStatus::Ok) {
-      return withError(ctx, ErrorCode::CalibrationBusy);  // calibration pins every other channel
-    }
-    Context next = ctx;
-    next.cal = moved.session;
-    return result(next);
+    return handleSessionChannel(ctx, command, source, index, nowMs);
   }
-  const ApplyResult applied = setChannel(ctx.state, command.channel, value, ctx.settings.limits);
-  if (applied.status != ApplyStatus::Ok) {
-    return withError(ctx, fromApply(applied.status));
+  const uint8_t value = static_cast<uint8_t>(command.value);
+  Context next = ctx;
+  if (type == FixtureType::Laser) {
+    const ApplyResult applied = setChannel(laserStateAt(ctx, index), command.channel, value, ctx.settings.limits);
+    if (applied.status != ApplyStatus::Ok) {
+      return withError(ctx, fromApply(applied.status));
+    }
+    next.fixtures[index].channels = toFixtureChannels(applied.state.channels);
+  } else {
+    next.fixtures[index].channels[command.channel - 1] = value;  // the head has no limits (user decision)
   }
-  Context next = stopPlayback(ctx);  // a manual change takes over from a preset or show
-  next.state = applied.state;
+  if (isShowDriving(ctx, index)) {
+    next.playback = Playback{};  // a manual change takes over from a show
+  }
+  next.fixtures[index].loadedPreset = 0;
   return result(next);
 }
 
@@ -176,6 +241,32 @@ Outcome handleChangePin(const Context& ctx, const Command& command, uint32_t now
   std::memset(settings.pin, 0, sizeof(settings.pin));
   std::strncpy(settings.pin, command.newPin, PIN_MAX_DIGITS);
   return toSave(next, settings, CommitKind::Pin);
+}
+
+// The laser's limit is only valid for the slots it was calibrated on.
+bool isLaserMoved(const Patch& before, const Patch& after) {
+  const uint8_t was = laserIndex(before);
+  const uint8_t is = laserIndex(after);
+  return was != is || (is != NO_FIXTURE && before.slots[was].address != after.slots[is].address);
+}
+
+Outcome handleSetPatch(const Context& ctx, const Command& command) {
+  if (isActive(ctx.cal)) {
+    return withError(ctx, ErrorCode::CalibrationBusy);
+  }
+  Settings settings = ctx.settings;
+  const bool isEmpty = command.fixtureType == FixtureType::None;
+  settings.patch.slots[command.fixture - 1] = PatchSlot{command.fixtureType, isEmpty ? uint16_t{1} : command.address};
+  if (checkPatch(settings.patch) != PatchStatus::Ok) {
+    return withError(ctx, ErrorCode::BadPatch);
+  }
+  if (settings.patch == ctx.settings.patch) {
+    return result(ctx);  // nothing moved: no flash write, no blackout
+  }
+  if (isLaserMoved(ctx.settings.patch, settings.patch)) {
+    settings.limits.isCalibrated = false;  // the clamp must be re-verified on the new slots
+  }
+  return toSave(ctx, settings, CommitKind::Patch);
 }
 
 // Admin commands that need a running calibration owned by this source.
@@ -261,15 +352,8 @@ Outcome handleAdmin(const Context& ctx, const Command& command, const Source& so
     }
     case CommandType::ChangePin:
       return handleChangePin(ctx, command, nowMs);
-    case CommandType::SetAddress: {
-      if (isActive(ctx.cal)) {
-        return withError(ctx, ErrorCode::CalibrationBusy);
-      }
-      Settings settings = ctx.settings;
-      settings.dmxAddress = command.value;
-      settings.limits.isCalibrated = false;  // the clamp must be re-verified on the new slots
-      return toSave(ctx, settings, CommitKind::Address);
-    }
+    case CommandType::SetPatch:
+      return handleSetPatch(ctx, command);
     case CommandType::CalStart:
     case CommandType::DbgStart: {
       if (ctx.button.isHeld) {
@@ -278,12 +362,12 @@ Outcome handleAdmin(const Context& ctx, const Command& command, const Source& so
       if (isActive(ctx.cal)) {
         return withError(ctx, ErrorCode::CalibrationBusy);
       }
-      Context next = ctx;
+      if (laserAt(ctx) == NO_FIXTURE) {
+        return withError(ctx, ErrorCode::NoFixture);
+      }
+      Context next = darkenAll(ctx);  // nothing resumes after a session ends
       next.cal = command.type == CommandType::CalStart ? startCalibration(ctx.settings.limits, source, nowMs)
                                                        : startDebug(source, nowMs);
-      next.state = blackout();  // nothing resumes after a session ends
-      next.playback = Playback{};
-      next.loadedPreset = 0;
       return result(next);
     }
     default:
@@ -318,6 +402,8 @@ const char* errorCodeName(ErrorCode code) {
     case ErrorCode::BadName: return "bad-name";
     case ErrorCode::BadSteps: return "bad-steps";
     case ErrorCode::PresetInUse: return "preset-in-use";
+    case ErrorCode::NoFixture: return "no-fixture";
+    case ErrorCode::BadPatch: return "bad-patch";
   }
   return "unknown";
 }
@@ -331,7 +417,7 @@ const char* stopReasonName(StopReason reason) {
     case StopReason::CalibrationStopped: return "calibration-stopped";
     case StopReason::CalibrationTimeout: return "calibration-timeout";
     case StopReason::CalibrationOwnerLeft: return "calibration-owner-left";
-    case StopReason::AddressChanged: return "address-changed";
+    case StopReason::PatchChanged: return "patch-changed";
     case StopReason::CalibrationSaved: return "calibration-saved";
     case StopReason::DebugStopped: return "debug-stopped";
   }
@@ -362,8 +448,8 @@ Outcome handleCommand(const Context& ctx, const Command& command, const Source& 
       return result(next);
     }
     case CommandType::Blackout:
-    case CommandType::LaserOff:
-      return handleStop(ctx, command.type);
+    case CommandType::Off:
+      return handleStop(ctx, command);
     case CommandType::SetChannel:
       return handleSetChannel(ctx, command, source, nowMs);
     case CommandType::Auth:
@@ -401,13 +487,15 @@ Outcome tick(const Context& ctx, bool isStopLevelLow, uint32_t nowMs, bool isLoo
   }
   next.cal = advanceCheck(next.cal, nowMs);
   Playback& play = next.playback;
-  if (play.isPlaying && play.show.stepCount > 0 && nowMs - play.stepStartMs >= stepHoldMs(play)) {
+  const uint8_t laser = laserAt(next);
+  const bool isStepOver = play.isPlaying && play.show.stepCount > 0 && nowMs - play.stepStartMs >= stepHoldMs(play);
+  if (isStepOver && laser != NO_FIXTURE) {
     const uint32_t lateMs = nowMs - play.stepStartMs - stepHoldMs(play);
     play.step = static_cast<uint8_t>((play.step + 1) % play.show.stepCount);  // loops
     // Keep the schedule (a late frame must not stretch every step), unless it fell far behind.
     play.stepStartMs = lateMs < stepHoldMs(play) ? nowMs - lateMs : nowMs;
-    next.state = reclamp(State{play.show.looks[play.step]}, next.settings.limits);
-    next.loadedPreset = play.show.presetSlots[play.step];
+    next.fixtures[laser].channels = clampedLook(play.show.looks[play.step], next.settings.limits);
+    next.fixtures[laser].loadedPreset = play.show.presetSlots[play.step];
   }
   return result(next);
 }
@@ -429,25 +517,55 @@ Outcome commitSettings(const Context& ctx, const Settings& saved, CommitKind kin
       next = endCalibration(next);
       stop = StopReason::CalibrationSaved;
       break;
-    case CommitKind::Address:
-      next = endCalibration(next);
-      stop = StopReason::AddressChanged;
+    case CommitKind::Patch:
+      next = endCalibration(next);  // fixtures moved: start every one dark
+      stop = StopReason::PatchChanged;
       break;
     case CommitKind::Pin:
       break;
   }
-  next.state = reclamp(next.state, saved.limits);
+  const uint8_t laser = laserAt(next);
+  if (laser != NO_FIXTURE) {
+    next.fixtures[laser].channels = clampedLook(laserChannels(next), saved.limits);
+  }
   return withStop(next, stop);
 }
 
-Channels frameFor(const Context& ctx) {
-  if (ctx.button.isHeld) {
-    return Channels{};
+FixtureChannels fixtureFrame(const Context& ctx, uint8_t index) {
+  const FixtureType type = typeAt(ctx, index);
+  if (ctx.button.isHeld || type == FixtureType::None) {
+    return FixtureChannels{};
   }
-  if (isActive(ctx.cal)) {
-    return calibrationFrame(ctx.cal);
+  if (type == FixtureType::Laser) {
+    return toFixtureChannels(isActive(ctx.cal) ? calibrationFrame(ctx.cal)
+                                               : toDmxFrame(laserStateAt(ctx, index), ctx.settings.limits));
   }
-  return toDmxFrame(ctx.state, ctx.settings.limits);
+  return ctx.fixtures[index].channels;  // the head has no limits (user decision)
+}
+
+Universe buildUniverse(const Context& ctx) {
+  Universe universe{};  // start code 0, every unpatched slot dark
+  if (checkPatch(ctx.settings.patch) != PatchStatus::Ok) {
+    return universe;  // never happens (the patch is checked on load and save), but overlap would undo the laser's clamp
+  }
+  for (uint8_t i = 0; i < MAX_FIXTURES; ++i) {
+    const PatchSlot& slot = ctx.settings.patch.slots[i];
+    const FixtureChannels frame = fixtureFrame(ctx, i);
+    for (uint8_t ch = 0; ch < channelCount(slot.type); ++ch) {
+      universe[slot.address + ch] = frame[ch];
+    }
+  }
+  return universe;
+}
+
+Channels laserChannels(const Context& ctx) {
+  const uint8_t laser = laserAt(ctx);
+  return laser == NO_FIXTURE ? Channels{} : toLaserChannels(ctx.fixtures[laser].channels);
+}
+
+Channels laserFrame(const Context& ctx) {
+  const uint8_t laser = laserAt(ctx);
+  return laser == NO_FIXTURE ? Channels{} : toLaserChannels(fixtureFrame(ctx, laser));
 }
 
 ErrorCode libraryError(LibraryStatus status) {
@@ -469,12 +587,17 @@ Outcome loadPreset(const Context& ctx, uint16_t slot, const Channels& look) {
   if (ctx.button.isHeld) {
     return withError(ctx, ErrorCode::StopHeld);
   }
+  const uint8_t laser = laserAt(ctx);
+  if (laser == NO_FIXTURE) {
+    return withError(ctx, ErrorCode::NoFixture);
+  }
   if (!isLookAllowed(look, ctx.settings.limits)) {
     return withError(ctx, lookError(look));
   }
-  Context next = stopPlayback(ctx);
-  next.state = reclamp(State{look}, ctx.settings.limits);
-  next.loadedPreset = static_cast<uint8_t>(slot);
+  Context next = ctx;
+  next.playback = Playback{};
+  next.fixtures[laser].channels = clampedLook(look, ctx.settings.limits);
+  next.fixtures[laser].loadedPreset = static_cast<uint8_t>(slot);
   return result(next);
 }
 
@@ -484,6 +607,10 @@ Outcome startShow(const Context& ctx, uint16_t slot, const ActiveShow& show, uin
   }
   if (ctx.button.isHeld) {
     return withError(ctx, ErrorCode::StopHeld);
+  }
+  const uint8_t laser = laserAt(ctx);
+  if (laser == NO_FIXTURE) {
+    return withError(ctx, ErrorCode::NoFixture);
   }
   if (show.stepCount == 0) {
     return withError(ctx, ErrorCode::EmptySlot);
@@ -499,8 +626,8 @@ Outcome startShow(const Context& ctx, uint16_t slot, const ActiveShow& show, uin
   next.playback.showSlot = static_cast<uint8_t>(slot);
   next.playback.stepStartMs = nowMs;
   next.playback.show = show;
-  next.state = reclamp(State{show.looks[0]}, ctx.settings.limits);
-  next.loadedPreset = show.presetSlots[0];
+  next.fixtures[laser].channels = clampedLook(show.looks[0], ctx.settings.limits);
+  next.fixtures[laser].loadedPreset = show.presetSlots[0];
   return result(next);
 }
 
@@ -518,6 +645,10 @@ Outcome showDeleted(const Context& ctx, uint16_t slot) {
 }
 
 Outcome presetSaved(const Context& ctx, uint16_t slot, const Channels& look) {
+  const uint8_t laser = laserAt(ctx);
+  if (laser == NO_FIXTURE) {
+    return result(ctx);
+  }
   Context next = ctx;
   const Playback& play = ctx.playback;
   for (uint8_t i = 0; play.isPlaying && i < play.show.stepCount; ++i) {
@@ -529,18 +660,20 @@ Outcome presetSaved(const Context& ctx, uint16_t slot, const Channels& look) {
     return result(next);  // the show keeps marking its own step
   }
   // Compare as stored: after a blackout the state can hold CH7 below the limit.
-  if (sanitizeLook(next.state.channels, next.settings.limits) == look) {
-    next.loadedPreset = static_cast<uint8_t>(slot);
-  } else if (next.loadedPreset == slot) {
-    next.loadedPreset = 0;
+  FixtureState& fixture = next.fixtures[laser];
+  if (sanitizeLook(toLaserChannels(fixture.channels), next.settings.limits) == look) {
+    fixture.loadedPreset = static_cast<uint8_t>(slot);
+  } else if (fixture.loadedPreset == slot) {
+    fixture.loadedPreset = 0;
   }
   return result(next);
 }
 
 Outcome presetDeleted(const Context& ctx, uint16_t slot) {
   Context next = ctx;
-  if (next.loadedPreset == slot) {
-    next.loadedPreset = 0;
+  const uint8_t laser = laserAt(ctx);
+  if (laser != NO_FIXTURE && next.fixtures[laser].loadedPreset == slot) {
+    next.fixtures[laser].loadedPreset = 0;
   }
   return result(next);
 }

@@ -9,6 +9,10 @@ The firmware, not the phone, enforces every rule here. The page only mirrors the
 All of the logic lives in `lib/laser_core` as pure functions and is covered by host unit tests (`test/test_controller` and friends).
 "Rule N" in code comments refers to the numbered list below.
 
+The rules are about the **laser**, wherever it sits in the patch. Other fixtures on the same DMX line
+(see [PROTOCOL.md](PROTOCOL.md#fixtures-and-the-patch)) get no limits of their own: the moving head's built-in lasers are much weaker,
+and its random-walk and sound modes are allowed (user decision, to be revisited after testing). The stops still reach every fixture.
+
 ## Rules
 
 1. **Boot is dark.** At power-up CH1 (mode) is 0 and every other channel is 0.
@@ -21,8 +25,9 @@ All of the logic lives in `lib/laser_core` as pure functions and is covered by h
    The limits can only be changed inside a PIN-protected calibration (see below).
 3. **Phones leaving doesn't stop anything.** Locking the phone, switching apps or leaving the WiFi keeps the current look
    or show running, so the ESP32 can play a show on its own. The stops are:
-   - `off` (the UIT button) and `0`, accepted from **every** client and from serial, in every mode, always
-   - the IO0 button on the ESP32
+   - `off` (the UIT button) and `0`, accepted from **every** client and from serial, in every mode, always.
+     Without a fixture prefix they reach every fixture.
+   - the IO0 button on the ESP32, which zeroes every fixture
    - the end of a calibration or debug session
 4. **DMX is sent continuously**, 40 frames per second, whether anything changed or not.
 5. **The laser is only switched on by an explicit user action.** CH1 is raised above 63 only by a command from a person.
@@ -32,7 +37,8 @@ All of the logic lives in `lib/laser_core` as pure functions and is covered by h
    the height limit completely. They are rejected as commands and sent as CH1 = 0 on every frame.
    Only the admin Debug session (rule 9) can send them, for exploration.
 8. **No light before calibration.** The laser can't be switched on (CH1 ≥ 64) until a height limit has been calibrated and saved,
-   except inside calibration itself. Changing the DMX address or loading corrupt settings makes it uncalibrated again.
+   except inside calibration itself. Moving the laser to another slot or address, removing it from the patch,
+   or loading corrupt settings makes it uncalibrated again.
 9. **Debug session.** A PIN-protected admin session that sends all 10 channels raw (0-255, **no limits**), to find out what the laser really does.
    One owner at a time. Everything starts at 0, and every page shows a red banner while it runs.
    It ends with a blackout on `off`/`0` from anyone, IO0, `dbg stop`, or when the owner leaves, hides the page or stops sending heartbeats for 3 s.
@@ -62,8 +68,11 @@ The limit depends on the venue, so it is set on site in `/admin` (PIN):
 - Only the DMX task is on the task watchdog (5 s, then a reboot, which is dark per rule 1).
   The web/command loop deliberately isn't: a socket write to a phone that vanished can block it for seconds,
   and rebooting then would switch the laser off for everyone.
-- Settings (limits, DMX address, PIN) are one CRC-checked blob in NVS, verified after every write.
-  A corrupt blob loads as "uncalibrated", which keeps the laser off (rule 8).
+- Settings (limits, patch, PIN) are one CRC-checked blob in NVS, verified after every write.
+  A corrupt blob loads as "uncalibrated", which keeps the laser off (rule 8). Blobs from before the patch existed still load.
+- The patch is checked on load and on every change (no overlap, nothing past slot 512, one laser).
+  Every frame checks it again, and an invalid patch sends nothing, so another fixture can never overwrite the laser's clamped channels.
+- Changing the patch, and starting a calibration or debug session, black out every fixture.
 - Presets and shows live on LittleFS, written to a temp file, read back and renamed.
   They survive firmware updates (never use PlatformIO's "upload filesystem", which wipes them).
 - The WiFi uses WPA2, and `/admin` needs a 6-8 digit PIN with a doubling lockout after 5 wrong tries.
