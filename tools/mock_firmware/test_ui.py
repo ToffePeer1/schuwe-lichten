@@ -4,7 +4,9 @@ Starts tools/mock_firmware/mock_firmware.py with short timeouts, drives both pag
 system Edge (Playwright), and checks both the DOM and what the mock received (its log).
 The main page (index) is checked for presets, the quick builder, shows, the desk faders,
 tooltips, banners, UIT, reconnects and layout at 844x390 and in portrait, and with the
-laser in another patch slot or not patched at all. Raw clients check the protocol, incl. the patch.
+laser in another patch slot or not patched at all. With a moving head patched it checks the
+fixture switcher, the head's two-bank desk, its power switch and its guide. The admin page's
+Lichten tab (the patch editor) is checked too. Raw clients check the protocol, incl. the patch.
 Screenshots go to <OS temp dir>/dmx_ui_test/. Exits non-zero if any check fails.
 
 Run:
@@ -489,8 +491,8 @@ def test_login(ui: Ui, a: Page, a_id: int | None) -> None:
     mark = log.mark()
     r.check("admin: right PIN opens the Kalibratie tab", login(a, FACTORY_PIN))
     r.check("admin: right PIN sent", log.wait_msg(f"auth {FACTORY_PIN}", mark, a_id))
-    r.check("admin: tabs Kalibratie / Debug / Instellingen",
-            [t.strip() for t in a.locator("#nav button").all_text_contents()] == ["Kalibratie", "Debug", "Instellingen"])
+    r.check("admin: tabs Kalibratie / Debug / Lichten / Instellingen",
+            [t.strip() for t in a.locator("#nav button").all_text_contents()] == ["Kalibratie", "Debug", "Lichten", "Instellingen"])
     r.check("admin: overview says 'Nog niet ingesteld'", text_has(a, "#limitWords", "Nog niet ingesteld"))
     r.check("admin: overview shows the default full-width side limit", text_has(a, "#hWords", "Volle breedte"),
             text(a, "#hWords"))
@@ -1346,84 +1348,385 @@ def test_hidden_ends_calibration(ui: Ui, a: Page, a_id: int | None, i: Page) -> 
     return new_id
 
 
-def test_address(ui: Ui, a: Page, a_id: int | None, i: Page) -> None:
+def frow(n: int) -> str:
+    return f'#fixRows .frow[data-slot="{n}"]'
+
+
+def row_state(page: Page, n: int) -> tuple[str, str, str]:
+    """(type, address field, footprint) of a Lichten row."""
+    picked = page.locator(f"{frow(n)} .fseg button.on").first.get_attribute("data-type") or ""
+    return picked, page.input_value(f"{frow(n)} .faddr"), text(page, f"{frow(n)} .fp")
+
+
+def mock_patch() -> list[dict]:
+    return [{k: f[k] for k in ("slot", "type", "addr")} for f in hook("/__mock/state")["fixtures"]]
+
+
+def patch_sent(log: MockLog, since: int, client: int | None) -> list[str]:
+    return [m for m in log.msgs(since, client) if m.startswith("patch")]
+
+
+def save_patch(page: Page) -> None:
+    """Opslaan twice: the first tap arms, the second sends."""
+    tap(page, "#fixSave")
+    tap(page, "#fixSave")
+
+
+def test_fixtures_tab(ui: Ui, a: Page, a_id: int | None, i: Page) -> None:
+    """Admin 'Lichten': the patch editor. Page-side checks per row, a two-tap save, one 'patch set'."""
     r, log = ui.r, ui.log
-    tap(a, '#nav [data-tab="instellingen"]')
-    visible(a, "#view-settings")
-    r.check("addr: shows the laser's address from the patch", text_has(a, "#addrNow", "1"), text(a, "#addrNow"))
+    tap(a, '#nav [data-tab="lichten"]')
+    r.check("fixtures: the Lichten tab shows the patch editor", visible(a, "#view-fixtures"))
+    r.check("fixtures: four rows", a.locator("#fixRows .frow").count() == 4)
+    r.check("fixtures: row 1 is the laser at 1 (footprint 1–10)", row_state(a, 1) == ("laser", "1", "1–10"), str(row_state(a, 1)))
+    r.check("fixtures: rows 2-4 are empty, their address disabled",
+            all(row_state(a, n) == ("none", "", "–") and a.locator(f"{frow(n)} .faddr").is_disabled() for n in (2, 3, 4)),
+            str([row_state(a, n) for n in (2, 3, 4)]))
+    r.check("fixtures: type choices Geen / Laser / Bewegend hoofd",
+            [s.strip() for s in a.locator(f"{frow(2)} .fseg button").all_text_contents()] == ["Geen", "Laser", "Bewegend hoofd"])
+    r.check("fixtures: Opslaan disabled while nothing changed", a.locator("#fixSave").is_disabled()
+            and text_has(a, "#fixStatus", "Nog niets gewijzigd"), text(a, "#fixStatus"))
+    r.check("settings: the DMX address moved here (no address field in Instellingen)", a.locator("#addrInput, #addrBtn").count() == 0)
+    ui.shot(a, "admin_fixtures")
+    ui.layout(a, "admin fixtures")
+    tap(a, f'{frow(2)} [data-type="head"]')
+    r.check("fixtures: picking Bewegend hoofd suggests the first free address (11, footprint 11–29)",
+            row_state(a, 2) == ("head", "11", "11–29"), str(row_state(a, 2)))
+    r.check("fixtures: a valid change enables Opslaan and says every light goes off",
+            a.locator("#fixSave").is_enabled() and text_has(a, "#fixStatus", "alle lichten uit"), text(a, "#fixStatus"))
+    r.check("fixtures: adding a head doesn't ask to calibrate again", "kalibreren" not in text(a, "#fixStatus"), text(a, "#fixStatus"))
+    a.fill(f"{frow(2)} .faddr", "5")
+    r.check("fixtures: overlap explained on the row ('Overlapt met plek 1 (1–10)')",
+            text_has(a, f"{frow(2)} .fmsg", "Overlapt met plek 1 (1–10)"), text(a, f"{frow(2)} .fmsg"))
+    r.check("fixtures: ... and on the laser's row", text_has(a, f"{frow(1)} .fmsg", "Overlapt met plek 2 (5–23)"), text(a, f"{frow(1)} .fmsg"))
+    r.check("fixtures: Opslaan disabled while a row is wrong", a.locator("#fixSave").is_disabled()
+            and text_has(a, "#fixStatus", "rode meldingen"), text(a, "#fixStatus"))
+    a.click('#langSwitch button[data-lang="en"]')
+    r.check("fixtures (EN): tab, choices and the row message in English",
+            text(a, '#nav [data-tab="lichten"]') == "Fixtures" and text(a, f'{frow(2)} [data-type="head"]') == "Moving head"
+            and text_has(a, f"{frow(2)} .fmsg", "Overlaps slot 1 (1–10)"), text(a, f"{frow(2)} .fmsg"))
+    ui.shot(a, "admin_fixtures_en")
+    ui.layout(a, "admin fixtures EN")
+    a.click('#langSwitch button[data-lang="nl"]')
+    a.fill(f"{frow(2)} .faddr", "500")
+    r.check("fixtures: past 512 explained (runs to 518, highest address 494)",
+            text_has(a, f"{frow(2)} .fmsg", "518") and "494" in text(a, f"{frow(2)} .fmsg"), text(a, f"{frow(2)} .fmsg"))
+    a.fill(f"{frow(2)} .faddr", "0")
+    r.check("fixtures: address 0 asks for 1 to 512", text_has(a, f"{frow(2)} .fmsg", "1 tot 512"), text(a, f"{frow(2)} .fmsg"))
+    a.fill(f"{frow(2)} .faddr", "11")
+    tap(a, f'{frow(3)} [data-type="laser"]')
+    r.check("fixtures: a second laser is refused on its row", text_has(a, f"{frow(3)} .fmsg", "maar één laser"),
+            text(a, f"{frow(3)} .fmsg"))
+    ui.shot(a, "admin_fixtures_invalid")
+    ui.layout(a, "admin fixtures invalid")
+    tap(a, f'{frow(3)} [data-type="none"]')
+    r.check("fixtures: valid again once slot 3 is empty", a.locator("#fixSave").is_enabled() and not text(a, f"{frow(3)} .fmsg"))
     mark = log.mark()
-    a.fill("#addrInput", "5")
-    a.click("#addrBtn")
-    r.check("addr: 'patch 1 laser 5' sent (the laser's slot)", log.wait_msg("patch 1 laser 5", mark, a_id), str(log.msgs(mark, a_id)))
-    r.check("addr: mock uncalibrated, laser in slot 1 at address 5",
-            bool(wait_until(lambda: hook("/__mock/state")["patch"][0] == {"slot": 1, "type": "laser", "addr": 5}))
-            and not hook("/__mock/state")["limits"]["calibrated"], str(hook("/__mock/state")["patch"]))
-    r.check("addr: stop reason shown", text_has(a, "#msgText", "Patch gewijzigd"), text(a, "#msgText"))
-    r.check("addr: new address shown", text_has(a, "#addrNow", "5") and "DMX-adres 5" in text(a, "#nowMeta"), text(a, "#addrNow"))
-    r.check("addr: index explains the patch change", text_has(i, "#msgText", "patch"), text(i, "#msgText"))
+    tap(a, "#fixSave")
+    r.check("fixtures: the first tap only arms ('Zeker? Tik nog eens')", text_has(a, "#fixSave", "Zeker? Tik nog eens"), text(a, "#fixSave"))
+    r.check("fixtures: no browser dialog for the confirm", "confirm(" not in ADMIN_HTML.read_text(encoding="utf-8")
+            and "alert(" not in ADMIN_HTML.read_text(encoding="utf-8"))
+    a.wait_for_timeout(300)
+    r.check("fixtures: nothing sent on the first tap", not patch_sent(log, mark, a_id), str(patch_sent(log, mark, a_id)))
+    ui.shot(a, "admin_fixtures_armed")
+    a.fill(f"{frow(2)} .faddr", "12")
+    r.check("fixtures: an edit disarms Opslaan", text(a, "#fixSave") == "Opslaan", text(a, "#fixSave"))
+    a.fill(f"{frow(2)} .faddr", "11")
+    save_patch(a)
+    r.check("fixtures: the second tap sends 'patch set laser:1,head:11,none,none'",
+            log.wait_msg("patch set laser:1,head:11,none,none", mark, a_id), str(patch_sent(log, mark, a_id)))
+    r.check("fixtures: mock has the laser at 1 and a head at 11", bool(wait_until(
+        lambda: mock_patch() == [{"slot": 1, "type": "laser", "addr": 1}, {"slot": 2, "type": "head", "addr": 11}])), str(mock_patch()))
+    r.check("fixtures: patch-changed explained", text_has(a, "#msgText", "Patch gewijzigd"), text(a, "#msgText"))
+    r.check("fixtures: exactly one patch command for the save", len(patch_sent(log, mark, a_id)) == 1, str(patch_sent(log, mark, a_id)))
+    r.check("fixtures: adding a head kept the laser calibrated", hook("/__mock/state")["limits"]["calibrated"])
+    r.check("fixtures: the rows follow the saved patch, Opslaan disabled again",
+            bool(wait_until(lambda: row_state(a, 2) == ("head", "11", "11–29") and a.locator("#fixSave").is_disabled())),
+            str(row_state(a, 2)))
+    r.check("index: explains the patch change", text_has(i, "#msgText", "patch"), text(i, "#msgText"))
+    a.fill(f"{frow(1)} .faddr", "30")
+    r.check("fixtures: moving the laser warns about calibrating again", text_has(a, "#fixStatus", "opnieuw kalibreren"),
+            text(a, "#fixStatus"))
+    ui.shot(a, "admin_fixtures_laser_moved")
+    hook("/__mock/config?failSave=1")
+    mark = log.mark()
+    save_patch(a)
+    r.check("fixtures: a failed save is explained", text_has(a, "#msgText", "oude patch blijft gelden"), text(a, "#msgText"))
+    r.check("fixtures: the edit stays after an error, ready to save again",
+            a.input_value(f"{frow(1)} .faddr") == "30" and bool(wait_until(lambda: a.locator("#fixSave").is_enabled())))
+    hook("/__mock/config?failSave=0")
+    save_patch(a)
+    r.check("fixtures: 'patch set laser:30,head:11,none,none' sent", log.wait_msg("patch set laser:30,head:11,none,none", mark, a_id),
+            str(patch_sent(log, mark, a_id)))
+    r.check("fixtures: moving the laser made it uncalibrated", bool(wait_until(lambda: not hook("/__mock/state")["limits"]["calibrated"])))
+    tap(a, f'{frow(4)} [data-type="head"]')
+    r.check("fixtures: another head gets the next free address (40, past the laser at 30–39)", row_state(a, 4) == ("head", "40", "40–58"),
+            str(row_state(a, 4)))
+    tap(a, "#fixUndo")
+    r.check("fixtures: Terugzetten brings back the saved patch", row_state(a, 4) == ("none", "", "–")
+            and a.locator("#fixSave").is_disabled(), str(row_state(a, 4)))
     tap(a, '#nav [data-tab="kalibratie"]')
-    r.check("addr: overview says 'Nog niet ingesteld' again", text_has(a, "#limitWords", "Nog niet ingesteld"))
-    r.check("addr: index uncalibrated banner back", visible(i, "#uncalBanner"))
+    r.check("fixtures: the overview says 'Nog niet ingesteld' again", text_has(a, "#limitWords", "Nog niet ingesteld"))
+    r.check("index: the uncalibrated banner is back", visible(i, "#uncalBanner"))
 
 
 def pointer_events(page: Page, selector: str) -> str:
     return page.evaluate(f"getComputedStyle(document.querySelector('{selector}')).pointerEvents")
 
 
-def test_index_patch(ui: Ui, a: Page, a_id: int | None, i: Page) -> None:
-    """The main page with only heads patched, then with the laser in slot 3 (added from /admin)."""
+FX_MSG = re.compile(r"f[1-4] .+|off|0")
+
+
+def fx_msgs(log: MockLog, since: int) -> list[str]:
+    """Fixture commands from any client (the admin page only sends 'hb' meanwhile)."""
+    return [m for m in log.msgs(since) if FX_MSG.fullmatch(m)]
+
+
+def switcher(page: Page) -> list[str]:
+    return [s.strip() for s in page.locator("#fxSwitch button").all_text_contents()] if page.locator("#fxSwitch").is_visible() else []
+
+
+def picked(page: Page) -> str | None:
+    return page.locator("#fxSwitch button.on").first.get_attribute("data-slot") if page.locator("#fxSwitch").is_visible() else None
+
+
+def nav_tabs(page: Page) -> list[str]:
+    return [s.strip() for s in page.locator("#nav button:visible").all_text_contents()]
+
+
+def desk_ids(page: Page) -> list[str]:
+    return page.locator("#desk .strip").evaluate_all("els => els.map((e) => e.dataset.ch)")
+
+
+def press_each(page: Page, chans: list[int], key: str = "ArrowUp") -> None:
+    for ch in chans:
+        page.focus(f'#desk [data-ch="{ch}"] .track')
+        page.keyboard.press(key)
+
+
+def sent_channels(log: MockLog, since: int, slot: int) -> set[int]:
+    hits = (re.fullmatch(r"f(\d) (\d+) (\d+)", m) for m in fx_msgs(log, since))
+    return {int(h[2]) for h in hits if h and int(h[1]) == slot}
+
+
+HEAD_MOVE = [1, 2, 3, 4, 5, 6, 7, 8, 19]
+HEAD_COLOR = list(range(9, 19))
+
+
+def test_index_fixtures(ui: Ui, a: Page, i: Page) -> None:
+    """The main page with a laser (slot 1, address 30) and a moving head (slot 2, address 11)."""
     r, log = ui.r, ui.log
     raw = Raw()
     raw.event(f"auth {NEW_PIN}", "auth")
-    patch_event(raw, "patch 1 head 1")  # replaces the laser: nothing but heads
-    patch_event(raw, "patch 2 head 100")
-    r.check("no laser: index explains it in a banner", visible(i, "#noLaserBanner") and NO_LASER_TEXT in text(i, "#noLaserBanner"),
-            text(i, "#noLaserBanner"))
-    r.check("no laser: the banner links to /admin", i.locator('#noLaserBanner a[href="/admin"]').count() == 1)
-    r.check("no laser: Nu card says 'Geen laser'", text_has(i, "#nowName", "Geen laser"), text(i, "#nowName"))
-    r.check("no laser: no uncalibrated banner on top of it", hidden(i, "#uncalBanner"))
-    r.check("no laser: laser controls locked", all(pointer_events(i, s) == "none" for s in ("#tiles", "#saveBtn", "#desk")))
-    r.check("no laser: UIT stays usable", pointer_events(i, "#offBtn") != "none")
+    r.check("2 fixtures: the moved laser calibrated again (raw admin client)", calibrate(raw))
+    index_tab(i, "presets")
+    r.check("switcher: shown with two fixtures ('Laser', 'Bewegend hoofd')",
+            bool(wait_until(lambda: switcher(i) == ["Laser", "Bewegend hoofd"])), str(switcher(i)))
+    r.check("switcher: the laser comes first while nothing is stored", picked(i) == "1", str(picked(i)))
+    r.check("switcher: the laser keeps Presets / Shows / Lichttafel / Uitleg", nav_tabs(i) == ["Presets", "Shows", "Lichttafel", "Uitleg"],
+            str(nav_tabs(i)))
+    ui.shot(i, "index_switcher_laser")
+    ui.index_layout(i, "index switcher (laser)")
+    mark = log.mark()
+    tap(i, '#fxSwitch [data-slot="2"]')
+    r.check("head: only Lichttafel and Uitleg", bool(wait_until(lambda: nav_tabs(i) == ["Lichttafel", "Uitleg"])), str(nav_tabs(i)))
+    r.check("head: opens on its desk", i.locator("#view-desk").is_visible())
+    r.check("head: the choice is stored on this phone", i.evaluate("localStorage.getItem('fixture')") == "2")
+    r.check("head: no laser banners on the head", hidden(i, "#uncalBanner") and hidden(i, "#noLaserBanner"))
+    r.check("head: '＋ Bewaar als preset' hidden (presets are the laser's for now)", i.locator("#saveBtn").is_hidden())
+    r.check("head: the Nu card names the head and says it is off", text_has(i, "#nowLabel", "Bewegend hoofd")
+            and text_has(i, "#nowName", "Uit"), f"{text(i, '#nowLabel')} / {text(i, '#nowName')}")
+    r.check("head: bank toggle Beweging / Kleur in the header", i.locator("#bankSeg").is_visible()
+            and [s.strip() for s in i.locator("#bankSeg button").all_text_contents()] == ["Beweging", "Kleur"])
+    r.check("head desk: Beweging = power switch, CH1-8 and CH19", desk_ids(i) == ["power", *map(str, HEAD_MOVE)], str(desk_ids(i)))
+    labels = [s.strip() for s in i.locator("#desk .strip .lbl").all_text_contents()]
+    r.check("head desk: strip labels at most 8 characters", all(len(s) <= 8 for s in labels), str(labels))
+    r.check("head desk: every head channel is marked untested", i.locator("#desk .num.untested").count() == len(HEAD_MOVE))
+    r.check("head desk: picking a fixture or a bank sends nothing", not fx_msgs(log, mark), str(fx_msgs(log, mark)))
+    ui.shot(i, "index_head_move")
+    ui.index_layout(i, "index head desk (Beweging)")
+    test_head_power(ui, i, raw)
+    mark = log.mark()
+    press_each(i, HEAD_MOVE)
+    r.check("head desk: every Beweging fader sends 'f2 <ch> <v>' with its own channel",
+            bool(wait_until(lambda: sent_channels(log, mark, 2) == set(HEAD_MOVE))), str(fx_msgs(log, mark)))
+    r.check("head desk: nothing goes to another slot", all(m.startswith("f2 ") for m in fx_msgs(log, mark)), str(fx_msgs(log, mark)))
+    r.check("head desk: pan shows degrees (101 -> 214°)", text_has(i, '#desk [data-ch="1"] .zone', "214°"), text(i, '#desk [data-ch="1"] .zone'))
+    press_each(i, [8], "End")
+    r.check("head desk: strobe at 255 says 25 Hz", log.wait_msg("f2 8 255", mark) and text_has(i, '#desk [data-ch="8"] .zone', "25 Hz"))
+    drag_fader(i, 7, 0.5, 1.1)
+    r.check("head desk: dragging the dimmer to the top sends 'f2 7 255'", log.wait_msg("f2 7 255", mark), str(fx_msgs(log, mark)))
+    tap(i, '#desk [data-ch="8"] .lbl')
+    r.check("head tip: strobe explains 1 to 25 flashes a second", visible(i, "#tip") and "25 keer per seconde" in text(i, "#tip"),
+            text(i, "#tip"))
+    r.check("head tip: marked TESTEN and says it comes from the manual", i.locator("#tip .test").count() >= 1
+            and "handleiding" in text(i, "#tip"))
+    tap(i, '#desk [data-ch="19"] .lbl')
+    r.check("head tip: macro lists its four ranges", i.locator("#tip li").count() == 4 and "Reset" in text(i, "#tip"), text(i, "#tip"))
+    ui.shot(i, "index_head_tip")
+    ui.index_layout(i, "index head tooltip")
+    i.click('#langSwitch button[data-lang="en"]')
+    r.check("head (EN): the tip follows the language", text_has(i, "#tip", "Moves by itself"), text(i, "#tip"))
+    r.check("head (EN): labels and banks in English", text(i, '#desk [data-ch="2"] .lbl') == "PAN SPD"
+            and text(i, '#bankSeg [data-bank="color"]') == "Color" and switcher(i) == ["Laser", "Moving head"])
+    tap(i, '#bankSeg [data-bank="color"]')
+    labels = [s.strip() for s in i.locator("#desk .strip .lbl").all_text_contents()]
+    r.check("head (EN): Kleur labels at most 8 characters", "EYE R" in labels and all(len(s) <= 8 for s in labels), str(labels))
+    ui.index_layout(i, "index head desk EN (Color)")
+    ui.shot(i, "index_head_color_en")
+    i.click('#langSwitch button[data-lang="nl"]')
+    r.check("head desk: Kleur = power switch and CH9-18", desk_ids(i) == ["power", *map(str, HEAD_COLOR)], str(desk_ids(i)))
+    r.check("head desk: the colour faders show their colour", i.locator("#desk .track .fill").count() == len(HEAD_COLOR))
+    mark = log.mark()
+    press_each(i, HEAD_COLOR)
+    r.check("head desk: every Kleur fader sends 'f2 <ch> <v>' with its own channel",
+            bool(wait_until(lambda: sent_channels(log, mark, 2) == set(HEAD_COLOR))), str(fx_msgs(log, mark)))
+    ui.shot(i, "index_head_color")
+    ui.index_layout(i, "index head desk (Kleur)")
+    tap(i, '#desk [data-ch="17"] .lbl')
+    i.click("#tip .more")
+    r.check("head tip: 'Meer in Uitleg' opens the head's guide at Lasers", visible(i, "#view-guide")
+            and text_has(i, "#garticle h3", "Lasers"), text(i, "#garticle h3"))
+    topics = [s.strip() for s in i.locator("#gnav button").all_text_contents()]
+    r.check("head guide: the intro and 7 channel groups", len(topics) == 8, str(topics))
+    i.click('#gnav [data-topic="h-intro"]')
+    r.check("head guide: says it comes from the manual and is not checked yet", text_has(i, "#garticle", "handleiding")
+            and i.locator("#garticle .test").count() >= 1, text(i, "#garticle")[:160])
+    i.click('#gnav [data-topic="h-pan"]')
+    r.check("head guide: pan covers 0-540° and the speed", text_has(i, "#garticle", "540") and "snelst" in text(i, "#garticle"))
+    i.click('#gnav [data-topic="h-macro"]')
+    r.check("head guide: macro lists DMX, moving, sound and reset", text_has(i, "#garticle", "geluid") and "Reset" in text(i, "#garticle"))
+    ui.shot(i, "index_head_guide")
+    ui.index_layout(i, "index head guide")
     index_tab(i, "desk")
-    ui.shot(i, "index_no_laser")
-    ui.index_layout(i, "index no laser")
     mark = log.mark()
-    i.evaluate("document.querySelector('#desk [data-ch=\"1\"] .power').click()")  # as if the lock were bypassed
-    i.wait_for_timeout(300)
-    r.check("no laser: nothing is sent even if a control fires", not [m for m in log.msgs(mark) if CHANNEL_MSG.fullmatch(m)],
-            str(log.msgs(mark)))
-    tap(a, '#nav [data-tab="instellingen"]')
-    r.check("admin (no laser): settings says there is no laser", text_has(a, "#addrNow", "geen laser"), text(a, "#addrNow"))
-    r.check("admin (no laser): side panel says 'Geen laser'", text_has(a, "#nowName", "Geen laser"), text(a, "#nowName"))
+    tap(i, "#offBtn")
+    r.check("head: UIT sends plain 'off' (every fixture)", log.wait_msg("off", mark))
+    r.check("head: UIT darkens the head", bool(wait_until(lambda: mock_fixture(2)["channels"][6] == 0)), str(mock_fixture(2)))
+    test_head_portrait(ui)
+    i.reload()
+    r.check("switcher: the head is still picked after a reload", index_connected(i)
+            and bool(wait_until(lambda: picked(i) == "2")) and visible(i, "#view-desk"), str(picked(i)))
     mark = log.mark()
-    a.fill("#addrInput", "30")
-    a.click("#addrBtn")
-    r.check("admin (no laser): the address adds the laser in the first free slot ('patch 3 laser 30')",
-            log.wait_msg("patch 3 laser 30", mark, a_id), str(log.msgs(mark, a_id)))
-    r.check("laser in slot 3: index banner gone", hidden(i, "#noLaserBanner"))
-    r.check("laser in slot 3: calibrated through a raw admin client", calibrate(raw))
-    r.check("laser in slot 3: index unlocked", hidden(i, "#uncalBanner") and bool(wait_until(lambda: pointer_events(i, "#desk") != "none")))
+    tap(i, '#fxSwitch [data-slot="1"]')
+    r.check("switcher: back on the laser, all four tabs", bool(wait_until(lambda: nav_tabs(i) == ["Presets", "Shows", "Lichttafel", "Uitleg"])))
+    r.check("laser desk: 10 strips again", i.locator("#desk .strip").count() == 10)
+    tap(i, '#desk [data-ch="1"] .power')
+    r.check("laser: the switch sends 'f1 1 96'", log.wait_msg("f1 1 96", mark), str(fx_msgs(log, mark)))
+    tap(i, "#offBtn")
+    test_index_patches(ui, a, i, raw)
+    raw.close()
+
+
+def test_head_power(ui: Ui, i: Page, raw: Raw) -> None:
+    """The head's switch: a default look, then the last lit look, and never on its own."""
+    r, log = ui.r, ui.log
+    power = '#desk [data-ch="power"] .power'
+    r.check("head switch: off, it says ZET AAN", text_has(i, f"{power} .word", "ZET AAN"))
+    mark = log.mark()
+    tap(i, power)
+    r.check("head switch: with no lit look seen yet: bee-eye white, then the dimmer ('f2 12 255', 'f2 7 255')",
+            bool(wait_until(lambda: fx_msgs(log, mark) == ["f2 12 255", "f2 7 255"])), str(fx_msgs(log, mark)))
+    r.check("head switch: lit, it says AAN", bool(wait_until(lambda: "on" in (i.get_attribute(power, "class") or "").split()))
+            and text_has(i, f"{power} .word", "AAN") and i.get_attribute(power, "aria-pressed") == "true")
+    r.check("head: the Nu card says it is on, with the dimmer", text_has(i, "#nowName", "Aan") and text_has(i, "#nowMeta", "Dimmer 100 %"),
+            text(i, "#nowMeta"))
+    mark = log.mark()
+    tap(i, power)
+    r.check("head switch: on, a tap sends 'f2 off'", log.wait_msg("f2 off", mark) and fx_msgs(log, mark) == ["f2 off"], str(fx_msgs(log, mark)))
+    r.check("head switch: the head is dark again", bool(wait_until(lambda: mock_fixture(2)["channels"][6] == 0)), str(mock_fixture(2)))
+    for command in ("f2 1 100", "f2 9 200", "f2 7 180"):  # another phone sets a look
+        raw.send(command)
+    r.check("head switch: follows a look set elsewhere (AAN)", text_has(i, f"{power} .word", "AAN"))
+    raw.send("f2 off")
+    r.check("head switch: back to ZET AAN after another phone's 'f2 off'", text_has(i, f"{power} .word", "ZET AAN"))
+    mark = log.mark()
+    i.wait_for_timeout(700)
+    r.check("head switch: never sends anything on its own", not fx_msgs(log, mark), str(fx_msgs(log, mark)))
+    tap(i, power)
+    r.check("head switch: brings back the last lit look, the dimmer last ('f2 9 200', 'f2 7 180')",
+            bool(wait_until(lambda: fx_msgs(log, mark) == ["f2 9 200", "f2 7 180"])), str(fx_msgs(log, mark)))
+    r.check("mock: the head has that look again (pan 100 kept, red eye 200, dimmer 180)",
+            bool(wait_until(lambda: [mock_fixture(2)["channels"][k] for k in (0, 8, 6)] == [100, 200, 180])), str(mock_fixture(2)))
+
+
+def test_head_portrait(ui: Ui) -> None:
+    r = ui.r
+    p, _ = ui.open("/", "index-head-portrait", PORTRAIT)
+    r.check("portrait head: connects", index_connected(p))
+    tap(p, '#fxSwitch [data-slot="2"]')
+    r.check("portrait head: the head's desk", visible(p, '#desk [data-ch="power"]'))
+    ui.shot(p, "index_portrait_head_move")
+    ui.index_layout(p, "index portrait head desk (Beweging)")
+    tap(p, '#bankSeg [data-bank="color"]')
+    ui.shot(p, "index_portrait_head_color")
+    ui.index_layout(p, "index portrait head desk (Kleur)")
+    p.context.close()
+
+
+def test_index_patches(ui: Ui, a: Page, i: Page, raw: Raw) -> None:
+    """More patches: three fixtures, the laser in slot 3, only a head, nothing at all; then the default again."""
+    r, log = ui.r, ui.log
+    patch_event(raw, "patch set laser:1,head:20,head:40,none")
+    r.check("3 fixtures: 'Laser', 'Bewegend hoofd 2', 'Bewegend hoofd 3'",
+            bool(wait_until(lambda: switcher(i) == ["Laser", "Bewegend hoofd 2", "Bewegend hoofd 3"])), str(switcher(i)))
+    mark = log.mark()
+    tap(i, '#fxSwitch [data-slot="3"]')
+    r.check("3 fixtures: head 3 picked", bool(wait_until(lambda: picked(i) == "3")) and text_has(i, "#nowLabel", "Bewegend hoofd 3"))
+    press_each(i, [7])
+    r.check("3 fixtures: head 3's faders send 'f3 ...'", log.wait_msg("f3 7 1", mark), str(fx_msgs(log, mark)))
+    ui.shot(i, "index_three_fixtures")
+    ui.index_layout(i, "index three fixtures")
+    patch_event(raw, "patch set head:1,none,laser:30,none")
+    r.check("laser in slot 3: calibrated through the raw admin client", calibrate(raw))
+    tap(i, '#fxSwitch [data-slot="3"]')
+    r.check("laser in slot 3: picked (the laser's four tabs)", bool(wait_until(lambda: picked(i) == "3"))
+            and bool(wait_until(lambda: nav_tabs(i) == ["Presets", "Shows", "Lichttafel", "Uitleg"])), str(nav_tabs(i)))
+    index_tab(i, "desk")
     mark = log.mark()
     tap(i, '#desk [data-ch="1"] .power')
-    r.check("laser in slot 3: the switch sends 'f3 1 96'", log.wait_msg("f3 1 96", mark), str(log.msgs(mark)))
+    r.check("laser in slot 3: the switch sends 'f3 1 96'", log.wait_msg("f3 1 96", mark), str(fx_msgs(log, mark)))
     r.check("laser in slot 3: the laser lights at DMX 30", bool(wait_until(lambda: hook("/__mock/state")["universe"].get("30") == 96)),
             str(hook("/__mock/state")["universe"]))
     drag_fader(i, 7, 0.5, -0.1)
-    r.check("laser in slot 3: POS-V bottom sends 'f3 7 64' (the low end)", log.wait_msg("f3 7 64", mark), str(log.msgs(mark)))
-    sent = [m for m in log.msgs(mark) if CHANNEL_MSG.fullmatch(m)]
+    r.check("laser in slot 3: POS-V bottom sends 'f3 7 64' (the low end)", log.wait_msg("f3 7 64", mark), str(fx_msgs(log, mark)))
+    sent = [m for m in fx_msgs(log, mark) if CHANNEL_MSG.fullmatch(m)]
     r.check("laser in slot 3: every channel command carries 'f3'", bool(sent) and all(m.startswith("f3 ") for m in sent), str(sent))
-    r.check("laser in slot 3: the heads stay dark", mock_fixture(1).get("frame") == [0] * 19 and mock_fixture(2).get("frame") == [0] * 19)
-    ui.shot(i, "index_laser_slot3")
-    mark = log.mark()
+    r.check("laser in slot 3: the head stays dark", mock_fixture(1).get("frame") == [0] * 19)
     tap(i, "#offBtn")
-    r.check("laser in slot 3: UIT sends plain 'off'", log.wait_msg("off", mark)
-            and bool(wait_until(lambda: hook("/__mock/state")["frame"][0] == 0)))
+    patch_event(raw, "patch set head:1,none,none,none")
+    r.check("head only: no switcher", hidden(i, "#fxSwitch"))
+    r.check("head only: the page shows the head, not the 'no laser' lock", bool(wait_until(lambda: nav_tabs(i) == ["Lichttafel", "Uitleg"]))
+            and hidden(i, "#noLaserBanner") and pointer_events(i, "#desk") != "none")
+    r.check("head only: the Nu card names the head", text_has(i, "#nowLabel", "Bewegend hoofd"), text(i, "#nowLabel"))
+    mark = log.mark()
+    tap(i, '#desk [data-ch="power"] .power')
+    r.check("head only: the switch drives slot 1 ('f1 12 255', 'f1 7 255')",
+            bool(wait_until(lambda: fx_msgs(log, mark) == ["f1 12 255", "f1 7 255"])), str(fx_msgs(log, mark)))
+    ui.shot(i, "index_head_only")
+    ui.index_layout(i, "index head only")
+    tap(i, "#offBtn")
+    patch_event(raw, "patch set none,none,none,none")
+    r.check("nothing patched: the laser view explains it in a banner", visible(i, "#noLaserBanner")
+            and NO_LASER_TEXT in text(i, "#noLaserBanner") and "Lichten" in text(i, "#noLaserBanner"), text(i, "#noLaserBanner"))
+    r.check("nothing patched: the banner links to /admin", i.locator('#noLaserBanner a[href="/admin"]').count() == 1)
+    r.check("nothing patched: Nu card says 'Geen laser'", text_has(i, "#nowName", "Geen laser"), text(i, "#nowName"))
+    r.check("nothing patched: no uncalibrated banner on top of it", hidden(i, "#uncalBanner"))
+    r.check("nothing patched: the controls are locked", all(pointer_events(i, s) == "none" for s in ("#tiles", "#saveBtn", "#desk")))
+    r.check("nothing patched: UIT stays usable", pointer_events(i, "#offBtn") != "none")
+    r.check("admin (nothing patched): side panel says 'Geen laser'", text_has(a, "#nowName", "Geen laser"), text(a, "#nowName"))
+    index_tab(i, "desk")
+    ui.shot(i, "index_no_fixtures")
+    ui.index_layout(i, "index nothing patched")
+    mark = log.mark()
+    i.evaluate("document.querySelector('#desk [data-ch=\"1\"] .power').click()")  # as if the lock were bypassed
+    i.wait_for_timeout(300)
+    r.check("nothing patched: nothing is sent even if a control fires", not fx_msgs(log, mark), str(fx_msgs(log, mark)))
     index_tab(i, "presets")
-    for command in ("patch 3 none", "patch 2 none", "patch 1 laser 1"):
-        patch_event(raw, command)
-    r.check("patch restored: the laser alone in slot 1 at address 1",
-            [{k: f[k] for k in ("slot", "type", "addr")} for f in hook("/__mock/state")["fixtures"]] == DEFAULT_FIXTURES)
-    raw.close()
+    patch_event(raw, "patch set laser:1,none,none,none")
+    r.check("patch restored: the laser alone in slot 1 at address 1, calibrated", calibrate(raw) and mock_patch() == DEFAULT_FIXTURES,
+            str(mock_patch()))
+    r.check("patch restored: no switcher on the main page", hidden(i, "#fxSwitch"))
 
 
 def test_logout(ui: Ui, a: Page, a_id: int | None) -> None:
@@ -1453,6 +1756,14 @@ def test_portrait(ui: Ui) -> None:
     ui.layout(p, "portrait debug", must_fit=False)
     p.click("#sessStopBtn")
     r.check("portrait: debug stopped", visible(p, "#view-debug-idle"))
+    tap(p, '#nav [data-tab="lichten"]')
+    r.check("portrait: Lichten tab", visible(p, "#view-fixtures"))
+    tap(p, f'{frow(2)} [data-type="head"]')
+    p.fill(f"{frow(2)} .faddr", "5")
+    r.check("portrait: a row message shows under its row", text_has(p, f"{frow(2)} .fmsg", "Overlapt"))
+    ui.shot(p, "admin_portrait_fixtures")
+    ui.layout(p, "portrait fixtures", must_fit=False)
+    tap(p, "#fixUndo")
     tap(p, '#nav [data-tab="instellingen"]')
     ui.shot(p, "admin_portrait_settings")
     ui.layout(p, "portrait settings", must_fit=False)
@@ -1992,8 +2303,8 @@ def run_browser_tests(r: Results, log: MockLog) -> list[str]:
         test_stop_button(ui, a, i)
         test_pin_change(ui, a, a_id)
         a_id = test_hidden_ends_calibration(ui, a, a_id, i)
-        test_address(ui, a, a_id, i)
-        test_index_patch(ui, a, a_id, i)
+        test_fixtures_tab(ui, a, a_id, i)
+        test_index_fixtures(ui, a, i)
         test_logout(ui, a, a_id)
         test_portrait(ui)
         test_back_link(ui)
