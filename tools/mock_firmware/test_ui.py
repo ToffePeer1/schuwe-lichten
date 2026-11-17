@@ -5,7 +5,9 @@ system Edge (Playwright), and checks both the DOM and what the mock received (it
 The main page (index) is checked for presets, the quick builder, shows, the desk faders,
 tooltips, banners, UIT, reconnects and layout at 844x390 and in portrait, and with the
 laser in another patch slot or not patched at all. With a moving head patched it checks the
-fixture switcher, the head's two-bank desk, its power switch and its guide. The admin page's
+fixture switcher, the head's two-bank desk, its power switch and its guide, the head's own
+presets, and shared shows (cues per fixture, pauses, a show in a show, the progress of an
+unfolded show, and a laser+head show playing with only the laser patched). The admin page's
 Lichten tab (the patch editor) is checked too. Raw clients check the protocol, incl. the patch.
 Screenshots go to <OS temp dir>/dmx_ui_test/. Exits non-zero if any check fails.
 
@@ -51,7 +53,7 @@ ERROR_CODES = (
     "wrong-phase need-worst-case-look need-both-marks need-horizontal-marks equal-ends bad-pin locked "
     "not-calibrating save-failed no-fixture bad-patch"
 ).split()
-LIBRARY_ERROR_CODES = "bad-slot empty-slot bad-name bad-steps preset-in-use".split()
+LIBRARY_ERROR_CODES = "bad-slot empty-slot bad-name bad-steps preset-in-use wrong-type show-in-use show-loop show-too-long".split()
 PATTERNS = json.loads((ROOT / "src" / "web" / "patterns.json").read_text(encoding="utf-8"))["patterns"]
 PATTERN_VALUES = [(2 * n - 1) * 128 // 51 for n in range(1, 52)]  # CH2 value of pattern n (both pages and the mock)
 INDEX_SESSION_TEXT = "De bediening is vergrendeld"
@@ -921,11 +923,12 @@ def test_builder(ui: Ui, i: Page, i_id: int | None) -> None:
     i.fill("#bName", "Testlook")
     mark = log.mark()
     i.click("#bSave")
-    r.check("builder: Opslaan sends 'preset save 1 Testlook'", log.wait_msg("preset save 1 Testlook", mark, i_id),
+    r.check("builder: Opslaan sends 'f1 preset save 1 Testlook' (the laser's slot)", log.wait_msg("f1 preset save 1 Testlook", mark, i_id),
             str(log.msgs(mark, i_id)))
     r.check("builder: closes after the library echo", hidden(i, "#builder"))
     r.check("builder: new tile shown", text_has(i, '.tile[data-slot="1"] .name', "Testlook"))
-    r.check("builder: mock stored the look", (mock_lib()["presets"].get("1") or {}).get("ch") == TESTLOOK, str(mock_lib()["presets"]))
+    r.check("builder: mock stored the look as a laser preset", (mock_lib()["presets"].get("1") or {}).get("ch") == TESTLOOK
+            and mock_lib()["presets"]["1"]["type"] == "laser", str(mock_lib()["presets"]))
     r.check("builder: saved preset highlighted (state.preset)", bool(wait_until(
         lambda: "on" in (i.get_attribute('.tile[data-slot="1"]', "class") or "").split())))
     r.check("builder: Nu card shows the preset", text_has(i, "#nowName", "Testlook"), text(i, "#nowName"))
@@ -945,9 +948,10 @@ def test_save_sheet(ui: Ui, i: Page, i_id: int | None) -> None:
     r.check("sheet: shows the current look", text_has(i, "#sLook", "#22"), text(i, "#sLook"))
     ui.shot(i, "index_save_sheet")
     ui.index_layout(i, "index save sheet")
+    r.check("sheet: tells the slot out of 48", text_has(i, "#sHint", "plek 2 van 48"), text(i, "#sHint"))
     i.fill("#sName", "Tweede")
     i.click("#sSave")
-    r.check("sheet: sends 'preset save 2 Tweede'", log.wait_msg("preset save 2 Tweede", mark, i_id), str(log.msgs(mark, i_id)))
+    r.check("sheet: sends 'f1 preset save 2 Tweede'", log.wait_msg("f1 preset save 2 Tweede", mark, i_id), str(log.msgs(mark, i_id)))
     r.check("sheet: closes after saving", hidden(i, "#sheet"))
     r.check("sheet: mock stored the current look", (mock_lib()["presets"].get("2") or {}).get("ch", [0, 0])[1] == 107)
     r.check("sheet: stays on the desk", i.locator("#view-desk").is_visible())
@@ -960,7 +964,7 @@ def test_tiles(ui: Ui, i: Page, i_id: int | None) -> None:
     r.check("tiles: two presets plus '＋ Nieuw'", i.locator(".tile[data-slot]").count() == 2 and i.locator("#addTile").is_visible())
     mark = log.mark()
     i.click('.tile[data-slot="1"] .hit')
-    r.check("tiles: tap sends 'preset load 1'", log.wait_msg("preset load 1", mark, i_id), str(log.msgs(mark, i_id)))
+    r.check("tiles: tap sends 'f1 preset load 1'", log.wait_msg("f1 preset load 1", mark, i_id), str(log.msgs(mark, i_id)))
     r.check("tiles: mock shows the preset", bool(wait_until(lambda: hook("/__mock/state")["channels"] == TESTLOOK)))
     r.check("tiles: tile 1 highlighted, tile 2 not", bool(wait_until(
         lambda: "on" in (i.get_attribute('.tile[data-slot="1"]', "class") or "").split()
@@ -978,8 +982,11 @@ def test_shows(ui: Ui, i: Page, i_id: int | None) -> None:
     r.check("shows: header button '＋ Nieuwe show'", text(i, "#tabAction").strip() == "＋ Nieuwe show")
     tap(i, "#tabAction")
     r.check("shows: editor opens with the preset picker", visible(i, "#editor") and visible(i, "#ePicker"))
+    r.check("shows: the picker is for the laser in step 1", text_has(i, "#ePickTitle", "Laser in stap 1"), text(i, "#ePickTitle"))
+    r.check("shows: a new step offers no 'Ongewijzigd'", i.locator('#ePickGrid [data-pick="0"]').count() == 0)
     i.click('#ePickGrid [data-pick="1"]')
     r.check("shows: step 1 added", visible(i, '#eSteps .srow[data-k="0"]'))
+    r.check("shows: with one fixture the new step stays folded", i.locator("#eSteps .srow.open").count() == 0)
     i.fill('#eSteps .srow[data-k="0"] input', "0,5")
     i.press('#eSteps .srow[data-k="0"] input', "Enter")
     r.check("shows: hold time typed as '0,5'", bool(wait_until(lambda: i.input_value('#eSteps .srow[data-k="0"] input') == "0,5")))
@@ -994,7 +1001,7 @@ def test_shows(ui: Ui, i: Page, i_id: int | None) -> None:
     ui.index_layout(i, "index show editor")
     mark = log.mark()
     i.click("#eSave")
-    r.check("shows: Opslaan sends 'show save 1 1:5,2:5 Testshow'", log.wait_msg("show save 1 1:5,2:5 Testshow", mark, i_id),
+    r.check("shows: Opslaan sends 'show save 1 1=1:5,1=2:5 Testshow'", log.wait_msg("show save 1 1=1:5,1=2:5 Testshow", mark, i_id),
             str(log.msgs(mark, i_id)))
     r.check("shows: editor closes", hidden(i, "#editor"))
     chips = [t.strip() for t in i.locator('.show[data-show="1"] .stepchip').all_inner_texts()]
@@ -1021,8 +1028,8 @@ def test_shows(ui: Ui, i: Page, i_id: int | None) -> None:
     i.click('#eSteps [data-up="1"]')
     mark = log.mark()
     i.click("#eSave")
-    r.check("shows: reordered and re-saved ('show save 1 2:5,1:5 Testshow')",
-            log.wait_msg("show save 1 2:5,1:5 Testshow", mark, i_id), str(log.msgs(mark, i_id)))
+    r.check("shows: reordered and re-saved ('show save 1 1=2:5,1=1:5 Testshow')",
+            log.wait_msg("show save 1 1=2:5,1=1:5 Testshow", mark, i_id), str(log.msgs(mark, i_id)))
     hidden(i, "#editor")
 
 
@@ -1095,7 +1102,7 @@ def test_off_and_library_reset(ui: Ui, i: Page, i_id: int | None) -> None:
     index_tab(i, "presets")
     mark = log.mark()
     i.click('.tile[data-slot="1"] .hit')
-    log.wait_msg("preset load 1", mark, i_id)
+    log.wait_msg("f1 preset load 1", mark, i_id)
     wait_until(lambda: hook("/__mock/state")["channels"][0] == 96)
     i.click("#offBtn")
     r.check("UIT: sends 'off'", log.wait_msg("off", mark, i_id))
@@ -1153,8 +1160,8 @@ def test_dead_link(ui: Ui, i: Page) -> None:
 def seed_library() -> None:
     """Two presets and a show through a raw client, for the portrait screenshots."""
     raw = Raw()
-    for command in ("2 102", "3 140", "9 224", "1 96", "preset save 1 Ster draaiend", "2 7", "10 128", "preset save 2 Puntjescirkel",
-                    "show save 1 1:50,2:30 Avondshow", "show play 1"):
+    for command in ("2 102", "3 140", "9 224", "1 96", "f1 preset save 1 Ster draaiend", "2 7", "10 128", "f1 preset save 2 Puntjescirkel",
+                    "show save 1 1=1:50,1=2:30,:10 Avondshow", "show play 1"):
         raw.send(command)
         time.sleep(0.05)
     raw.close()
@@ -1529,13 +1536,16 @@ def test_index_fixtures(ui: Ui, a: Page, i: Page) -> None:
     ui.index_layout(i, "index switcher (laser)")
     mark = log.mark()
     tap(i, '#fxSwitch [data-slot="2"]')
-    r.check("head: only Lichttafel and Uitleg", bool(wait_until(lambda: nav_tabs(i) == ["Lichttafel", "Uitleg"])), str(nav_tabs(i)))
-    r.check("head: opens on its desk", i.locator("#view-desk").is_visible())
+    r.check("head: keeps Presets / Shows / Lichttafel / Uitleg", bool(wait_until(lambda: nav_tabs(i) == ["Presets", "Shows", "Lichttafel", "Uitleg"])),
+            str(nav_tabs(i)))
+    r.check("head: stays on Presets, now the head's (none yet)", i.locator("#view-presets").is_visible()
+            and text_has(i, "#tiles", "Nog geen presets voor het hoofd"), text(i, "#tiles"))
     r.check("head: the choice is stored on this phone", i.evaluate("localStorage.getItem('fixture')") == "2")
     r.check("head: no laser banners on the head", hidden(i, "#uncalBanner") and hidden(i, "#noLaserBanner"))
-    r.check("head: '＋ Bewaar als preset' hidden (presets are the laser's for now)", i.locator("#saveBtn").is_hidden())
+    r.check("head: '＋ Bewaar als preset' shown for the head too", i.locator("#saveBtn").is_visible())
     r.check("head: the Nu card names the head and says it is off", text_has(i, "#nowLabel", "Bewegend hoofd")
             and text_has(i, "#nowName", "Uit"), f"{text(i, '#nowLabel')} / {text(i, '#nowName')}")
+    index_tab(i, "desk")
     r.check("head: bank toggle Beweging / Kleur in the header", i.locator("#bankSeg").is_visible()
             and [s.strip() for s in i.locator("#bankSeg button").all_text_contents()] == ["Beweging", "Kleur"])
     r.check("head desk: Beweging = power switch, CH1-8 and CH19", desk_ids(i) == ["power", *map(str, HEAD_MOVE)], str(desk_ids(i)))
@@ -1603,13 +1613,17 @@ def test_index_fixtures(ui: Ui, a: Page, i: Page) -> None:
     tap(i, "#offBtn")
     r.check("head: UIT sends plain 'off' (every fixture)", log.wait_msg("off", mark))
     r.check("head: UIT darkens the head", bool(wait_until(lambda: mock_fixture(2)["channels"][6] == 0)), str(mock_fixture(2)))
+    test_head_presets(ui, i, raw)
+    test_shared_shows(ui, i, raw)
     test_head_portrait(ui)
+    hook("/__mock/library?reset=0")
     i.reload()
-    r.check("switcher: the head is still picked after a reload", index_connected(i)
-            and bool(wait_until(lambda: picked(i) == "2")) and visible(i, "#view-desk"), str(picked(i)))
+    r.check("switcher: the head is still picked after a reload, its presets on screen", index_connected(i)
+            and bool(wait_until(lambda: picked(i) == "2")) and visible(i, '#tiles[data-type="head"]'), str(picked(i)))
     mark = log.mark()
     tap(i, '#fxSwitch [data-slot="1"]')
     r.check("switcher: back on the laser, all four tabs", bool(wait_until(lambda: nav_tabs(i) == ["Presets", "Shows", "Lichttafel", "Uitleg"])))
+    index_tab(i, "desk")
     r.check("laser desk: 10 strips again", i.locator("#desk .strip").count() == 10)
     tap(i, '#desk [data-ch="1"] .power')
     r.check("laser: the switch sends 'f1 1 96'", log.wait_msg("f1 1 96", mark), str(fx_msgs(log, mark)))
@@ -1650,17 +1664,278 @@ def test_head_power(ui: Ui, i: Page, raw: Raw) -> None:
             bool(wait_until(lambda: [mock_fixture(2)["channels"][k] for k in (0, 8, 6)] == [100, 200, 180])), str(mock_fixture(2)))
 
 
+def pick_values(page: Page) -> list[str]:
+    """The choices in the show editor's picker (data-pick: preset or show slot, 0 = 'Ongewijzigd')."""
+    return page.locator("#ePickGrid [data-pick]").evaluate_all("els => els.map((e) => e.dataset.pick)")
+
+
+def tile_slots(page: Page) -> list[str]:
+    return page.locator("#tiles .tile[data-slot]").evaluate_all("els => els.map((e) => e.dataset.slot)")
+
+
+def inject_error(page: Page, code: str) -> None:
+    """An error the page can't provoke itself (it only sends what fits), as if the firmware sent it."""
+    page.evaluate(f"onMessage(JSON.stringify({{ type: 'error', code: '{code}' }}))")
+
+
+def both_languages(ui: Ui, page: Page, label: str, nl: str, en: str) -> None:
+    """The toast in Dutch, then (re-rendered by the switch) in English, then back to Dutch."""
+    ui.r.check(f"{label}: explained in Dutch", text_has(page, "#msgText", nl), text(page, "#msgText"))
+    page.click('#langSwitch button[data-lang="en"]')
+    ui.r.check(f"{label}: and in English", text_has(page, "#msgText", en), text(page, "#msgText"))
+    page.click('#langSwitch button[data-lang="nl"]')
+    dismiss_toast(page)
+
+
+def test_head_presets(ui: Ui, i: Page, raw: Raw) -> None:
+    """The head's own presets (laser in slot 1, head in slot 2, an empty library)."""
+    r, log = ui.r, ui.log
+    for command in ("f2 1 60", "f2 7 200", "f2 9 255", "f2 15 255", "f2 8 120"):  # pan, dimmer, red eye, blue beam, strobe
+        raw.send(command)
+    wait_until(lambda: mock_fixture(2)["channels"][7] == 120)
+    index_tab(i, "presets")
+    r.check("head presets: the tab lists the head's presets (none yet)", text_has(i, "#tiles", "Nog geen presets voor het hoofd")
+            and i.get_attribute("#tiles", "data-type") == "head")
+    r.check("head presets: the add tile saves the head's look (no builder)", text(i, "#addTile").startswith("＋ Bewaar"), text(i, "#addTile"))
+    mark = log.mark()
+    tap(i, "#saveBtn")
+    r.check("head sheet: opens for the head", visible(i, "#sheet") and text_has(i, "#sLook", "Bewegend hoofd"), text(i, "#sLook"))
+    r.check("head sheet: describes the look (dimmer, strobe)", text_has(i, "#sLookMeta", "Dimmer 78 %") and "strobe 12 Hz" in text(i, "#sLookMeta"),
+            text(i, "#sLookMeta"))
+    r.check("head sheet: saves 19 channels in slot 1 of 48", text_has(i, "#sHint", "19 kanalen") and "plek 1 van 48" in text(i, "#sHint"),
+            text(i, "#sHint"))
+    r.check("head sheet: suggests a name from the eye's colour ('Hoofd, rood')", i.get_attribute("#sName", "placeholder") == "Hoofd, rood",
+            str(i.get_attribute("#sName", "placeholder")))
+    ui.shot(i, "index_head_save_sheet")
+    ui.index_layout(i, "index head save sheet")
+    i.fill("#sName", "Rood oog")
+    i.click("#sSave")
+    r.check("head sheet: sends 'f2 preset save 1 Rood oog'", log.wait_msg("f2 preset save 1 Rood oog", mark), str(log.msgs(mark)))
+    r.check("head sheet: closes after saving", hidden(i, "#sheet"))
+    stored = mock_lib()["presets"].get("1") or {}
+    r.check("head presets: stored as a head preset with the head's 19 channels",
+            stored.get("type") == "head" and stored.get("ch") == mock_fixture(2)["channels"], str(stored))
+    r.check("head presets: its tile, marked NU (the head's own preset in the state)", text_has(i, '.tile[data-slot="1"] .name', "Rood oog")
+            and bool(wait_until(lambda: "on" in (i.get_attribute('.tile[data-slot="1"]', "class") or "").split())))
+    r.check("head presets: the tile says what the look does", text_has(i, '.tile[data-slot="1"] .meta', "Dimmer 78 %"),
+            text(i, '.tile[data-slot="1"] .meta'))
+    r.check("head presets: the Nu card names the preset", text_has(i, "#nowName", "Rood oog"), text(i, "#nowName"))
+    for command in ("f2 9 0", "f2 8 0"):  # the blue beam alone
+        raw.send(command)
+    wait_until(lambda: mock_fixture(2)["channels"][8] == 0 and mock_fixture(2)["channels"][7] == 0)
+    tap(i, "#addTile")
+    r.check("head add tile: opens the save sheet, named after the beam ('Hoofd, blauw')", visible(i, "#sheet")
+            and bool(wait_until(lambda: i.get_attribute("#sName", "placeholder") == "Hoofd, blauw")), str(i.get_attribute("#sName", "placeholder")))
+    i.fill("#sName", "Blauwe straal")
+    mark = log.mark()
+    i.click("#sSave")
+    r.check("head add tile: sends 'f2 preset save 2 Blauwe straal'", log.wait_msg("f2 preset save 2 Blauwe straal", mark), str(log.msgs(mark)))
+    hidden(i, "#sheet")
+    mark = log.mark()
+    i.click('.tile[data-slot="1"] .hit')
+    r.check("head presets: a tap sends 'f2 preset load 1'", log.wait_msg("f2 preset load 1", mark), str(log.msgs(mark)))
+    r.check("head presets: the head has that look again", bool(wait_until(lambda: mock_fixture(2)["channels"][8] == 255
+                                                                         and mock_fixture(2)["preset"] == 1)), str(mock_fixture(2)))
+    r.check("head presets: NU moves to tile 1", bool(wait_until(lambda: "on" in (i.get_attribute('.tile[data-slot="1"]', "class") or "").split()
+                                                              and "on" not in (i.get_attribute('.tile[data-slot="2"]', "class") or "").split())))
+    ui.shot(i, "index_head_presets")
+    ui.index_layout(i, "index head presets")
+    tap(i, '#fxSwitch [data-slot="1"]')
+    r.check("laser presets: the head's presets are not listed", bool(wait_until(lambda: tile_slots(i) == []))
+            and text_has(i, "#tiles", "Nog geen presets") and i.get_attribute("#tiles", "data-type") == "laser", str(tile_slots(i)))
+    for command in ("f1 2 102", "f1 3 140", "f1 9 224", "f1 7 40", "f1 1 96"):
+        raw.send(command)
+    wait_until(lambda: hook("/__mock/state")["frame"][0] == 96)
+    tap(i, "#saveBtn")
+    visible(i, "#sheet")
+    i.fill("#sName", "Ster")
+    mark = log.mark()
+    i.click("#sSave")
+    r.check("laser sheet: sends 'f1 preset save 3 Ster' (the 48 slots are shared)", log.wait_msg("f1 preset save 3 Ster", mark), str(log.msgs(mark)))
+    r.check("laser presets: only the laser's tile", bool(wait_until(lambda: tile_slots(i) == ["3"])), str(tile_slots(i)))
+    inject_error(i, "wrong-type")
+    both_languages(ui, i, "wrong-type", "ander soort licht", "another kind of fixture")
+
+
+def test_shared_shows(ui: Ui, i: Page, raw: Raw) -> None:
+    """Shows for both fixtures: head presets 1 'Rood oog' and 2 'Blauwe straal', laser preset 3 'Ster'."""
+    r, log = ui.r, ui.log
+    r.check("steps text: the page reads and writes the firmware's grammar",
+            i.evaluate("formatSteps(parseSteps('1=3+2=7:50,s4,1=5+s2,:10'))") == "1=3+2=7:50,s4,1=5+s2,:10"
+            and i.evaluate("[parseSteps('1=3'), parseSteps('s2:10'), parseSteps(''), parseSteps('1=3+1=4:10')].every((x) => x === null)"))
+    raw.event("show save 2 2=2:20 Kopdraai", "library")
+    index_tab(i, "shows")
+    tap(i, "#tabAction")
+    r.check("editor: '＋ Nieuwe show' picks for the fixture on screen (the laser)", visible(i, "#ePicker")
+            and text_has(i, "#ePickTitle", "Laser in stap 1"), text(i, "#ePickTitle"))
+    r.check("editor: the laser's picker lists only laser presets", pick_values(i) == ["3"], str(pick_values(i)))
+    i.click('#ePickGrid [data-pick="3"]')
+    r.check("editor: with two fixtures the new step opens", visible(i, '#eSteps .srow.open[data-k="0"]'))
+    fxs = i.locator("#eSteps .srow.open .choice").evaluate_all("els => els.map((e) => e.dataset.fx)")
+    r.check("editor: the open step has a picker per patched fixture", fxs == ["1", "2"], str(fxs))
+    r.check("editor: the head is 'Ongewijzigd' until picked", text_has(i, '#eSteps .srow.open .choice[data-fx="2"]', "Ongewijzigd"))
+    i.click('#eSteps .srow.open .choice[data-fx="2"]')
+    r.check("editor: the head's picker offers 'Ongewijzigd' and only head presets", pick_values(i) == ["0", "1", "2"], str(pick_values(i)))
+    r.check("editor: the head's picker names the fixture and the step", text_has(i, "#ePickTitle", "Bewegend hoofd in stap 1"),
+            text(i, "#ePickTitle"))
+    i.click('#ePickGrid [data-pick="1"]')
+    r.check("editor: the step cues both fixtures", text_has(i, '#eSteps .srow[data-k="0"] .nm', "Ster + Rood oog"),
+            text(i, '#eSteps .srow[data-k="0"] .nm'))
+    i.fill('#eSteps .srow[data-k="0"] input', "0,5")
+    i.press('#eSteps .srow[data-k="0"] input', "Enter")
+    tap(i, "#eAddPause")
+    r.check("editor: '＋ Pauze' adds a step without cues (1 s)", text_has(i, '#eSteps .srow[data-k="1"] .nm', "Pauze")
+            and i.input_value('#eSteps .srow[data-k="1"] input') == "1")
+    tap(i, "#eAddShow")
+    r.check("editor: '＋ Show in een show' picks another show", visible(i, "#ePicker") and pick_values(i) == ["2"]
+            and text_has(i, "#ePickTitle", "stap 3"), str(pick_values(i)))
+    i.click('#ePickGrid [data-pick="2"]')
+    r.check("editor: the step plays Kopdraai once", text_has(i, '#eSteps .srow[data-k="2"] .nestbtn', "Kopdraai"))
+    r.check("editor: the round counts the nested show (0,5 + 1 + 2 s)", text_has(i, "#eTotal", "3,5 s"), text(i, "#eTotal"))
+    i.fill("#eName", "Samen")
+    i.click('#eSteps .srow[data-k="0"] .sum')
+    r.check("editor: one step open at a time", i.locator("#eSteps .srow.open").count() == 1
+            and i.locator('#eSteps .srow.open[data-k="0"]').count() == 1)
+    ui.shot(i, "index_show_editor_shared")
+    ui.index_layout(i, "index show editor (two fixtures)")
+    mark = log.mark()
+    i.click("#eSave")
+    r.check("editor: sends 'show save 1 1=3+2=1:5,:10,s2 Samen'", log.wait_msg("show save 1 1=3+2=1:5,:10,s2 Samen", mark), str(log.msgs(mark)))
+    r.check("editor: closes after the library echo", hidden(i, "#editor"))
+    card = '.show[data-show="1"]'
+    lines = i.locator(f'{card} .stepchip[data-step="0"] .cue').all_text_contents()
+    r.check("cards: a two-fixture step has a line per fixture", len(lines) == 2 and "Ster" in lines[0] and "Rood oog" in lines[1], str(lines))
+    r.check("cards: a pause", text_has(i, f'{card} .stepchip.pause[data-step="1"]', "Pauze")
+            and "1 s" in text(i, f'{card} .stepchip[data-step="1"]'), text(i, f'{card} .stepchip[data-step="1"]'))
+    r.check("cards: a show in a show, by name", text_has(i, f'{card} .stepchip[data-step="2"] .nest', "show in een show")
+            and "Kopdraai" in text(i, f'{card} .stepchip[data-step="2"] .nest'))
+    r.check("cards: Kopdraai leaves the laser 'ongewijzigd'", "ongewijzigd" in i.locator('.show[data-show="2"] .cue').first.text_content())
+    r.check("cards: the round counts the nested show", text_has(i, f"{card} .smeta", "3,5 s"), text(i, f"{card} .smeta"))
+    ui.shot(i, "index_shows_shared")
+    ui.index_layout(i, "index shows (two fixtures)")
+    test_nested_playback(ui, i, card)
+    test_show_errors(ui, i, raw)
+    test_laser_only_show(ui, i, raw, card)
+
+
+def test_nested_playback(ui: Ui, i: Page, card: str) -> None:
+    """Samen = [laser Ster + head Rood oog 0,5 s] [pause 1 s] [Kopdraai: head Blauwe straal 2 s]: 3 steps unfolded."""
+    r, log = ui.r, ui.log
+    mark = log.mark()
+    tap(i, '[data-play="1"]')
+    r.check("play: sends 'show play 1'", log.wait_msg("show play 1", mark), str(log.msgs(mark)))
+    r.check("play: the bar counts the show unfolded (3 steps)", bool(wait_until(lambda: i.locator("#nowProg i").count() == 3)))
+    r.check("play: the mock unfolded it the same way", (mock_lib()["play"] or {}).get("steps") == 3, str(mock_lib()["play"]))
+    r.check("play: step 1 names both presets", text_has(i, "#nowMeta", "Stap 1/3: Ster + Rood oog", timeout=5), text(i, "#nowMeta"))
+    r.check("play: step 2 is the pause", text_has(i, "#nowMeta", "Stap 2/3: pauze", timeout=5), text(i, "#nowMeta"))
+    lit = lambda: i.locator(f"{card} .stepchip.cur").get_attribute("data-step")  # noqa: E731
+    r.check("play: step 3 comes from the nested show (its preset; the show-in-a-show chip lit)",
+            bool(wait_until(lambda: "Stap 3/3: Blauwe straal" in text(i, "#nowMeta") and lit() == "2", timeout=5)), text(i, "#nowMeta"))
+    r.check("play: the head got the nested show's preset", bool(wait_until(lambda: mock_fixture(2)["preset"] == 2, timeout=3)))
+    ui.shot(i, "index_shows_nested_playing")
+    tap(i, '[data-play="1"]')
+    r.check("play: stop sends 'show stop'", log.wait_msg("show stop", mark))
+
+
+def test_show_errors(ui: Ui, i: Page, raw: Raw) -> None:
+    r, log = ui.r, ui.log
+    i.click('[data-edit="2"]')
+    tap(i, "#eAddShow")
+    r.check("editor: a show can't pick itself or a show that plays it", pick_values(i) == []
+            and text_has(i, "#ePickGrid", "Er is nog geen andere show"), str(pick_values(i)))
+    i.click("#ePickBack")
+    i.click("#eDelete")
+    mark = log.mark()
+    i.click("#eDelete")
+    r.check("show-in-use: sends 'show delete 2'", log.wait_msg("show delete 2", mark))
+    both_languages(ui, i, "show-in-use (names the show it is in)", "‘Kopdraai’ zit nog in de show ‘Samen’",
+                   "‘Kopdraai’ is still in the show ‘Samen’")
+    r.check("show-in-use: Kopdraai kept", "2" in mock_lib()["shows"])
+    tap(i, "#eCancel")
+    raw.event("show save 3 s2 Diep een", "library")
+    raw.event("show save 4 s3 Diep twee", "library")
+    tap(i, "#tabAction")
+    i.click("#ePickBack")
+    r.check("editor: a new show may start without a preset (Opslaan off until a step)", i.locator("#eSave").is_disabled()
+            and text_has(i, "#eTotal", "Voeg minstens"))
+    tap(i, "#eAddShow")
+    i.click('#ePickGrid [data-pick="4"]')
+    i.fill("#eName", "Te diep")
+    mark = log.mark()
+    i.click("#eSave")
+    r.check("show-too-long: 'show save 5 s4 Te diep' sent", log.wait_msg("show save 5 s4 Te diep", mark), str(log.msgs(mark)))
+    both_languages(ui, i, "show-too-long", "te lang", "too long")
+    r.check("show-too-long: the editor stays open to fix it", i.locator("#editor").is_visible())
+    tap(i, "#eCancel")
+    inject_error(i, "show-loop")
+    both_languages(ui, i, "show-loop", "zichzelf afspelen", "play itself")
+
+
+def test_laser_only_show(ui: Ui, i: Page, raw: Raw, card: str) -> None:
+    """Samen cues the head too; with only the laser patched it still plays, on the laser."""
+    r, log = ui.r, ui.log
+    patch = {f["slot"]: f for f in mock_patch()}
+    laser, head = patch[1]["addr"], patch[2]["addr"]
+    patch_event(raw, f"patch set laser:{laser},none,none,none")
+    r.check("laser only: the laser stays calibrated (it didn't move)", hook("/__mock/state")["limits"]["calibrated"])
+    r.check("laser only: the cards show only the laser", bool(wait_until(lambda: i.locator(f"{card} .stepchip.multi").count() == 0))
+            and text_has(i, f'{card} .stepchip[data-step="0"]', "Ster"), text(i, f'{card} .stepchip[data-step="0"]'))
+    r.check("laser only: Kopdraai shows no head line any more", "Blauwe straal" not in text(i, '.show[data-show="2"] .steplist'))
+    mark = log.mark()
+    tap(i, '[data-play="1"]')
+    r.check("laser only: the laser+head show still plays", log.wait_msg("show play 1", mark)
+            and bool(wait_until(lambda: mock_lib()["play"] is not None)) and text_has(i, "#nowLabel", "Show loopt"), text(i, "#nowLabel"))
+    r.check("laser only: it drives the laser alone", (mock_lib()["play"] or {}).get("driven") == 1, str(mock_lib()["play"]))
+    ui.shot(i, "index_shows_laser_only")
+    ui.index_layout(i, "index shows (laser only)")
+    tap(i, '[data-play="1"]')
+    mark = log.mark()
+    tap(i, '[data-play="2"]')
+    r.check("laser only: a head-only show says it drives nothing here", log.wait_msg("show play 2", mark)
+            and text_has(i, "#msgText", "geen van de lichten"), text(i, "#msgText"))
+    dismiss_toast(i)
+    i.click('[data-edit="1"]')
+    i.click('#eSteps .srow[data-k="0"] .sum')
+    r.check("laser only: the editor keeps the head's cue as 'Plek 2 (niet in de patch)'",
+            text_has(i, "#eSteps .srow.open", "Plek 2 (niet in de patch)")
+            and text_has(i, '#eSteps .srow.open .choice[data-fx="2"]', "Rood oog"), text(i, "#eSteps .srow.open"))
+    mark = log.mark()
+    i.click("#eSave")
+    r.check("laser only: re-saving keeps the head's cue", log.wait_msg("show save 1 1=3+2=1:5,:10,s2 Samen", mark), str(log.msgs(mark)))
+    hidden(i, "#editor")
+    patch_event(raw, f"patch set laser:{laser},head:{head},none,none")
+    r.check("laser + head again", bool(wait_until(lambda: switcher(i) == ["Laser", "Bewegend hoofd"])), str(switcher(i)))
+    tap(i, '#fxSwitch [data-slot="2"]')  # the head stays picked for the checks after this
+
+
 def test_head_portrait(ui: Ui) -> None:
     r = ui.r
     p, _ = ui.open("/", "index-head-portrait", PORTRAIT)
     r.check("portrait head: connects", index_connected(p))
     tap(p, '#fxSwitch [data-slot="2"]')
+    r.check("portrait head: the head's presets", visible(p, '#tiles[data-type="head"] .tile[data-slot="2"]'))
+    ui.shot(p, "index_portrait_head_presets")
+    ui.index_layout(p, "index portrait head presets")
+    index_tab(p, "desk")
     r.check("portrait head: the head's desk", visible(p, '#desk [data-ch="power"]'))
     ui.shot(p, "index_portrait_head_move")
     ui.index_layout(p, "index portrait head desk (Beweging)")
     tap(p, '#bankSeg [data-bank="color"]')
     ui.shot(p, "index_portrait_head_color")
     ui.index_layout(p, "index portrait head desk (Kleur)")
+    index_tab(p, "shows")
+    r.check("portrait: shared show cards", visible(p, '.show[data-show="1"] .stepchip.multi'))
+    ui.shot(p, "index_portrait_shows_shared")
+    ui.index_layout(p, "index portrait shows (two fixtures)")
+    p.click('[data-edit="1"]')
+    p.click('#eSteps .srow[data-k="0"] .sum')
+    r.check("portrait: the show editor with an open two-fixture step", visible(p, '#eSteps .srow.open .choice[data-fx="2"]'))
+    ui.shot(p, "index_portrait_show_editor")
+    ui.index_layout(p, "index portrait show editor")
+    p.click('#eSteps .srow.open .choice[data-fx="2"]')
+    r.check("portrait: the head's picker", visible(p, '#ePickGrid [data-pick="2"]'))
+    ui.shot(p, "index_portrait_show_picker")
+    ui.index_layout(p, "index portrait show picker")
     p.context.close()
 
 
@@ -1696,8 +1971,8 @@ def test_index_patches(ui: Ui, a: Page, i: Page, raw: Raw) -> None:
     tap(i, "#offBtn")
     patch_event(raw, "patch set head:1,none,none,none")
     r.check("head only: no switcher", hidden(i, "#fxSwitch"))
-    r.check("head only: the page shows the head, not the 'no laser' lock", bool(wait_until(lambda: nav_tabs(i) == ["Lichttafel", "Uitleg"]))
-            and hidden(i, "#noLaserBanner") and pointer_events(i, "#desk") != "none")
+    r.check("head only: the page shows the head, not the 'no laser' lock", bool(wait_until(lambda: desk_ids(i)[:1] == ["power"]))
+            and hidden(i, "#noLaserBanner") and pointer_events(i, "#desk") != "none", str(desk_ids(i)))
     r.check("head only: the Nu card names the head", text_has(i, "#nowLabel", "Bewegend hoofd"), text(i, "#nowLabel"))
     mark = log.mark()
     tap(i, '#desk [data-ch="power"] .power')
@@ -1956,20 +2231,24 @@ def test_protocol_library(r: Results, owner: Raw, other: Raw) -> None:
     other.send("7 40")  # after a blackout CH7 is 0 in the state; the saved look is clamped, so set it inside the limit
     lib, state = library_then_state(other, "preset save 3 Eerste look", lambda m: laser_preset(m) == 3)
     presets = (lib or {}).get("presets", [])
-    r.check("proto lib: save broadcasts the library", len(presets) == 1 and presets[0]["slot"] == 3
-            and presets[0]["name"] == "Eerste look" and presets[0]["ch"][:2] == [96, 102], str(lib))
+    r.check("proto lib: save broadcasts the library (a typed preset)", len(presets) == 1 and presets[0]["slot"] == 3
+            and presets[0]["type"] == "laser" and presets[0]["name"] == "Eerste look" and presets[0]["ch"][:2] == [96, 102]
+            and len(presets[0]["ch"]) == 10, str(lib))
     r.check("proto lib: save marks the saved slot as loaded (state.preset = 3)", state is not None)
-    bad = (("preset save 33 X", "bad-slot"), ("preset save 3", "bad-name"), ('preset save 3 a"b', "bad-name"),
+    bad = (("preset save 49 X", "bad-slot"), ("preset save 3", "bad-command"), ('preset save 3 a"b', "bad-name"),
            ("preset save 3 " + "x" * 33, "bad-name"), ("preset load 4", "empty-slot"), ("preset load x", "bad-command"),
-           ("show save 1 4:10 X", "bad-steps"), ("show save 1 3:0 X", "bad-steps"), ("show save 1 3:6001 X", "bad-steps"),
-           ("show save 17 3:10 X", "bad-slot"), ("show save 1 " + ",".join(["3:10"] * 25) + " X", "bad-steps"),
+           ("show save 1 1=4:10 X", "bad-steps"), ("show save 1 1=3:0 X", "bad-steps"), ("show save 1 1=3:6001 X", "bad-steps"),
+           ("show save 1 3:10 X", "bad-steps"), ("show save 1 1=3 X", "bad-steps"), ("show save 1 s2:10 X", "bad-steps"),
+           ("show save 1 s9 X", "bad-steps"), ("show save 1 s1 X", "show-loop"),
+           ("show save 17 1=3:10 X", "bad-slot"), ("show save 1 " + ",".join(["1=3:10"] * 25) + " X", "bad-steps"),
            ("show play 2", "empty-slot"), ("preset delete 9", "empty-slot"))
     for command, code in bad:
         r.check(f"proto lib: '{command[:40]}' -> {code}", other.error_for(command) == code)
     other.send("2 7")
     other.send("preset save 5 Tweede")
-    lib, _ = library_then_state(other, "show save 1 3:10,5:10 Lus", lambda m: True)
-    r.check("proto lib: show saved", [s["steps"] for s in (lib or {}).get("shows", [])] == [[[3, 10], [5, 10]]], str(lib))
+    lib, _ = library_then_state(other, "show save 1 1=3:10,1=5:10 Lus", lambda m: True)
+    r.check("proto lib: show saved, its steps as the same text", [s["steps"] for s in (lib or {}).get("shows", [])] == ["1=3:10,1=5:10"],
+            str(lib))
     r.check("proto lib: preset used by a show -> preset-in-use", other.error_for("preset delete 3") == "preset-in-use")
     state = other.state_where("show play 1", lambda m: m.get("play") is not None)
     play = (state or {}).get("play") or {}
@@ -1999,7 +2278,7 @@ def test_protocol_library(r: Results, owner: Raw, other: Raw) -> None:
     state = other.state_where("show stop", lambda m: m.get("play") is None)
     r.check("proto lib: show stop keeps the current look", state is not None and laser_ch(state)[0] == 96, str(state))
     other.state_where("show play 1", lambda m: m.get("play") is not None)
-    _, state = library_then_state(other, "show save 1 5:10,3:10 Lus", lambda m: m.get("play") is None)
+    _, state = library_then_state(other, "show save 1 1=5:10,1=3:10 Lus", lambda m: m.get("play") is None)
     r.check("proto lib: re-saving the playing show stops it", state is not None)
     other.state_where("show play 1", lambda m: m.get("play") is not None)
     state = other.state_where("4 10", lambda m: m.get("play") is None)
@@ -2131,8 +2410,8 @@ def test_protocol_prefix(r: Results, other: Raw) -> None:
     r.check("proto prefix: ... at DMX slot 17 (address 11 + 6)", hook("/__mock/state")["universe"].get("17") == 255,
             str(hook("/__mock/state")["universe"]))
     for command, code in (("f5 7 1", "bad-command"), ("f0 7 1", "bad-command"), ("f3 1 1", "no-fixture"), ("11 5", "bad-command"),
-                          ("f2 20 1", "bad-command"), ("f2 cal start", "bad-command"), ("f2 preset load 1", "bad-command"),
-                          ("f2 hb", "bad-command"), ("f2", "bad-command"), ("f1 11 5", "bad-command")):
+                          ("f2 20 1", "bad-command"), ("f2 cal start", "bad-command"), ("f2 show play 1", "bad-command"),
+                          ("f2 preset delete 1", "bad-command"), ("f2 hb", "bad-command"), ("f2", "bad-command"), ("f1 11 5", "bad-command")):
         r.check(f"proto prefix: '{command}' -> {code}", other.error_for(command) == code)
     state = other.state_where("F2 1 200", lambda m: fixture_at(m, 2).get("ch", [0])[0] == 200)
     r.check("proto prefix: case-insensitive, and the head's CH1 has no rule 7 ('F2 1 200')", state is not None)
@@ -2172,8 +2451,8 @@ def test_protocol_fixture_stops(r: Results, owner: Raw, other: Raw) -> None:
     other.send("f2 7 255")
     state = other.state_where("f2 0", lambda m: fixture_at(m, 2).get("ch") == [0] * 19)
     r.check("proto 0: 'f2 0' zeroes only the head", state is not None and laser_ch(state)[:1] == [96], str(state))
-    # Shows drive the laser only: the head can change and switch off without stopping one.
-    for command in ("2 102", "7 40", "preset save 1 Een", "2 7", "preset save 2 Twee", "show save 1 1:10,2:10 Lus"):
+    # A show with laser cues only drives the laser: the head can change and switch off without stopping it.
+    for command in ("2 102", "7 40", "preset save 1 Een", "2 7", "preset save 2 Twee", "show save 1 1=1:10,1=2:10 Lus"):
         other.send(command)
     other.state_where("show play 1", lambda m: m.get("play") is not None)
     state = other.state_where("f2 7 200", lambda m: fixture_at(m, 2).get("ch", [0] * 7)[6] == 200)
@@ -2185,6 +2464,38 @@ def test_protocol_fixture_stops(r: Results, owner: Raw, other: Raw) -> None:
     other.state_where("show play 1", lambda m: m.get("play") is not None)
     other.event("off", "stop")
     r.check("proto show: plain 'off' stops it", mock_lib()["play"] is None)
+    test_protocol_shared_shows(r, other)
+
+
+def test_protocol_shared_shows(r: Results, other: Raw) -> None:
+    """Typed presets and nested shows (laser in slot 1, head in slot 2; laser presets 1, 2 and show 1 'Lus')."""
+    other.send("f2 7 255")
+    other.send("f2 9 200")
+    lib, state = library_then_state(other, "f2 preset save 7 Rood", lambda m: fixture_at(m, 2).get("preset") == 7)
+    head = next((p for p in (lib or {}).get("presets", []) if p["slot"] == 7), {})
+    r.check("proto typed: 'f2 preset save' stores a head preset of 19 channels, loaded on the head",
+            head.get("type") == "head" and len(head.get("ch", [])) == 19 and head["ch"][6] == 255 and state is not None, str(head))
+    r.check("proto typed: a head preset onto the laser -> wrong-type", other.error_for("f1 preset load 7") == "wrong-type")
+    other.send("f2 off")
+    state = other.state_where("preset load 7", lambda m: fixture_at(m, 2).get("preset") == 7)
+    r.check("proto typed: without a prefix it goes to the first fixture of its type (the head)", state is not None
+            and fixture_at(state, 2).get("ch", [0] * 7)[6] == 255, str(state))
+    r.check("proto typed: a preset a show uses can't change type", other.error_for("f2 preset save 1 X") == "preset-in-use")
+    lib, _ = library_then_state(other, "show save 2 1=2+2=7:10,s1,:5 Beide", lambda m: True)
+    r.check("proto nested: a two-fixture step, a nested show and a pause, echoed as the same text",
+            next((s["steps"] for s in (lib or {}).get("shows", []) if s["slot"] == 2), None) == "1=2+2=7:10,s1,:5", str(lib))
+    state = other.state_where("show play 2", lambda m: (m.get("play") or {}).get("show") == 2)
+    r.check("proto nested: play.steps counts the show unfolded (1 + 2 + 1)", ((state or {}).get("play") or {}).get("steps") == 4, str(state))
+    r.check("proto nested: it drives both fixtures", (mock_lib()["play"] or {}).get("driven") == 3, str(mock_lib()["play"]))
+    other.state_where("show stop", lambda m: m.get("play") is None)
+    r.check("proto nested: a show inside another can't be deleted -> show-in-use", other.error_for("show delete 1") == "show-in-use")
+    r.check("proto nested: making show 1 play show 2 would loop -> show-loop", other.error_for("show save 1 s2 Lus") == "show-loop")
+    lib, _ = library_then_state(other, "show save 3 :10 Stil", lambda m: True)
+    r.check("proto nested: a pause-only show saves", any(s["steps"] == ":10" for s in (lib or {}).get("shows", [])), str(lib))
+    r.check("proto nested: ... but drives nothing -> no-fixture", other.error_for("show play 3") == "no-fixture")
+    for slot in (3, 2):
+        other.event(f"show delete {slot}", "library")
+    other.event("preset delete 7", "library")
 
 
 def test_protocol_fixture_sessions(r: Results, owner: Raw, other: Raw) -> None:
@@ -2237,7 +2548,7 @@ def test_protocol_no_laser(r: Results, owner: Raw, other: Raw) -> None:
     r.check("proto no laser: head-only patch", (stop or {}).get("reason") == "patch-changed"
             and patch_of(state) == [{"slot": 1, "type": "head", "addr": 40}] and not laser_of(state), str(state))
     for client, command in ((owner, "cal start"), (owner, "dbg start"), (other, "preset load 1"), (other, "show play 1"),
-                            (other, "preset save 3 X"), (other, "f3 1 96")):
+                            (other, "f3 preset save 3 X"), (other, "f3 1 96")):
         r.check(f"proto no laser: '{command}' -> no-fixture", client.error_for(command) == "no-fixture")
     r.check("proto no laser: show and preset edits still work (no laser needed)",
             other.event("show delete 1", "library") is not None and other.event("preset delete 2", "library") is not None)
