@@ -2,7 +2,8 @@
 
 A pocket DMX lighting controller: **phone → WiFi → ESP32 → DMX → light**.
 
-Right now it drives one cheap RGB laser. You tap presets on your phone, build looping shows that keep playing when you lock the phone,
+It drives a cheap RGB laser and a moving head, daisy-chained on one DMX cable: either one on its own, or both in any order.
+You tap presets on your phone, build looping shows that keep playing when you lock the phone,
 and fine-tune every channel on a lighting-desk page. A height limit set on site keeps the beam up, and the ESP32 enforces it on every DMX frame,
 whatever the phone asks for. Everything fits in a small 3D-printed box with an XLR socket.
 
@@ -24,8 +25,10 @@ whatever the phone asks for. Everything fits in a small 3D-printed box with an X
   An optional side limit does the same horizontally.
 - **Stops:** the big UIT button works from every phone, always. The board's BOOT button doubles as a hardware stop.
   Nothing switches the laser back on by itself, also not after a reboot.
+- **Several lights on one cable.** In Beheer → Lichten you set which light sits at which DMX address (up to 4: one laser plus moving heads).
+  The phone page switches between them; the moving head gets its own lighting desk. The laser's rules stay with the laser wherever it is patched.
 - **Debug tab** for finding out what the laser really does: all 10 channels raw, admin only.
-- **Built to be trusted:** all safety logic is pure C++ with 148 host unit tests, and the pages run against a Python mock of the firmware in 450+ browser checks.
+- **Built to be trusted:** all safety logic is pure C++ with 170+ host unit tests, and the pages run against a Python mock of the firmware in 680+ browser checks.
 
 | Shows | Lighting desk |
 |---|---|
@@ -38,6 +41,7 @@ whatever the phone asks for. Everything fits in a small 3D-printed box with an X
 | Part | Notes |
 |---|---|
 | **Laser** | "ALIEN 500 mW RGB Laser Beam Line Scanner Projector" (sold as a DJ/disco/party DMX light). 10-channel DMX mode, address 1. |
+| **Moving head** (optional) | A 19-channel "bee eye" moving head with RGBW LEDs and two small lasers. Its channels come from the manual, see [docs/PROTOCOL.md](docs/PROTOCOL.md#fixtures-and-the-patch); not checked on the real fixture yet. Daisy-chain it from the laser's DMX out. |
 | **ESP32 dev board** | Classic ESP32 (ESP-32S / ESP32-WROOM-32 module, ESP32-D0WD-V3), 38-pin, USB-C, CP2102 USB-serial. The case is sized for a 48.5 × 25 mm board. |
 | **DMX module** | Velleman **VMA432**. Transmit only (no DE/RE or RX pin), male 3-pin XLR. |
 | **Cables** | 3 Dupont jumpers, and a 3-pin DMX cable to the laser (a short microphone cable works too). |
@@ -175,7 +179,7 @@ and drives the real pages against it. It also checks layouts at phone size.
 
 ## Roadmap
 
-- More fixtures: a moving head, and other DMX lights on the same controller (daisy-chained) or on a second node.
+- More fixture types, and a second node for lights far from the first.
 - Fades between show steps.
 - Firmware updates over the WiFi.
 

@@ -44,6 +44,7 @@ Lines are at most 255 bytes.
 | `pin reset` | serial | Restore the factory PIN from `include/wifi_secrets.h`. |
 | `patch <1-4> laser\|head <1-512>` | admin | Put a fixture in a slot. Blacks out everything. Moving or removing the laser makes its limit uncalibrated. |
 | `patch <1-4> none` | admin | Empty the slot. |
+| `patch set <a>,<b>,<c>,<d>` | admin | All 4 slots at once, each `none`, `laser:<addr>` or `head:<addr>`, e.g. `patch set laser:1,head:11,none,none`. One check, one save, one blackout, so fixtures can swap addresses. |
 | `cal start` / `cal stop` | admin | Start or abandon calibration of the laser (blacks out every fixture). |
 | `cal look square\|diamond\|spin` | owner | The pinned look during calibration. |
 | `lim mark low7\|high7\|left6\|right6` | owner | Mark the current CH7/CH6 position (only in `diamond` or `spin`). |
