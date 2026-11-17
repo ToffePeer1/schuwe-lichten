@@ -95,7 +95,7 @@ PREFIX_PATTERN = re.compile(r"f([1-4])")
 NUMBER_PATTERN = re.compile(r"[0-9]{1,3}")  # firmware parseNumber(token, 3)
 
 MAX_CLIENTS = 8  # WEBSOCKETS_SERVER_CLIENT_MAX
-MAX_LINE_LENGTH = 255  # "show save" lines can be long
+MAX_LINE_LENGTH = 1023  # "show save" with 24 steps that cue 4 fixtures is ~650 bytes
 MAX_WRONG_TRIES = 5
 LOCK_MAX_SECONDS = 3600
 PIN_PATTERN = re.compile(r"[0-9]{6,8}")
@@ -119,12 +119,29 @@ PATTERN_COUNT = 51
 MARK_NAMES = ("low7", "high7", "left6", "right6")
 
 # Library (docs/PROTOCOL.md, "Presets and shows")
-PRESET_SLOTS = 32
+PRESET_SLOTS = 48
 SHOW_SLOTS = 16
 MAX_STEPS = 24
 HOLD_MIN, HOLD_MAX = 1, 6000  # tenths of a second
 NAME_MAX_BYTES = 32
-STEP_PATTERN = re.compile(r"([0-9]{1,2}):([0-9]{1,4})")
+SHOW_MAX_DEPTH = 3         # a show in a show in a show
+SHOW_MAX_FLAT_STEPS = 64   # one pass with every nested show unfolded
+SHOW_MAX_LOOKS = 24        # different presets one show may use, nested shows included
+CUE_PATTERN = re.compile(r"([1-4])=([0-9]{1,3})")
+NESTED_PATTERN = re.compile(r"s([0-9]{1,3})")
+HOLD_PATTERN = re.compile(r"[0-9]{1,4}")
+
+def format_steps(show) -> str:
+    """Firmware formatSteps(): e.g. "1=3+2=7:50,s4,1=5+s2,:10"."""
+    parts = []
+    for step in show.steps:
+        cues = "+".join(f"{k + 1}={p}" for k, p in enumerate(step.cues) if p)
+        if step.sub:
+            parts.append(f"{cues}+s{step.sub}" if cues else f"s{step.sub}")
+        else:
+            parts.append(f"{cues}:{step.hold}")
+    return ",".join(parts)
+
 
 # (name shown on the admin page, pattern number, CH8 size, CH5 vertical flip)
 CHECK_STEPS = (
@@ -244,21 +261,40 @@ class Session:
 
 @dataclass(frozen=True)
 class Preset:
+    type: str  # "laser" or "head": the fixture type it is a look for
     name: str
     ch: tuple[int, ...]
 
 
 @dataclass(frozen=True)
+class Step:
+    cues: tuple[int, ...]  # preset slot per patch slot, 0 = leave that fixture alone
+    sub: int               # nested show played once through, 0 = none
+    hold: int              # tenths of a second; 0 when sub is set
+
+
+@dataclass(frozen=True)
 class Show:
     name: str
-    steps: tuple[tuple[int, int], ...]  # (preset slot, hold in tenths)
+    steps: tuple[Step, ...]
+
+
+@dataclass(frozen=True)
+class FlatStep:
+    looks: tuple[int, ...]  # preset slot per patch slot, 0 = unchanged
+    hold: int
 
 
 @dataclass
 class Playback:
+    """A show unfolded at "show play" (firmware ActiveShow): it plays from copies, never the library."""
     show: int
-    step: int  # 0-based
+    step: int  # 0-based, in the unfolded show
     started: float
+    flat: tuple[FlatStep, ...]
+    looks: dict[int, Preset]  # the presets it was built from, copied
+    shows: frozenset[int]     # the shows it was built from, nested ones included
+    driven: int               # bit k: the show drives the fixture in patch slot k
 
 
 @dataclass
@@ -342,12 +378,6 @@ class MockFirmware:
         i = self.laser_index()
         return None if i is None else self.loaded[i]
 
-    def set_laser(self, look: list[int], preset: int | None) -> None:
-        i = self.laser_index()
-        if i is not None:
-            self.fixtures[i] = list(look[:CHANNEL_COUNT]) + [0] * (MAX_FIXTURE_CHANNELS - CHANNEL_COUNT)
-            self.loaded[i] = preset
-
     def set_laser_preset(self, preset: int | None) -> None:
         i = self.laser_index()
         if i is not None:
@@ -390,19 +420,18 @@ class MockFirmware:
 
     def play_json(self) -> dict | None:
         p = self.play
-        show = self.shows.get(p.show) if p else None
-        if p is None or show is None:
+        if p is None:
             return None
-        hold = show.steps[p.step][1] / 10
+        hold = p.flat[p.step].hold / 10
         left = max(0, round((hold - (now() - p.started)) * 1000))
-        return {"show": p.show, "step": p.step, "steps": len(show.steps), "holdLeftMs": left}
+        return {"show": p.show, "step": p.step, "steps": len(p.flat), "holdLeftMs": left}
 
     def library_json(self) -> dict:
         return {
             "type": "library",
-            "presets": [{"slot": s, "name": p.name, "ch": list(p.ch)} for s, p in sorted(self.presets.items())],
-            "shows": [{"slot": s, "name": sh.name, "steps": [list(st) for st in sh.steps]}
-                      for s, sh in sorted(self.shows.items())],
+            "presets": [{"slot": s, "type": p.type, "name": p.name, "ch": list(p.ch[:FIXTURE_CHANNELS[p.type]])}
+                        for s, p in sorted(self.presets.items())],
+            "shows": [{"slot": s, "name": sh.name, "steps": format_steps(sh)} for s, sh in sorted(self.shows.items())],
         }
 
     def cal_json(self, client: Client) -> dict | None:
@@ -547,6 +576,11 @@ class MockFirmware:
         if kind in ("preset", "show"):  # parsed apart: names keep their case and may contain spaces
             self.library_command(client, kind, line, out)
             return
+        prefix = PREFIX_PATTERN.fullmatch(kind)
+        rest = line.split(None, 1)[1] if len(line.split()) > 1 else ""
+        if prefix and rest.split()[0].lower() == "preset":  # "f2 preset save|load ..."
+            self.library_command(client, "preset", rest, out, fixture=int(prefix[1]))
+            return
         words = line.lower().split()  # the firmware lower-cases every other command
         fixture = 0
         prefix = PREFIX_PATTERN.fullmatch(words[0])
@@ -602,7 +636,7 @@ class MockFirmware:
         for i, slot in enumerate(self.patch):
             if fixture and i != fixture - 1:
                 continue
-            if self.play is not None and i == laser:
+            if self.is_show_driving(i):
                 self.play = None  # nothing resumes it
             self.fixtures[i] = off_channels(slot.type, self.fixtures[i]) if is_off else [0] * MAX_FIXTURE_CHANNELS
             self.loaded[i] = None
@@ -640,9 +674,10 @@ class MockFirmware:
                 self.error(client, "auto-blocked" if value >= MODE_AUTO_MIN else "not-calibrated", out)
                 return
             self.fixtures[index][ch - 1] = self.clamp_channel(ch, value)
-            self.play = None  # a manual change takes over from a show (shows drive the laser)
         else:
             self.fixtures[index][ch - 1] = value  # the head has no limits (user decision)
+        if self.is_show_driving(index):
+            self.play = None  # a manual change takes over from the show
         self.loaded[index] = None
         out.state()
 
@@ -980,30 +1015,33 @@ class MockFirmware:
         slot = int(text)
         return slot if 1 <= slot <= count else "bad-slot"
 
-    def library_command(self, client: Client, kind: str, line: str, out: Out) -> None:
+    def library_command(self, client: Client, kind: str, line: str, out: Out, fixture: int = 0) -> None:
         words = line.split(" ")
         sub = words[1].lower() if len(words) > 1 else ""
+        if fixture and not (kind == "preset" and sub in ("save", "load")):
+            self.error(client, "bad-command", out)  # the prefix is only for preset save/load
+            return
         if kind == "preset" and sub == "save":
-            self.preset_save(client, words[2:], out)
+            self.preset_save(client, words[2:], fixture, out)
         elif kind == "show" and sub == "save":
             self.show_save(client, words[2:], out)
         elif kind == "show" and sub == "stop" and len(words) == 2:
             self.show_stop(out)
         elif len(words) == 3 and (kind, sub) in (("preset", "load"), ("preset", "delete"), ("show", "play"),
                                                   ("show", "delete")):
-            slot = self.parse_slot(words[2], PRESET_SLOTS if kind == "preset" else SHOW_SLOTS)
-            if isinstance(slot, str):
-                self.error(client, slot, out)
-                return
-            action = {"load": self.preset_load, "play": self.show_play}.get(sub)
-            if action is None:
-                action = self.preset_delete if kind == "preset" else self.show_delete
-            action(client, slot, out)
+            if not words[2].isdigit():
+                self.error(client, "bad-command", out)
+            elif kind == "preset" and sub == "load":
+                self.preset_load(client, int(words[2]), fixture, out)
+            else:
+                action = {("preset", "delete"): self.preset_delete, ("show", "play"): self.show_play,
+                          ("show", "delete"): self.show_delete}[(kind, sub)]
+                action(client, int(words[2]), out)
         else:
             self.error(client, "bad-command", out)
 
     def library_blocked(self, client: Client, out: Out, needs_output: bool) -> bool:
-        """Sessions lock the whole library; IO0 blocks only what would drive the laser."""
+        """Sessions lock the whole library; IO0 blocks only what would drive a fixture."""
         if self.cal is not None:
             self.error(client, "calibration-busy", out)
             return True
@@ -1012,175 +1050,301 @@ class MockFirmware:
             return True
         return False
 
-    def look_of(self, preset: Preset) -> list[int]:
-        """A stored look as it may go out now: auto/sound never, CH6/CH7 clamped to today's limits."""
-        look = [self.clamp_channel(i + 1, v) for i, v in enumerate(preset.ch)]
-        if look[0] >= MODE_AUTO_MIN:
-            look[0] = 0
-        return look
-
-    def needs_calibration(self, preset: Preset) -> bool:
-        return preset.ch[0] >= MODE_ON_MIN and not self.limits.calibrated
-
     def library_changed(self, out: Out) -> None:
         out.library()
         out.state()
 
-    def preset_save(self, client: Client, args: list[str], out: Out) -> None:
-        if not args:
+    def is_show_driving(self, index: int) -> bool:
+        return self.play is not None and (self.play.driven >> index) & 1 == 1
+
+    def typed_look(self, preset: Preset) -> list[int]:
+        """Firmware typedLook(): a laser look inside today's limits, a head look as it is."""
+        if preset.type == "laser":
+            return self.reclamped(list(preset.ch[:CHANNEL_COUNT])) + [0] * (MAX_FIXTURE_CHANNELS - CHANNEL_COUNT)
+        return list(preset.ch) + [0] * (MAX_FIXTURE_CHANNELS - len(preset.ch))
+
+    def stored_look(self, index: int) -> list[int]:
+        """Firmware sanitizeLook(): fixture `index`'s look as a preset stores it."""
+        look = list(self.fixtures[index][:MAX_FIXTURE_CHANNELS])
+        if self.patch[index].type == "laser":
+            look[:CHANNEL_COUNT] = [self.clamp_channel(i + 1, v) for i, v in enumerate(look[:CHANNEL_COUNT])]
+            if look[0] >= MODE_AUTO_MIN:
+                look[0] = 0
+        return look
+
+    def laser_look_error(self, preset: Preset) -> str | None:
+        """Rule 7 and rule 8 for a laser look from the library."""
+        mode = preset.ch[0]
+        if mode >= MODE_AUTO_MIN:
+            return "auto-blocked"
+        return "not-calibrated" if mode >= MODE_ON_MIN and not self.limits.calibrated else None
+
+    def preset_save(self, client: Client, args: list[str], fixture: int, out: Out) -> None:
+        """Firmware order: session, slot, name, a preset a show uses keeps its type, the fixture, the save."""
+        if not args or not args[0].isdigit() or len(args) < 2:
             self.error(client, "bad-command", out)
-            return
-        slot = self.parse_slot(args[0], PRESET_SLOTS)
-        if isinstance(slot, str):
-            self.error(client, slot, out)
-            return
-        name = " ".join(args[1:]).strip()
-        if not self.is_valid_name(name):
-            self.error(client, "bad-name", out)
             return
         if self.library_blocked(client, out, needs_output=False):
             return
-        if self.laser_index() is None:
-            self.error(client, "no-fixture", out)  # presets hold laser looks for now
+        slot = int(args[0])
+        index = fixture - 1 if fixture else 0
+        kind = self.patch[index].type
+        if not 1 <= slot <= PRESET_SLOTS:
+            self.error(client, "bad-slot", out)
+            return
+        if not self.is_valid_name(" ".join(args[1:]).strip()):
+            self.error(client, "bad-name", out)
+            return
+        old = self.presets.get(slot)
+        if old is not None and old.type != kind and self.is_preset_in_use(slot):
+            self.error(client, "preset-in-use", out)  # its cue would reach nothing otherwise
+            return
+        if kind == "none":
+            self.error(client, "no-fixture", out)
             return
         if not self.save(client, out, quiet=True):
             return
-        look = self.stored_look()
-        self.presets[slot] = Preset(name, tuple(look))
-        self.preset_saved(slot, look)
+        look = self.stored_look(index)
+        self.presets[slot] = Preset(kind, " ".join(args[1:]).strip(), tuple(look[:FIXTURE_CHANNELS[kind]]))
+        self.preset_saved(slot, index, look)
         self.library_changed(out)
 
-    def stored_look(self) -> list[int]:
-        """Firmware sanitizeLook(): the laser's current look as a preset stores it."""
-        look = [self.clamp_channel(i + 1, v) for i, v in enumerate(self.channels)]
-        if look[0] >= MODE_AUTO_MIN:
-            look[0] = 0
-        return look
+    def preset_saved(self, slot: int, index: int, look: list[int]) -> None:
+        """Firmware presetSaved(): a show built from the preset has a stale copy and stops."""
+        if self.play is not None and slot in self.play.looks:
+            self.play = None  # the looks stay
+        for k in range(MAX_FIXTURES):
+            if k == index and not self.is_show_driving(k) and self.stored_look(k) == look:
+                self.loaded[k] = slot
+            elif self.loaded[k] == slot:
+                self.loaded[k] = None  # the preset changed under it
 
-    def preset_saved(self, slot: int, look: list[int]) -> None:
-        """Firmware presetSaved(): a show using the slot has a stale copy, so it stops."""
-        if self.laser_index() is None:
+    def preset_load(self, client: Client, slot: int, fixture: int, out: Out) -> None:
+        """Firmware order: the slot, then session, IO0, the fixture, its type, rule 7/8."""
+        if not 1 <= slot <= PRESET_SLOTS:
+            self.error(client, "bad-slot", out)
             return
-        p = self.play
-        if p is not None and p.show in self.shows and any(s == slot for s, _ in self.shows[p.show].steps):
-            self.play = None  # the current look stays
-        if self.play is not None:
-            return  # the show keeps marking its own step
-        if self.stored_look() == look:  # after a blackout the state can hold CH7 below the limit
-            self.set_laser_preset(slot)
-        elif self.preset == slot:
-            self.set_laser_preset(None)
-
-    def preset_load(self, client: Client, slot: int, out: Out) -> None:
-        """Firmware order: the slot, then session, IO0, the laser, rule 8."""
         preset = self.presets.get(slot)
         if preset is None:
             self.error(client, "empty-slot", out)
             return
         if self.library_blocked(client, out, needs_output=True):
             return
-        if self.laser_index() is None:
+        index = fixture - 1 if fixture else next((i for i, s in enumerate(self.patch) if s.type == preset.type), None)
+        if index is None or self.patch[index].type == "none":
             self.error(client, "no-fixture", out)
             return
-        if self.needs_calibration(preset):
-            self.error(client, "not-calibrated", out)
+        if self.patch[index].type != preset.type:
+            self.error(client, "wrong-type", out)
             return
-        self.play = None  # loading a preset takes over from a running show
-        self.set_laser(self.look_of(preset), slot)
+        error = self.laser_look_error(preset) if preset.type == "laser" else None
+        if error:
+            self.error(client, error, out)
+            return
+        if self.is_show_driving(index):
+            self.play = None  # loading takes over from the show
+        self.fixtures[index] = self.typed_look(preset)
+        self.loaded[index] = slot
         out.state()
+
+    def is_preset_in_use(self, slot: int) -> bool:
+        return any(slot in step.cues for show in self.shows.values() for step in show.steps)
 
     def preset_delete(self, client: Client, slot: int, out: Out) -> None:
         if self.library_blocked(client, out, needs_output=False):
             return
+        if not 1 <= slot <= PRESET_SLOTS:
+            self.error(client, "bad-slot", out)
+            return
         if slot not in self.presets:
             self.error(client, "empty-slot", out)
             return
-        if any(p == slot for show in self.shows.values() for p, _ in show.steps):
+        if self.is_preset_in_use(slot):
             self.error(client, "preset-in-use", out)
             return
         if not self.save(client, out, quiet=True):
             return
         del self.presets[slot]
-        if self.preset == slot:
-            self.set_laser_preset(None)
+        self.loaded = [None if p == slot else p for p in self.loaded]
         self.library_changed(out)
 
-    def parse_steps(self, text: str) -> tuple[tuple[int, int], ...] | None:
-        parts = text.split(",")
-        if not 1 <= len(parts) <= MAX_STEPS:
+    @staticmethod
+    def parse_steps(text: str) -> tuple[tuple[Step, ...], tuple[bool, ...]] | None:
+        """Firmware parseSteps(): syntax only. Returns the steps and, per step, whether it had a hold."""
+        steps, holds = [], []
+        for part in text.lower().split(","):
+            if len(steps) == MAX_STEPS:
+                return None
+            body, colon, hold_text = part.partition(":")
+            if colon and not HOLD_PATTERN.fullmatch(hold_text):
+                return None
+            cues, sub = [0] * MAX_FIXTURES, 0
+            for item in body.split("+") if body else []:
+                cue, nested = CUE_PATTERN.fullmatch(item), NESTED_PATTERN.fullmatch(item)
+                if cue and int(cue[2]) and not cues[int(cue[1]) - 1]:
+                    cues[int(cue[1]) - 1] = int(cue[2])
+                elif nested and int(nested[1]) and not sub:
+                    sub = int(nested[1])
+                else:
+                    return None
+            if not body and not colon:
+                return None
+            steps.append(Step(tuple(cues), sub, int(hold_text) if colon else 0))
+            holds.append(bool(colon))
+        return tuple(steps), tuple(holds)
+
+    def check_steps(self, slot: int, steps: tuple[Step, ...], holds: tuple[bool, ...]) -> str | None:
+        """Firmware checkSteps(): timing, cue presets exist, the nested show exists."""
+        for step, has_hold in zip(steps, holds):
+            if has_hold == bool(step.sub):
+                return "bad-steps"
+            if not step.sub and not HOLD_MIN <= step.hold <= HOLD_MAX:
+                return "bad-steps"
+            if any(cue and cue not in self.presets for cue in step.cues):
+                return "bad-steps"
+            if step.sub and step.sub != slot and step.sub not in self.shows:
+                return "bad-steps"
+        return None
+
+    def unfold(self, slot: int, replaced: int = 0, replacement: Show | None = None):
+        """Firmware Unfolder: (error, flat steps, looks, shows). Cues wait in `pending` for the next flat
+        step, so a nested step's cues land on the nested show's first step (whose own cues win)."""
+        flat: list[FlatStep] = []
+        looks: dict[int, Preset] = {}
+        shows: set[int] = set()
+        pending = [0] * MAX_FIXTURES
+
+        def show_at(n: int) -> Show | None:
+            return replacement if n == replaced else self.shows.get(n)
+
+        def walk(n: int, depth: int, path: frozenset[int]) -> str | None:
+            show = show_at(n) if 1 <= n <= SHOW_SLOTS else None
+            if show is None:
+                return "bad-steps"
+            if n in path:
+                return "show-loop"
+            if depth > SHOW_MAX_DEPTH:
+                return "show-too-long"
+            shows.add(n)
+            for step in show.steps:
+                for k, cue in enumerate(step.cues):
+                    if cue:
+                        if cue not in self.presets:
+                            return "bad-steps"
+                        if cue not in looks:
+                            if len(looks) == SHOW_MAX_LOOKS:
+                                return "show-too-long"
+                            looks[cue] = self.presets[cue]
+                        pending[k] = cue
+                if step.sub:
+                    error = walk(step.sub, depth + 1, path | {n})
+                    if error:
+                        return error
+                    continue
+                if len(flat) == SHOW_MAX_FLAT_STEPS:
+                    return "show-too-long"
+                flat.append(FlatStep(tuple(pending), step.hold))
+                pending[:] = [0] * MAX_FIXTURES
             return None
-        steps = []
-        for part in parts:
-            m = STEP_PATTERN.fullmatch(part)
-            if m is None:
-                return None
-            slot, hold = int(m[1]), int(m[2])
-            if slot not in self.presets or not HOLD_MIN <= hold <= HOLD_MAX:
-                return None
-            steps.append((slot, hold))
-        return tuple(steps)
+
+        error = walk(slot, 1, frozenset())
+        return error, tuple(flat), looks, frozenset(shows)
 
     def show_save(self, client: Client, args: list[str], out: Out) -> None:
-        if len(args) < 2:
+        """Firmware order: session, slot, name, steps, then this show and every show nesting it must unfold."""
+        if len(args) < 3 or not args[0].isdigit():
             self.error(client, "bad-command", out)
             return
-        slot = self.parse_slot(args[0], SHOW_SLOTS)
-        if isinstance(slot, str):
-            self.error(client, slot, out)
+        if self.library_blocked(client, out, needs_output=False):
             return
-        steps = self.parse_steps(args[1])
-        if steps is None:
-            self.error(client, "bad-steps", out)
-            return
+        slot = int(args[0])
         name = " ".join(args[2:]).strip()
+        if not 1 <= slot <= SHOW_SLOTS:
+            self.error(client, "bad-slot", out)
+            return
         if not self.is_valid_name(name):
             self.error(client, "bad-name", out)
             return
-        if self.library_blocked(client, out, needs_output=False) or not self.save(client, out, quiet=True):
+        parsed = self.parse_steps(args[1])
+        error = "bad-steps" if parsed is None else self.check_steps(slot, *parsed)
+        candidate = Show(name, parsed[0]) if parsed else None
+        for other in [slot] + [n for n in sorted(self.shows) if n != slot]:
+            if error:
+                break
+            error = self.unfold(other, slot, candidate)[0]
+        if error:
+            self.error(client, error, out)
             return
-        self.shows[slot] = Show(name, steps)
-        if self.play is not None and self.play.show == slot:
-            self.play = None  # a playing copy would be stale; the current look stays
+        if not self.save(client, out, quiet=True):
+            return
+        self.shows[slot] = candidate
+        self.show_changed(slot)
         self.library_changed(out)
 
+    def show_changed(self, slot: int) -> None:
+        """Firmware showChanged(): a playing show built from this one (also nested) is stale."""
+        if self.play is not None and slot in self.play.shows:
+            self.play = None  # the looks stay
+
     def show_play(self, client: Client, slot: int, out: Out) -> None:
-        """Firmware order: the slot, then session, IO0, the laser, rule 8 for every step."""
-        show = self.shows.get(slot)
-        if show is None:
+        """Firmware order: the slot, then session, IO0, unfolds, rule 7/8 for cues that reach the laser, drives something."""
+        if not 1 <= slot <= SHOW_SLOTS:
+            self.error(client, "bad-slot", out)
+            return
+        if slot not in self.shows:
             self.error(client, "empty-slot", out)
             return
         if self.library_blocked(client, out, needs_output=True):
             return
-        if self.laser_index() is None:
-            self.error(client, "no-fixture", out)
+        error, flat, looks, shows = self.unfold(slot)
+        if error:
+            self.error(client, "empty-slot", out)  # firmware: an ActiveShow with no steps
             return
-        if any(self.needs_calibration(self.presets[p]) for p, _ in show.steps):
-            self.error(client, "not-calibrated", out)
+        driven = 0
+        for step in flat:
+            for k, cue in enumerate(step.looks):
+                if cue and looks[cue].type == self.patch[k].type:
+                    look_error = self.laser_look_error(looks[cue]) if looks[cue].type == "laser" else None
+                    if look_error:
+                        self.error(client, look_error, out)
+                        return
+                    driven |= 1 << k
+        if not driven:
+            self.error(client, "no-fixture", out)  # nothing it is made for is patched
             return
-        self.play = Playback(show=slot, step=0, started=now())
-        self.load_step(show)
+        self.play = Playback(slot, 0, now(), flat, looks, shows, driven)
+        self.apply_step()
         out.state()
 
-    def load_step(self, show: Show) -> None:
-        slot = show.steps[self.play.step][0]
-        self.set_laser(self.look_of(self.presets[slot]), slot)
+    def apply_step(self) -> None:
+        """Puts the current step's cues on the fixtures whose type they are for."""
+        p = self.play
+        for k, cue in enumerate(p.flat[p.step].looks):
+            if cue and p.looks[cue].type == self.patch[k].type:
+                self.fixtures[k] = self.typed_look(p.looks[cue])
+                self.loaded[k] = cue
 
     def show_stop(self, out: Out) -> None:
-        """Stops advancing and keeps the current look."""
+        """Stops advancing and keeps the current looks."""
         self.play = None
         out.state()
 
     def show_delete(self, client: Client, slot: int, out: Out) -> None:
         if self.library_blocked(client, out, needs_output=False):
             return
+        if not 1 <= slot <= SHOW_SLOTS:
+            self.error(client, "bad-slot", out)
+            return
         if slot not in self.shows:
             self.error(client, "empty-slot", out)
+            return
+        if any(step.sub == slot for show in self.shows.values() for step in show.steps):
+            self.error(client, "show-in-use", out)
             return
         if not self.save(client, out, quiet=True):
             return
         del self.shows[slot]
-        if self.play is not None and self.play.show == slot:
-            self.play = None  # keeps the current look
+        self.show_changed(slot)
         self.library_changed(out)
 
     def cmd_lib(self, client: Client, args: list[str], out: Out) -> None:
@@ -1193,17 +1357,12 @@ class MockFirmware:
         p = self.play
         if p is None:
             return
-        show = self.shows.get(p.show)
-        if show is None:
-            self.play = None
-            out.state()
-            return
-        hold = show.steps[p.step][1] / 10
-        if t - p.started >= hold and self.laser_index() is not None:
+        hold = p.flat[p.step].hold / 10
+        if t - p.started >= hold:
             late = t - p.started - hold
-            p.step = (p.step + 1) % len(show.steps)  # the show loops
-            p.started = t - late if late < show.steps[p.step][1] / 10 else t  # keeps the schedule
-            self.load_step(show)
+            p.step = (p.step + 1) % len(p.flat)  # the show loops
+            p.started = t - late if late < p.flat[p.step].hold / 10 else t  # keeps the schedule
+            self.apply_step()
             out.state()
 
     # --- timers --------------------------------------------------------------------
@@ -1341,9 +1500,10 @@ class MockFirmware:
             "wrongTries": self.wrong_tries,
             "lockedFor": max(0.0, round(self.lock_until - now(), 2)),
             "timing": asdict(self.timing),
-            "presets": {s: {"name": p.name, "ch": list(p.ch)} for s, p in self.presets.items()},
-            "shows": {s: {"name": sh.name, "steps": [list(st) for st in sh.steps]} for s, sh in self.shows.items()},
-            "play": asdict(self.play) if self.play else None,
+            "presets": {s: {"type": p.type, "name": p.name, "ch": list(p.ch)} for s, p in self.presets.items()},
+            "shows": {s: {"name": sh.name, "steps": format_steps(sh)} for s, sh in self.shows.items()},
+            "play": {"show": self.play.show, "step": self.play.step, "steps": len(self.play.flat),
+                     "driven": self.play.driven} if self.play else None,
             "preset": self.preset,
             "libraryReset": self.library_reset,
         }
