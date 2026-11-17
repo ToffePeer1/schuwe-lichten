@@ -112,6 +112,15 @@ input[type=range] { flex: 1; min-width: 0; height: 30px; margin: 0; accent-color
 .lang button { font: 800 11px/1 var(--sans); letter-spacing: .06em; background: none; border: 0; color: var(--faint); padding: 7px 12px; min-height: 30px; }
 .lang button.on { background: var(--raised); color: var(--text); }
 
+/* ---- fixture switcher (side panel, 2+ fixtures) and the head's bank toggle (header) ---- */
+.fxsw { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: var(--surface); border-radius: 14px; padding: 3px; }
+.fxsw button { border: 0; background: none; color: var(--muted); font: 800 11.5px/1.15 var(--sans); border-radius: 11px; padding: 3px 6px; min-height: 34px; min-width: 0; }
+.fxsw button.on { background: var(--text); color: var(--bg); }
+.side.multi .big-off { min-height: 60px; }
+.bank { flex: none; display: inline-grid; grid-auto-flow: column; gap: 3px; background: var(--surface); border-radius: 12px; padding: 3px; }
+.bank button { border: 0; background: none; color: var(--muted); font: 800 13px/1 var(--sans); border-radius: 9px; padding: 0 12px; min-height: 32px; white-space: nowrap; }
+.bank button.on { background: var(--text); color: var(--bg); }
+
 /* ---- body + views ---- */
 .body { flex: 1; min-height: 0; position: relative; }
 .view { position: absolute; inset: 0; }
@@ -228,6 +237,7 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
 .strip { display: flex; flex-direction: column; align-items: center; min-height: 0; min-width: 0; padding: 5px 0 4px; border-radius: 8px; background: var(--desk); }
 .strip.wide { grid-column: span 2; }
 .strip .num { font-size: 9px; line-height: 1.2; color: var(--desk-dim); letter-spacing: .1em; }
+.strip .num.untested::after { content: ""; display: inline-block; width: 4px; height: 4px; margin-left: 3px; border-radius: 50%; background: var(--amber); vertical-align: 1px; }
 .strip .lbl { font: 700 9.5px/1.3 var(--mono); color: var(--desk-text); letter-spacing: .02em; background: none; border: 0; border-bottom: 1px dotted #6a6357; padding: 2px 3px; border-radius: 4px; white-space: nowrap; }
 .strip .lbl.open { background: var(--amber); color: #1a1200; border-bottom-color: transparent; }
 .strip .lcd { font-size: 15px; width: 44px; text-align: center; padding: 1px 0; margin: 4px 0 2px; }
@@ -237,6 +247,8 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
 .track .zones { position: absolute; right: 1px; top: 6px; bottom: 6px; width: 4px; display: flex; flex-direction: column-reverse; gap: 1px; }
 .track .zones span { background: #3a352d; border-radius: 1px; }
 .track .zones span.cur { background: var(--amber); box-shadow: 0 0 4px rgba(255, 176, 0, .6); }
+.track .fill { position: absolute; left: 50%; bottom: 6px; width: 6px; transform: translateX(-50%); border-radius: 3px; background: var(--tint); opacity: .85;
+  box-shadow: 0 0 6px var(--tint); pointer-events: none; }
 .track .detent { position: absolute; left: 50%; width: 22px; height: 2px; margin-left: -11px; background: #4b453b; transform: translateY(50%); }
 .track .detent.fine { width: 12px; margin-left: -6px; height: 1px; background: #38332c; }
 .track .cap { position: absolute; left: 50%; width: 40px; height: 24px; transform: translate(-50%, 50%); background: linear-gradient(#55524b, #2c2a26 55%, #232120);
@@ -279,7 +291,8 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
 .guide { height: 100%; display: grid; grid-template-columns: 154px minmax(0, 1fr); gap: 10px; }
 .gnav { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 .gnav button { flex: none; text-align: left; border: 0; background: none; color: var(--muted); font: 700 13px/1.2 var(--sans); padding: 7px 10px; border-radius: 10px; display: flex; gap: 8px; align-items: baseline; min-height: 32px; }
-.gnav button b { font: 700 10px var(--mono); color: var(--faint); min-width: 16px; }
+.gnav button b { flex: none; font: 700 10px var(--mono); color: var(--faint); min-width: 16px; white-space: nowrap; }
+.gnav.ranges button b { min-width: 30px; }
 .gnav button.on { background: var(--surface); color: var(--text); }
 .gnav button.on b { color: var(--amber); }
 .garticle { min-height: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--surface); border-radius: 18px; padding: 14px 16px 16px; -webkit-user-select: text; user-select: text; }
@@ -295,6 +308,8 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
 .illus figcaption { font: 600 11px/1.3 var(--sans); color: var(--muted); text-align: center; padding: 0 6px 7px; }
 .gwarn { font-size: 12.5px; line-height: 1.4; color: var(--amber-text); background: var(--amber-bg); border-radius: 10px; padding: 8px 10px; margin: 6px 0 8px; }
 .gnote { font-size: 12.5px; line-height: 1.4; color: var(--muted); margin: 0 0 6px; }
+.garticle .gch { margin: 12px 0 2px; }
+.garticle .gch b { font: 700 13px var(--mono); color: var(--amber); }
 
 /* ---- portrait / narrow: side panel becomes a bottom bar ---- */
 @media (max-width: 640px), (orientation: portrait) and (max-width: 900px) {
@@ -304,6 +319,8 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
   .nav { gap: 16px; }
   .nav button { font-size: 18px; padding: 8px 0; }
   .side { grid-column: 1; grid-row: 2; flex-direction: row; flex-wrap: wrap; align-items: stretch; padding: 8px 14px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+  .fxsw { flex: 1 1 100%; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+  .side.multi .big-off { min-height: 56px; }
   .now { flex: 1 1 100%; padding: 8px 12px; border-radius: 16px; }
   .now .nm { font-size: 15px; }
   .now .sw { display: none; }
@@ -342,6 +359,9 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
         <button type="button" data-tab="guide" data-t="nav.guide">Uitleg</button>
       </nav>
       <span class="spacer"></span>
+      <div class="bank" id="bankSeg" role="group" aria-label="Kanalen van het hoofd" data-t-aria="bank.aria" hidden>
+        <button type="button" data-bank="move" data-t="bank.move">Beweging</button><button type="button" data-bank="color" data-t="bank.color">Kleur</button>
+      </div>
       <button type="button" class="tabact lockable" id="tabAction" hidden></button>
       <span class="conn" id="conn" role="status">Verbinden…</span>
     </header>
@@ -412,7 +432,8 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
     </div>
   </div>
 
-  <aside class="side">
+  <aside class="side" id="side">
+    <div class="fxsw" id="fxSwitch" role="group" aria-label="Lichten" data-t-aria="fx.aria" hidden></div>
     <div class="now" id="now">
       <div class="label" id="nowLabel">Laser</div>
       <div class="nm" id="nowName">–</div>
@@ -469,7 +490,7 @@ const STR = {
 
     'banner.stop': 'Stopknop (IO0) ingedrukt: de laser blijft uit tot je hem loslaat.',
     'banner.noLaser': 'Er staat geen laser in de patch. Voeg hem toe in',
-    'banner.noLaserEnd': '→ Instellingen.',
+    'banner.noLaserEnd': '→ Lichten.',
     'banner.toAdmin': 'Naar Beheer',
     'banner.uncal': 'De laser kan pas aan na het instellen van de hoogtegrens.',
     'banner.uncalReset': 'De instellingen waren beschadigd en zijn gewist. De laser kan pas aan na het instellen van de hoogtegrens.',
@@ -499,7 +520,7 @@ const STR = {
     'side.locked': 'Bediening vergrendeld',
     'side.lockedHint': 'Met UIT stop je hem altijd.',
     'side.noLaser': 'Geen laser',
-    'side.noLaserHint': 'Niet in de patch. Voeg hem toe in Beheer → Instellingen.',
+    'side.noLaserHint': 'Niet in de patch. Voeg hem toe in Beheer → Lichten.',
     'side.playing': 'Show loopt',
     'side.playMeta': 'Stap {step}/{steps}: {preset} · nog {left} s',
     'side.now': 'Nu',
@@ -512,6 +533,12 @@ const STR = {
     'side.save': '＋ Bewaar als preset',
     'side.off': 'UIT',
     'side.admin': 'Beheer',
+    'side.headOn': 'Aan',
+    'side.headOff': 'Uit',
+    'side.headStart': 'Tik ZET AAN op de Lichttafel.',
+    'side.headDimmer': 'Dimmer {pct} %',
+    'side.headStrobe': 'strobe {hz} Hz',
+    'side.headLasers': 'lasers aan',
 
     'look.spins': 'draait',
     'look.flips': 'spiegelt',
@@ -701,6 +728,61 @@ const STR = {
     'zone.fast': 'snel',
     'zone.medium': 'middel',
     'zone.slow': 'traag',
+    'zone.none': 'Geen',
+    'zone.hz': '{hz} Hz',
+    'zone.macroDmx': 'DMX',
+    'zone.macroAuto': 'Beweegt zelf',
+    'zone.macroSound': 'Op geluid',
+    'zone.macroReset': 'Reset',
+
+    'fx.aria': 'Lichten',
+    'fx.laser': 'Laser',
+    'fx.head': 'Bewegend hoofd',
+    'fx.headN': 'Bewegend hoofd {n}',
+    'bank.aria': 'Kanalen van het hoofd',
+    'bank.move': 'Beweging',
+    'bank.color': 'Kleur',
+    'head.power': 'Hoofd aan of uit',
+    'head.power.short': 'LICHT',
+    'head.power.name': 'Aan / uit',
+    'head.1.short': 'PAN',
+    'head.1.name': 'Pan (rond draaien)',
+    'head.2.short': 'PAN-SNEL',
+    'head.2.name': 'Pan-snelheid',
+    'head.3.short': 'BIJENOOG',
+    'head.3.name': 'Bijenoog-motor',
+    'head.4.short': 'MOTOR 1',
+    'head.4.name': 'Motor 1',
+    'head.5.short': 'MOTOR 2',
+    'head.5.name': 'Motor 2',
+    'head.6.short': 'MOTOR 3',
+    'head.6.name': 'Motor 3',
+    'head.7.short': 'DIMMER',
+    'head.7.name': 'Dimmer',
+    'head.8.short': 'STROBE',
+    'head.8.name': 'Strobe',
+    'head.9.short': 'OOG R',
+    'head.9.name': 'Bijenoog rood',
+    'head.10.short': 'OOG G',
+    'head.10.name': 'Bijenoog groen',
+    'head.11.short': 'OOG B',
+    'head.11.name': 'Bijenoog blauw',
+    'head.12.short': 'OOG W',
+    'head.12.name': 'Bijenoog wit',
+    'head.13.short': 'STRAAL R',
+    'head.13.name': 'Straal rood',
+    'head.14.short': 'STRAAL G',
+    'head.14.name': 'Straal groen',
+    'head.15.short': 'STRAAL B',
+    'head.15.name': 'Straal blauw',
+    'head.16.short': 'STRAAL W',
+    'head.16.name': 'Straal wit',
+    'head.17.short': 'LASER R',
+    'head.17.name': 'Rode laser',
+    'head.18.short': 'LASER G',
+    'head.18.name': 'Groene laser',
+    'head.19.short': 'MACRO',
+    'head.19.name': 'Macro',
 
     'guide.test': 'TESTEN',
     'guide.basis.title': 'Zo werkt het',
@@ -708,7 +790,7 @@ const STR = {
     'guide.basis.p2': '**Presets** zijn opgeslagen looks van alle 10 kanalen. Tik een tegel en de laser laat hem zien. Een nieuwe maak je met ＋ Nieuw (de snelbouwer), of stel de laser in op de Lichttafel en tik ＋ Bewaar als preset.',
     'guide.basis.p3': '**Shows** spelen presets na elkaar, elk zo lang als jij wilt, en beginnen dan opnieuw. De ESP32 speelt de show zelf: je telefoon mag op slot, naar een andere app of van de wifi.',
     'guide.basis.p4': '**Lichttafel**: alle 10 kanalen met de hand. Tik op een naam voor uitleg. Een schuif bewegen neemt het over van een lopende show.',
-    'guide.basis.p5': '**Beheer** (met pincode): de hoogtegrens instellen, kanalen uitproberen in Debug, het DMX-adres en de pincode.',
+    'guide.basis.p5': '**Beheer** (met pincode): de hoogtegrens instellen, kanalen uitproberen in Debug, de lichten (DMX-adressen) en de pincode.',
     'guide.basis.p6': '[TEST] betekent: nog niet op de echte laser bevestigd. Probeer het uit in Beheer → Debug.',
     'guide.veilig.title': 'Veiligheid',
     'guide.veilig.p1': '**UIT** zet de laser meteen uit, vanaf elke telefoon, ook tijdens een show, kalibratie of debugsessie.',
@@ -772,6 +854,53 @@ const STR = {
     'guide.ch10.what': 'Doorgetrokken lijnen of alleen puntjes, en hoe snel de laser tekent.',
     'guide.ch10.z0': 'Lijnen. 0 is het snelst; hoger = langzamer.',
     'guide.ch10.z1': 'Alleen punten. 128 is het snelst; hoger = langzamer.',
+    'hguide.intro.title': 'Het hoofd',
+    'hguide.intro.p1': 'Het bewegend hoofd heeft 19 kanalen. Alles hier komt uit de handleiding en is nog niet op het echte hoofd gecontroleerd. [TEST]',
+    'hguide.intro.p2': '**Lichttafel**: twee banken, te wisselen rechtsboven. **Beweging** heeft pan, de motoren, dimmer, strobe en macro; **Kleur** het bijenoog, de straal en de twee lasers. Tik op een naam voor uitleg.',
+    'hguide.intro.p3': '**ZET AAN** geeft de laatste look van het hoofd terug die deze telefoon zag, of anders de dimmer vol met een wit bijenoog. **UIT** en de stopknop (IO0) zetten ook het hoofd uit; pan en motoren blijven staan.',
+    'hguide.intro.p4': 'Het hoofd heeft geen grenzen: de hoogtegrens geldt alleen voor de laser. Presets en shows voor het hoofd komen later.',
+    'hguide.pan.title': 'Pan en snelheid',
+    'hguide.pan.p': 'Pan draait het hele hoofd rond. De snelheid bepaalt hoe vlot het naar een nieuwe stand gaat.',
+    'hguide.eye.title': 'Bijenoog-motor',
+    'hguide.eye.p': 'Het bijenoog is de voorkant met de kleine lenzen. Deze motor zet het in een hoek of laat het draaien.',
+    'hguide.motors.title': 'Motoren',
+    'hguide.motors.p': 'Drie motoren van 0 tot 180°. Waarschijnlijk kantelen ze het hoofd (tilt); wat elke motor precies doet, zie je pas op het echte hoofd.',
+    'hguide.dim.title': 'Dimmer en strobe',
+    'hguide.dim.p': 'De dimmer is de hoofdkraan voor al het licht. Strobe laat het licht knipperen.',
+    'hguide.color.title': 'Kleuren',
+    'hguide.color.p': 'Het bijenoog (CH9–12) en de straal (CH13–16) hebben elk rood, groen, blauw en wit. Ze mengen: rood + groen = geel. Zonder dimmer (CH7) blijft alles donker.',
+    'hguide.lasers.title': 'Lasers',
+    'hguide.lasers.p': 'Volgens de handleiding een rode en een groene "LS", waarschijnlijk kleine lasers. Ze zijn veel zwakker dan de grote laser en hebben geen grens.',
+    'hguide.macro.title': 'Macro',
+    'hguide.macro.p': 'Laat het hoofd zelf bewegen of op muziek reageren. Op 0–50 bepaalt de lichttafel alles.',
+    'hguide.note': 'Uit de handleiding van het hoofd, nog niet op het echte hoofd gecontroleerd.',
+    'hguide.power.what': 'Zet het hoofd aan of uit. Uit zet dimmer, strobe, kleuren, lasers en macro op 0; pan en motoren blijven staan.',
+    'hguide.power.off': 'Dimmer en lasers op 0: donker.',
+    'hguide.power.on': 'Een tik geeft je laatste look terug, of de dimmer vol met een wit bijenoog.',
+    'hguide.1.what': 'Draait het hele hoofd rond, om de staande as.',
+    'hguide.1.z0': '0 tot 540°: anderhalve keer rond. 128 is ongeveer het midden.',
+    'hguide.2.what': 'Hoe snel het hoofd naar een nieuwe pan-stand draait.',
+    'hguide.2.z0': '0 is het snelst, 255 het langzaamst.',
+    'hguide.3.what': 'Zet het bijenoog in een hoek, of laat het draaien.',
+    'hguide.3.z0': 'Vaste hoek, 0 tot 180°.',
+    'hguide.3.z1': 'Draait terug, van langzaam naar snel.',
+    'hguide.3.z2': 'Draait vooruit, van langzaam naar snel.',
+    'hguide.motor.what': 'Motor {n}: een hoek van 0 tot 180°, waarschijnlijk kantelen (tilt).',
+    'hguide.motor.z0': '0 tot 180°.',
+    'hguide.7.what': 'Hoe fel al het licht samen is. Op 0 is het hoofd donker, welke kleur je ook kiest.',
+    'hguide.7.z0': 'Donker (0) tot vol (255).',
+    'hguide.8.what': 'Laat het licht knipperen.',
+    'hguide.8.z0': 'Geen strobe.',
+    'hguide.8.z1': 'Knippert, van 1 tot 25 keer per seconde.',
+    'hguide.color.what': 'Hoe fel deze kleur is. De kleuren mengen, en de dimmer (CH7) moet ook open.',
+    'hguide.level': 'Uit (0) tot vol (255).',
+    'hguide.laser.what': 'Waarschijnlijk een kleine laser in het hoofd.',
+    'hguide.laser.z0': 'Uit (0) tot vol (255).',
+    'hguide.19.what': 'Laat het hoofd zelf bewegen of op het geluid reageren.',
+    'hguide.19.z0': 'DMX: de lichttafel bepaalt alles.',
+    'hguide.19.z1': 'Beweegt zelf.',
+    'hguide.19.z2': 'Beweegt op het geluid.',
+    'hguide.19.z3': 'Reset: het hoofd zoekt zijn beginstand (ongeveer 3 s).',
 
     'err.bad-command': 'De laser begreep die opdracht niet.',
     'err.not-admin': 'Daarvoor moet je ingelogd zijn op Beheer.',
@@ -795,7 +924,7 @@ const STR = {
     'err.bad-name': 'Die naam kan niet: 1 tot 32 tekens, zonder " of \\.',
     'err.bad-steps': 'De show klopt niet: 1 tot 24 stappen, elk met een bestaande preset en 0,1 tot 600 seconden.',
     'err.preset-in-use': 'Deze preset zit in een show. Haal hem daar eerst uit.',
-    'err.no-fixture': 'Er staat geen laser in de patch. Voeg hem toe in Beheer → Instellingen.',
+    'err.no-fixture': 'Dat licht staat niet (meer) in de patch. Kijk in Beheer → Lichten.',
     'err.bad-patch': 'Dat past niet in de patch: lampen mogen niet overlappen of voorbij kanaal 512 lopen, en er mag maar één laser zijn.',
     'err.inUse.one': '{name} zit nog in de show {shows}. Haal hem daar eerst uit.',
     'err.inUse.other': '{name} zit nog in de shows {shows}. Haal hem daar eerst uit.',
@@ -833,7 +962,7 @@ const STR = {
 
     'banner.stop': 'Stop button (IO0) pressed: the laser stays off until you release it.',
     'banner.noLaser': 'There is no laser in the patch. Add it in',
-    'banner.noLaserEnd': '→ Settings.',
+    'banner.noLaserEnd': '→ Fixtures.',
     'banner.toAdmin': 'Go to Admin',
     'banner.uncal': "The laser can't turn on until the height limit is set.",
     'banner.uncalReset': "The settings were corrupted and have been erased. The laser can't turn on until the height limit is set.",
@@ -863,7 +992,7 @@ const STR = {
     'side.locked': 'Controls locked',
     'side.lockedHint': 'OFF always stops it.',
     'side.noLaser': 'No laser',
-    'side.noLaserHint': 'Not in the patch. Add it in Admin → Settings.',
+    'side.noLaserHint': 'Not in the patch. Add it in Admin → Fixtures.',
     'side.playing': 'Show playing',
     'side.playMeta': 'Step {step}/{steps}: {preset} · {left} s left',
     'side.now': 'Now',
@@ -876,6 +1005,12 @@ const STR = {
     'side.save': '＋ Save as preset',
     'side.off': 'OFF',
     'side.admin': 'Admin',
+    'side.headOn': 'On',
+    'side.headOff': 'Off',
+    'side.headStart': 'Tap TURN ON on the Desk.',
+    'side.headDimmer': 'Dimmer {pct} %',
+    'side.headStrobe': 'strobe {hz} Hz',
+    'side.headLasers': 'lasers on',
 
     'look.spins': 'spinning',
     'look.flips': 'flipping',
@@ -1065,6 +1200,61 @@ const STR = {
     'zone.fast': 'fast',
     'zone.medium': 'medium',
     'zone.slow': 'slow',
+    'zone.none': 'None',
+    'zone.hz': '{hz} Hz',
+    'zone.macroDmx': 'DMX',
+    'zone.macroAuto': 'Moves itself',
+    'zone.macroSound': 'To sound',
+    'zone.macroReset': 'Reset',
+
+    'fx.aria': 'Fixtures',
+    'fx.laser': 'Laser',
+    'fx.head': 'Moving head',
+    'fx.headN': 'Moving head {n}',
+    'bank.aria': "The head's channels",
+    'bank.move': 'Movement',
+    'bank.color': 'Color',
+    'head.power': 'Head on or off',
+    'head.power.short': 'LIGHT',
+    'head.power.name': 'On / off',
+    'head.1.short': 'PAN',
+    'head.1.name': 'Pan (turning around)',
+    'head.2.short': 'PAN SPD',
+    'head.2.name': 'Pan speed',
+    'head.3.short': 'BEE EYE',
+    'head.3.name': 'Bee-eye motor',
+    'head.4.short': 'MOTOR 1',
+    'head.4.name': 'Motor 1',
+    'head.5.short': 'MOTOR 2',
+    'head.5.name': 'Motor 2',
+    'head.6.short': 'MOTOR 3',
+    'head.6.name': 'Motor 3',
+    'head.7.short': 'DIMMER',
+    'head.7.name': 'Dimmer',
+    'head.8.short': 'STROBE',
+    'head.8.name': 'Strobe',
+    'head.9.short': 'EYE R',
+    'head.9.name': 'Bee eye red',
+    'head.10.short': 'EYE G',
+    'head.10.name': 'Bee eye green',
+    'head.11.short': 'EYE B',
+    'head.11.name': 'Bee eye blue',
+    'head.12.short': 'EYE W',
+    'head.12.name': 'Bee eye white',
+    'head.13.short': 'BEAM R',
+    'head.13.name': 'Beam red',
+    'head.14.short': 'BEAM G',
+    'head.14.name': 'Beam green',
+    'head.15.short': 'BEAM B',
+    'head.15.name': 'Beam blue',
+    'head.16.short': 'BEAM W',
+    'head.16.name': 'Beam white',
+    'head.17.short': 'LASER R',
+    'head.17.name': 'Red laser',
+    'head.18.short': 'LASER G',
+    'head.18.name': 'Green laser',
+    'head.19.short': 'MACRO',
+    'head.19.name': 'Macro',
 
     'guide.test': 'UNTESTED',
     'guide.basis.title': 'How it works',
@@ -1072,7 +1262,7 @@ const STR = {
     'guide.basis.p2': '**Presets** are saved looks of all 10 channels. Tap a tile and the laser shows it. Make a new one with ＋ New (the quick builder), or set up the laser on the Desk and tap ＋ Save as preset.',
     'guide.basis.p3': '**Shows** play presets one after another, each for as long as you like, and then start over. The ESP32 plays the show by itself: your phone can be locked, switch to another app or leave the WiFi.',
     'guide.basis.p4': '**Desk**: all 10 channels by hand. Tap a name for an explanation. Moving a slider takes over from a running show.',
-    'guide.basis.p5': '**Admin** (with PIN): set the height limit, try out channels in Debug, the DMX address and the PIN.',
+    'guide.basis.p5': '**Admin** (with PIN): set the height limit, try out channels in Debug, the fixtures (DMX addresses) and the PIN.',
     'guide.basis.p6': '[TEST] means: not yet confirmed on the real laser. Try it out in Admin → Debug.',
     'guide.veilig.title': 'Safety',
     'guide.veilig.p1': '**OFF** switches the laser off at once, from any phone, also during a show, calibration or debug session.',
@@ -1136,6 +1326,53 @@ const STR = {
     'guide.ch10.what': 'Solid lines or dots only, and how fast the laser draws.',
     'guide.ch10.z0': 'Lines. 0 is the fastest; higher = slower.',
     'guide.ch10.z1': 'Dots only. 128 is the fastest; higher = slower.',
+    'hguide.intro.title': 'The head',
+    'hguide.intro.p1': 'The moving head has 19 channels. Everything here comes from its manual and has not been checked on the real head yet. [TEST]',
+    'hguide.intro.p2': '**Desk**: two banks, switched at the top right. **Movement** has pan, the motors, dimmer, strobe and macro; **Color** has the bee eye, the beam and the two lasers. Tap a name for an explanation.',
+    'hguide.intro.p3': "**TURN ON** brings back the head's last look this phone saw, or else the dimmer at full with a white bee eye. **OFF** and the stop button (IO0) switch the head off too; pan and the motors stay where they are.",
+    'hguide.intro.p4': 'The head has no limits: the height limit is only for the laser. Presets and shows for the head come later.',
+    'hguide.pan.title': 'Pan and speed',
+    'hguide.pan.p': 'Pan turns the whole head around. The speed sets how quickly it moves to a new position.',
+    'hguide.eye.title': 'Bee-eye motor',
+    'hguide.eye.p': 'The bee eye is the front with the small lenses. This motor sets it at an angle or lets it turn.',
+    'hguide.motors.title': 'Motors',
+    'hguide.motors.p': 'Three motors from 0 to 180°. They probably tilt the head; what each motor really does will only show on the real head.',
+    'hguide.dim.title': 'Dimmer and strobe',
+    'hguide.dim.p': 'The dimmer is the main tap for all the light. Strobe makes the light flash.',
+    'hguide.color.title': 'Colors',
+    'hguide.color.p': 'The bee eye (CH9–12) and the beam (CH13–16) each have red, green, blue and white. They mix: red + green = yellow. Without the dimmer (CH7) everything stays dark.',
+    'hguide.lasers.title': 'Lasers',
+    'hguide.lasers.p': 'According to the manual a red and a green "LS", probably small lasers. They are much weaker than the big laser and have no limit.',
+    'hguide.macro.title': 'Macro',
+    'hguide.macro.p': 'Makes the head move by itself or react to music. At 0–50 the desk decides everything.',
+    'hguide.note': "From the head's manual, not yet checked on the real head.",
+    'hguide.power.what': 'Turns the head on or off. Off sets the dimmer, strobe, colors, lasers and macro to 0; pan and the motors stay where they are.',
+    'hguide.power.off': 'Dimmer and lasers at 0: dark.',
+    'hguide.power.on': 'A tap brings back your last look, or the dimmer at full with a white bee eye.',
+    'hguide.1.what': 'Turns the whole head around its upright axis.',
+    'hguide.1.z0': '0 to 540°: one and a half turns. 128 is about the middle.',
+    'hguide.2.what': 'How fast the head turns to a new pan position.',
+    'hguide.2.z0': '0 is the fastest, 255 the slowest.',
+    'hguide.3.what': 'Sets the bee eye at an angle, or lets it turn.',
+    'hguide.3.z0': 'Fixed angle, 0 to 180°.',
+    'hguide.3.z1': 'Turns back, from slow to fast.',
+    'hguide.3.z2': 'Turns forward, from slow to fast.',
+    'hguide.motor.what': 'Motor {n}: an angle from 0 to 180°, probably tilt.',
+    'hguide.motor.z0': '0 to 180°.',
+    'hguide.7.what': 'How bright all the light is together. At 0 the head is dark, whatever color you pick.',
+    'hguide.7.z0': 'Dark (0) to full (255).',
+    'hguide.8.what': 'Makes the light flash.',
+    'hguide.8.z0': 'No strobe.',
+    'hguide.8.z1': 'Flashes, from 1 to 25 times a second.',
+    'hguide.color.what': 'How bright this color is. The colors mix, and the dimmer (CH7) must be open too.',
+    'hguide.level': 'Off (0) to full (255).',
+    'hguide.laser.what': 'Probably a small laser in the head.',
+    'hguide.laser.z0': 'Off (0) to full (255).',
+    'hguide.19.what': 'Makes the head move by itself or react to sound.',
+    'hguide.19.z0': 'DMX: the desk decides everything.',
+    'hguide.19.z1': 'Moves by itself.',
+    'hguide.19.z2': 'Moves to the sound.',
+    'hguide.19.z3': 'Reset: the head finds its start position (about 3 s).',
 
     'err.bad-command': "The laser didn't understand that command.",
     'err.not-admin': 'You need to be logged in to Admin for that.',
@@ -1159,7 +1396,7 @@ const STR = {
     'err.bad-name': 'That name is not allowed: 1 to 32 characters, without " or \\.',
     'err.bad-steps': 'The show is not valid: 1 to 24 steps, each with an existing preset and 0.1 to 600 seconds.',
     'err.preset-in-use': 'This preset is in a show. Remove it from there first.',
-    'err.no-fixture': 'There is no laser in the patch. Add it in Admin → Settings.',
+    'err.no-fixture': "That fixture isn't in the patch (anymore). Check Admin → Fixtures.",
     'err.bad-patch': "That doesn't fit the patch: lights can't overlap or run past channel 512, and there can be only one laser.",
     'err.inUse.one': '{name} is still in the show {shows}. Remove it from there first.',
     'err.inUse.other': '{name} is still in the shows {shows}. Remove it from there first.',
@@ -1250,6 +1487,53 @@ const ZONES = {
   9: [[0, 63, 'zone.mix'], [64, 127, 'zone.mix2'], [128, 191, 'zone.cycles'], [192, 255, 'zone.allColors']],
   10: [[0, 127, 'zone.lines'], [128, 255, 'zone.dots']],
 };
+
+// Fixtures. The firmware keeps a patch of up to 4 (docs/PROTOCOL.md); this page drives the one this phone picked.
+const FX_CHANNELS = { laser: CH_COUNT, head: 19 };
+const FX_KEY = 'fixture';           // localStorage: the patch slot this phone picked last
+// The moving head, after its manual (lib/laser_core/src/moving_head.h). Nothing checked on the real head yet,
+// and it has no limits (user decision), so its desk is plain 0-255 faders.
+const HEAD_PAN = 1;
+const HEAD_PAN_SPEED = 2;
+const HEAD_EYE = 3;                 // bee-eye motor: 0-127 angle, 128-191 turns back, 192-255 forward
+const HEAD_MOTOR_1 = 4;             // 4-6: 0-180 degrees
+const HEAD_MOTOR_3 = 6;
+const HEAD_DIMMER = 7;
+const HEAD_STROBE = 8;              // 0-9 none, 10-255 = 1-25 Hz
+const HEAD_EYE_WHITE = 12;          // 9-12 bee eye red, green, blue, white
+const HEAD_BEAM_WHITE = 16;         // 13-16 beam red, green, blue, white
+const HEAD_LASER_RED = 17;
+const HEAD_LASER_GREEN = 18;
+const HEAD_MACRO = 19;              // 0-50 DMX, 51-150 moves by itself, 151-250 sound, 251-255 reset
+const HEAD_FULL = 255;
+const STROBE_MIN = 10;
+const PAN_DEGREES = 540;
+const MOTOR_DEGREES = 180;
+const HEAD_BANKS = { move: [1, 2, 3, 4, 5, 6, 7, 8, 19], color: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18] };
+const HEAD_LIGHT_LAST = [HEAD_LASER_RED, HEAD_LASER_GREEN, HEAD_DIMMER];   // switching on sends these last
+const TINT = { red: '#ff5a4e', green: '#4fe07a', blue: '#5b8cff', white: '#f1ebdb' };
+const HEAD_TINTS = {
+  9: TINT.red, 10: TINT.green, 11: TINT.blue, 12: TINT.white,
+  13: TINT.red, 14: TINT.green, 15: TINT.blue, 16: TINT.white,
+  17: TINT.red, 18: TINT.green,
+};
+const HEAD_ZONES = {
+  3: [[0, 127], [128, 191], [192, 255]],
+  8: [[0, 9], [10, 255]],
+  19: [[0, 50], [51, 150], [151, 250], [251, 255]],
+};
+const MACRO_ZONES = ['zone.macroDmx', 'zone.macroAuto', 'zone.macroSound', 'zone.macroReset'];
+// The head's guide topics: [id, STR key part, channels].
+const HEAD_GROUPS = [
+  ['h-pan', 'pan', [1, 2]],
+  ['h-eye', 'eye', [3]],
+  ['h-motors', 'motors', [4, 5, 6]],
+  ['h-dim', 'dim', [7, 8]],
+  ['h-color', 'color', [9, 10, 11, 12, 13, 14, 15, 16]],
+  ['h-lasers', 'lasers', [17, 18]],
+  ['h-macro', 'macro', [19]],
+];
+const HEAD_INTRO_PARTS = 4;
 
 // Quick builder. Values follow the user's hardware test (2026-10-23), not the manual.
 // label, short and text are STR keys.
@@ -1347,19 +1631,60 @@ let deskStrips = [];
 let deskSig = '';
 let animId = 0;
 let lastFrame = 0;
-const local = new Map();         // channel -> { v, at }: changed here, not yet echoed
+let patchSig = '';               // the patch the local values belong to
+// Local values, keyed by fxKey(slot, ch): changed here, not yet echoed. dragging and outbox use the same keys.
+const local = new Map();         // key -> { v, at }
 const dragging = new Set();
-const outbox = new Map();
+const outbox = new Map();        // key -> value
 const thumbs = new Set();        // { cv, draw } redrawn on resize and when a view appears
+const litLooks = new Map();      // `${slot}:${addr}` -> the head's last lit look seen in this page session
 const ui = {
   tab: 'presets', editing: false, confirmSlot: null, builder: null, sheet: false, editor: null,
   tipCh: null, guide: 'basis', deleteArmed: 0,
+  fx: storedFixture(), bank: 'move', viewSig: '',
 };
 
 const limits = () => (st ? st.limits : { ch7: [0, POS_MAX], ch6: { on: true, range: [0, POS_MAX] }, calibrated: false });
 const isCalibrated = () => !!(st && st.limits.calibrated);
 const hasLaser = () => !!st && st.laserSlot != null;
 const canDrive = () => isOpen && hasLaser() && !st.cal && !st.stopHeld;
+
+// --- fixtures -----------------------------------------------------------------------------------
+function storedFixture() {
+  try {
+    const n = Number(localStorage.getItem(FX_KEY));
+    return Number.isInteger(n) && n >= 1 && n <= MAX_FIXTURES ? n : null;
+  } catch (e) { return null; }   // storage blocked: the choice lasts until a reload
+}
+const fixtureAt = (slot) => (st ? st.fixtures.find((f) => f.slot === slot) || null : null);
+// The fixture this page shows: the phone's pick if it is patched, else the laser, else the first one (null: nothing patched).
+function activeFixture() {
+  if (!st || !st.fixtures.length) return null;
+  return fixtureAt(ui.fx) || st.fixtures.find((f) => f.type === 'laser') || st.fixtures[0];
+}
+function headView() { const f = activeFixture(); return f && f.type === 'head' ? f : null; }   // null: the laser view
+// "Bewegend hoofd" gets its slot number only when there are several heads.
+function fixtureLabel(f) {
+  if (f.type === 'laser') return t('fx.laser');
+  return st.fixtures.filter((x) => x.type === 'head').length > 1 ? t('fx.headN', { n: f.slot }) : t('fx.head');
+}
+const canDriveFx = (f) => isOpen && !!f && !st.cal && !st.stopHeld;
+const fxKey = (slot, ch) => slot * 100 + ch;
+const keySlot = (k) => Math.floor(k / 100);
+const keyCh = (k) => k % 100;
+function fxValue(slot, ch) {
+  const mine = local.get(fxKey(slot, ch));
+  if (mine) return mine.v;
+  const f = fixtureAt(slot);
+  return f ? f.ch[ch - 1] || 0 : 0;
+}
+function fxLook(slot) {
+  const f = fixtureAt(slot);
+  return f ? f.ch.map((_, k) => fxValue(slot, k + 1)) : [];
+}
+// "On" for the head: anything that makes light (the dimmer, or one of its lasers).
+const isHeadOn = (ch) => (ch[HEAD_DIMMER - 1] || 0) > 0 || (ch[HEAD_LASER_RED - 1] || 0) > 0 || (ch[HEAD_LASER_GREEN - 1] || 0) > 0;
+const litKey = (f) => `${f.slot}:${f.addr}`;
 const canEdit = () => isOpen && !!st && !st.cal;
 const presetList = () => [...lib.presets.values()].sort((a, b) => a.slot - b.slot);
 const showList = () => [...lib.shows.values()].sort((a, b) => a.slot - b.slot);
@@ -1589,35 +1914,37 @@ function send(text) {
   ws.send(text);
   return true;
 }
-// Every laser channel command names the laser's patch slot ("f3 7 40"): without
-// a prefix the firmware sends it to slot 1, which may hold another fixture.
-const laserCommand = (ch, v) => `f${st.laserSlot} ${ch} ${v}`;
-function sendChannel(ch, v) {
-  if (!hasLaser()) return false;
-  setLocal(ch, v);
-  outbox.delete(ch);
-  return send(laserCommand(ch, v));
+// Every channel command names its fixture's patch slot ("f3 7 40"): without a prefix
+// the firmware sends it to slot 1, which may hold another fixture.
+function sendFx(slot, ch, v) {
+  if (!fixtureAt(slot)) return false;
+  setLocalFx(slot, ch, v);
+  outbox.delete(fxKey(slot, ch));
+  return send(`f${slot} ${ch} ${v}`);
+}
+// A dragged value goes out throttled by flush().
+function queueFx(slot, ch, v) {
+  setLocalFx(slot, ch, v);
+  outbox.set(fxKey(slot, ch), v);
 }
 function flush() {
-  if (!isOpen || !hasLaser()) { outbox.clear(); return; }
-  outbox.forEach((v, ch) => ws.send(laserCommand(ch, v)));
+  if (!isOpen || !st) { outbox.clear(); return; }
+  outbox.forEach((v, k) => { if (fixtureAt(keySlot(k))) ws.send(`f${keySlot(k)} ${keyCh(k)} ${v}`); });
   outbox.clear();
 }
-function setLocal(ch, v) { local.set(ch, { v, at: now() }); }
-function valueOf(ch) {
-  const mine = local.get(ch);
-  if (mine) return mine.v;
-  return st ? st.ch[ch - 1] : 0;
-}
+function setLocalFx(slot, ch, v) { local.set(fxKey(slot, ch), { v, at: now() }); }
+// The laser's channels, for the presets, the builder and the side card.
+const sendChannel = (ch, v) => hasLaser() && sendFx(st.laserSlot, ch, v);
+const valueOf = (ch) => (hasLaser() ? fxValue(st.laserSlot, ch) : 0);
 function currentLook() { return Array.from({ length: CH_COUNT }, (_, k) => valueOf(k + 1)); }
 function dropStaleLocal() {
-  local.forEach((entry, ch) => {
-    if (!dragging.has(ch) && !outbox.has(ch) && now() - entry.at > LOCAL_HOLD_MS) local.delete(ch);
+  local.forEach((entry, k) => {
+    if (!dragging.has(k) && !outbox.has(k) && now() - entry.at > LOCAL_HOLD_MS) local.delete(k);
   });
 }
 function clearLocal() { local.clear(); dragging.clear(); outbox.clear(); }
 // A preset load or a show step replaces the look: drop local values not under a finger.
-function releaseLocal() { local.forEach((_, ch) => { if (!dragging.has(ch) && !outbox.has(ch)) local.delete(ch); }); }
+function releaseLocal() { local.forEach((_, k) => { if (!dragging.has(k) && !outbox.has(k)) local.delete(k); }); }
 const playKey = (s) => (s && s.play ? `${s.play.show}:${s.play.step}` : '');
 
 function setPending(p) { pending = { ...p, at: now() }; }
@@ -1656,6 +1983,13 @@ function renderHeader() {
   act.textContent = label;
   act.classList.toggle('on', ui.tab === 'presets' && ui.editing);
   act.disabled = ui.tab === 'shows' && (!lib.presets.size || !freeSlot(lib.shows, SHOW_SLOTS));
+  // The head's 19 channels don't fit one screen: two banks, switched here.
+  $('bankSeg').hidden = !(headView() && ui.tab === 'desk' && !overlay);
+  [...$('bankSeg').children].forEach((b) => {
+    const on = b.dataset.bank === ui.bank;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
 }
 
 function renderBanners() {
@@ -1664,8 +1998,9 @@ function renderBanners() {
   $('sessionBanner').hidden = !session;
   $('sessionBanner').textContent = t(debug ? 'banner.debug' : 'banner.cal');
   $('stopBanner').hidden = !(st && st.stopHeld);
-  $('noLaserBanner').hidden = !st || hasLaser();
-  $('uncalBanner').hidden = !st || st.limits.calibrated || session || !hasLaser();
+  const head = !!headView();   // both banners are about the laser
+  $('noLaserBanner').hidden = !st || hasLaser() || head;
+  $('uncalBanner').hidden = !st || st.limits.calibrated || session || !hasLaser() || head;
   $('uncalText').textContent = t(st && st.settingsReset ? 'banner.uncalReset' : 'banner.uncal');
   $('libraryBanner').hidden = !(st && st.libraryReset);
   $('banners').hidden = [...$('banners').children].every((b) => b.hidden);
@@ -1690,6 +2025,9 @@ function renderSide() {
   const prog = $('nowProg');
   prog.hidden = true;
   $('nowSwatch').hidden = true;
+  renderSwitcher();
+  const head = headView();
+  $('saveBtn').hidden = !!head;   // presets hold laser looks for now
   if (!isOpen || !st) { setNow(t('side.laser'), t('conn.lost'), t('side.noConnHint')); return; }
   if (st.stopHeld) { setNow(t('side.stopLabel'), t('side.stopName'), t('side.stopHint'), 'n-stop'); return; }
   if (st.cal) {
@@ -1697,6 +2035,7 @@ function renderSide() {
     setNow(t(debug ? 'side.debug' : 'side.cal'), t('side.locked'), t('side.lockedHint'), 'n-sess');
     return;
   }
+  if (head) { renderHeadSide(head); return; }
   if (!hasLaser()) { setNow(t('side.laser'), t('side.noLaser'), t('side.noLaserHint')); return; }
   const ch = currentLook();
   const play = playInfo();
@@ -1716,6 +2055,67 @@ function renderSide() {
     $('nowSwatch').hidden = false;
     $('nowSwatch').style.background = colorSwatch(ch[8]);
   }
+}
+// One entry per patched fixture, only when there is more than one. Choosing is per phone and
+// changes only what this page shows; UIT always switches every fixture off.
+function renderSwitcher() {
+  const host = $('fxSwitch');
+  const list = isOpen && st ? st.fixtures : [];
+  const show = list.length > 1;
+  host.hidden = !show;
+  $('side').classList.toggle('multi', show);
+  if (!show) { host.textContent = ''; host.dataset.sig = ''; return; }
+  const sig = JSON.stringify([lang, list.map((f) => [f.slot, f.type])]);
+  if (host.dataset.sig !== sig) {
+    host.textContent = '';
+    list.forEach((f) => {
+      const b = button('', fixtureLabel(f), () => selectFixture(f.slot));
+      b.dataset.slot = f.slot;
+      host.append(b);
+    });
+    host.dataset.sig = sig;
+  }
+  const active = activeFixture();
+  [...host.children].forEach((b) => {
+    const on = Number(b.dataset.slot) === active.slot;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+function selectFixture(slot) {
+  ui.fx = slot;
+  try { localStorage.setItem(FX_KEY, String(slot)); } catch (e) { /* storage blocked: the choice lasts until a reload */ }
+  syncView();
+  render();
+}
+const pct = (v) => (v > 0 ? Math.max(1, Math.round((v * 100) / RAW_MAX)) : 0);   // never "0 %" while it is on
+const strobeHz = (v) => Math.round(1 + ((v - STROBE_MIN) * 24) / (RAW_MAX - STROBE_MIN));
+const macroZone = (v) => HEAD_ZONES[HEAD_MACRO].findIndex(([a, b]) => v >= a && v <= b);
+function renderHeadSide(f) {
+  const ch = fxLook(f.slot);
+  if (!isHeadOn(ch)) { setNow(fixtureLabel(f), t('side.headOff'), t('side.headStart')); return; }
+  setNow(fixtureLabel(f), t('side.headOn'), headWords(ch));
+  const swatch = headSwatch(ch);
+  if (swatch) {
+    $('nowSwatch').hidden = false;
+    $('nowSwatch').style.background = swatch;
+  }
+}
+// "Dimmer 100 % · strobe 12 Hz · beweegt zelf".
+function headWords(ch) {
+  const words = [t('side.headDimmer', { pct: pct(ch[HEAD_DIMMER - 1]) })];
+  if (ch[HEAD_STROBE - 1] >= STROBE_MIN) words.push(t('side.headStrobe', { hz: strobeHz(ch[HEAD_STROBE - 1]) }));
+  const macro = macroZone(ch[HEAD_MACRO - 1]);
+  if (macro > 0) words.push(t(MACRO_ZONES[macro]).toLowerCase());
+  if (ch[HEAD_LASER_RED - 1] || ch[HEAD_LASER_GREEN - 1]) words.push(t('side.headLasers'));
+  return words.join(' · ');
+}
+// The colours the head mixes: the bee eye, then the beam (only the lit ones; null while both are dark).
+function headSwatch(ch) {
+  const mix = (red) => [0, 1, 2].map((k) => Math.min(RAW_MAX, ch[red + k] + ch[red + 3]));   // white adds to each
+  const lit = [mix(HEAD_EYE_WHITE - 4), mix(HEAD_BEAM_WHITE - 4)].filter((c) => c.some(Boolean)).map((c) => `rgb(${c.join(', ')})`);
+  if (!lit.length) return null;
+  return lit.length === 1 ? lit[0] : `linear-gradient(90deg, ${lit[0]} 0 50%, ${lit[1]} 50%)`;
 }
 function renderProgress(prog, play) {
   prog.hidden = false;
@@ -1861,10 +2261,7 @@ function choose(change) {
 // Sliders: the moved channel goes out throttled; releasing applies the whole look.
 function slideBuilder(change, ch, value, done) {
   ui.builder = { ...ui.builder, ...change };
-  if (ui.builder.pattern && canDrive() && ui.builder.live) {
-    setLocal(ch, value);
-    outbox.set(ch, value);
-  }
+  if (ui.builder.pattern && canDrive() && ui.builder.live) queueFx(st.laserSlot, ch, value);
   if (done) { flush(); applyBuilder(ui.builder, false); }
   renderBuilderHead();
 }
@@ -2264,13 +2661,30 @@ function deleteShow() {
 }
 
 // --- lichttafel (desk) ---------------------------------------------------------------------------------
+// The desk shows the picked fixture. A strip is { slot, type, ch, power, wide, tint }. The laser keeps its own
+// rules (the snapping pattern fader, the limits, the Modus switch); the head's 19 channels are plain 0-255
+// faders in two banks, next to a power switch that is not a channel of its own.
+function deskLayout() {
+  const head = headView();
+  if (head) {
+    const strips = HEAD_BANKS[ui.bank].map((ch) => ({ slot: head.slot, type: 'head', ch, wide: ch === HEAD_MACRO, tint: HEAD_TINTS[ch] }));
+    return [{ slot: head.slot, type: 'head', ch: 0, power: true }, ...strips];
+  }
+  const slot = st ? st.laserSlot : null;   // null: no laser, and the desk stays locked
+  return Array.from({ length: CH_COUNT }, (_, i) => ({ slot, type: 'laser', ch: i + 1, power: i === 0, wide: i === 1 }));
+}
+const stripId = (s) => (s.power && s.type === 'head' ? 'power' : String(s.ch));
+const stripKey = (s) => (s.type === 'head' ? `head.${s.power ? 'power' : s.ch}` : `chan.${s.ch}`);
+const stripShort = (s) => t(`${stripKey(s)}.short`);
+const stripName = (s) => t(`${stripKey(s)}.name`);
+const canDriveStrip = (s) => (s.type === 'laser' ? canDrive() : canDriveFx(fixtureAt(s.slot)));
 // A fader is either a list of snap values or a range [from (bottom) .. to (top)].
-function faderSpec(i) {
+function faderSpec(s) {
+  if (s.type !== 'laser') return { from: 0, to: RAW_MAX };
   const L = limits();
-  if (i === 0) return { steps: [0, MODE_ON] };
-  if (i === 1) return { steps: PATTERN_VALUES };
-  if (i === 6) return { from: L.ch7[0], to: L.ch7[1] };   // bottom = the low end, also when low > high
-  if (i === 5 && L.ch6.on) return { from: Math.min(...L.ch6.range), to: Math.max(...L.ch6.range) };
+  if (s.ch === 2) return { steps: PATTERN_VALUES };
+  if (s.ch === 7) return { from: L.ch7[0], to: L.ch7[1] };   // bottom = the low end, also when low > high
+  if (s.ch === 6 && L.ch6.on) return { from: Math.min(...L.ch6.range), to: Math.max(...L.ch6.range) };
   return { from: 0, to: RAW_MAX };
 }
 function nearestStep(steps, v) {
@@ -2288,9 +2702,11 @@ function posToValue(spec, p) {
   if (spec.steps) return spec.steps[Math.round(q * (spec.steps.length - 1))];
   return Math.round(spec.from + q * (spec.to - spec.from));
 }
-function zoneIndex(ch, v) { return (ZONES[ch] || []).findIndex(([a, b]) => v >= a && v <= b); }
-function zoneText(i, v) {
-  const ch = i + 1;
+const zonesOf = (s) => (s.type === 'head' ? HEAD_ZONES[s.ch] : ZONES[s.ch]) || [];
+function zoneIndex(s, v) { return zonesOf(s).findIndex(([a, b]) => v >= a && v <= b); }
+function zoneText(s, v) {
+  if (s.type === 'head') return headZoneText(s.ch, v);
+  const ch = s.ch;
   const L = limits();
   if (ch === 1) return t(v >= MODE_ON_MIN ? 'zone.on' : 'zone.off');
   if (ch === 2) return patternName(patternNumber(v));
@@ -2301,53 +2717,73 @@ function zoneText(i, v) {
     return t('zone.height');
   }
   if (ch === 6 && L.ch6.on) return t(v === 0 ? 'zone.center' : 'zone.left');
-  const zone = (ZONES[ch] || [])[zoneIndex(ch, v)];
+  const zone = zonesOf(s)[zoneIndex(s, v)];
   let text = zone ? t(zone[2]) : '';
-  if (ch === 10) { const s = v % 128; text += ` · ${t(s < 43 ? 'zone.fast' : s < 86 ? 'zone.medium' : 'zone.slow')}`; }
+  if (ch === 10) { const sp = v % 128; text += ` · ${t(sp < 43 ? 'zone.fast' : sp < 86 ? 'zone.medium' : 'zone.slow')}`; }
   return text;
+}
+// The head's readouts: degrees, a speed, a percentage, Hz or the macro mode.
+function headZoneText(ch, v) {
+  if (ch === HEAD_PAN) return `${Math.round((v * PAN_DEGREES) / RAW_MAX)}°`;
+  if (ch === HEAD_PAN_SPEED) return t(v < 86 ? 'zone.fast' : v < 171 ? 'zone.medium' : 'zone.slow');
+  if (ch === HEAD_EYE) return v < 128 ? `${Math.round((v * MOTOR_DEGREES) / 127)}°` : t(v < 192 ? 'zone.spinRev' : 'zone.spinFwd');
+  if (ch >= HEAD_MOTOR_1 && ch <= HEAD_MOTOR_3) return `${Math.round((v * MOTOR_DEGREES) / RAW_MAX)}°`;
+  if (ch === HEAD_STROBE) return v < STROBE_MIN ? t('zone.none') : t('zone.hz', { hz: strobeHz(v) });
+  if (ch === HEAD_MACRO) return t(MACRO_ZONES[macroZone(v)]);
+  return `${pct(v)} %`;
+}
+// The desk is rebuilt when what it shows changes: another fixture or bank, or the laser's limits.
+function deskSigNow() {
+  const head = headView();
+  const L = limits();
+  return JSON.stringify([head ? `head:${head.slot}:${ui.bank}` : 'laser', st ? st.laserSlot : null, L.ch6.on, L.calibrated]);
 }
 function buildDesk() {
   const desk = $('desk');
   dragging.clear();   // the old tracks are gone, so their pointerup will never come
   desk.textContent = '';
-  deskStrips = Array.from({ length: CH_COUNT }, (_, i) => buildStrip(desk, i));
-  const L = limits();
-  deskSig = JSON.stringify([L.ch6.on, L.calibrated]);
+  deskStrips = deskLayout().map((s) => buildStrip(desk, s));
+  desk.dataset.fixture = headView() ? 'head' : 'laser';
+  deskSig = deskSigNow();
   renderTip();
 }
-function buildStrip(desk, i) {
-  if (i === 0) return buildPowerStrip(desk);
-  const ch = i + 1;
-  const spec = faderSpec(i);
-  const strip = el('div', `strip${spec.steps ? ' snap' : ''}${i === 1 ? ' wide' : ''}`);
-  strip.dataset.ch = ch;
-  const lbl = button('lbl', chanShort(i), (e) => { e.stopPropagation(); toggleTip(i); }, t('desk.helpAria', { name: chanName(i) }));
+function buildStrip(desk, s) {
+  if (s.power) return buildPowerStrip(desk, s);
+  const spec = faderSpec(s);
+  const id = stripId(s);
+  const strip = el('div', `strip${spec.steps ? ' snap' : ''}${s.wide ? ' wide' : ''}`);
+  strip.dataset.ch = id;
+  if (s.tint) strip.style.setProperty('--tint', s.tint);
+  const lbl = button('lbl', stripShort(s), (e) => { e.stopPropagation(); toggleTip(id); }, t('desk.helpAria', { name: stripName(s) }));
   const lcd = el('div', 'lcd', '000');
   const mid = el('div', 'smid');
   const track = el('div', 'track');
   track.tabIndex = 0;
   track.setAttribute('role', 'slider');
-  track.setAttribute('aria-label', t('desk.trackAria', { n: ch, name: chanName(i) }));
+  track.setAttribute('aria-label', t('desk.trackAria', { n: s.ch, name: stripName(s) }));
   track.setAttribute('aria-orientation', 'vertical');
   track.append(el('div', 'slot'));
+  const fill = s.tint ? el('div', 'fill') : null;   // a colour channel shows how much of its colour is in
+  if (fill) track.append(fill);
   let zoneEls = [];
+  const zones = zonesOf(s);
   if (spec.steps) {
     spec.steps.forEach((_, k) => {
       const d = el('div', `detent${spec.steps.length > 8 ? ' fine' : ''}`);
       d.style.bottom = `calc(${TRACK_INSET}px + (100% - ${2 * TRACK_INSET}px) * ${k / (spec.steps.length - 1)})`;
       track.append(d);
     });
-  } else if (spec.from === 0 && spec.to === RAW_MAX && ZONES[ch]) {
-    const zones = el('div', 'zones');
-    ZONES[ch].forEach(([a, b]) => { const z = el('span'); z.style.flex = String(b - a + 1); zones.append(z); });
-    track.append(zones);
-    zoneEls = [...zones.children];
+  } else if (spec.from === 0 && spec.to === RAW_MAX && zones.length) {
+    const bars = el('div', 'zones');
+    zones.forEach(([a, b]) => { const z = el('span'); z.style.flex = String(b - a + 1); bars.append(z); });
+    track.append(bars);
+    zoneEls = [...bars.children];
   }
   const cap = el('div', 'cap');
   track.append(cap);
   mid.append(track);
   let info = null;
-  if (i === 1) {
+  if (s.type === 'laser' && s.ch === 2) {
     info = el('div', 'pinfo');
     const cv = el('canvas');
     const steps = el('div', 'pstep');
@@ -2357,53 +2793,79 @@ function buildStrip(desk, i) {
     addThumb(cv, () => drawLook(cv, [MODE_ON, valueOf(2), 0, 0, 0, 0, 0, 0, 0, 0], { fill: 0.8, glow: 3 }));
   }
   const zone = el('div', 'zone');
-  strip.append(el('div', 'num', pad2(ch)), lbl, lcd, mid, zone);
+  // Every head channel is built from its manual: the amber dot says "not checked yet" (see its explanation).
+  strip.append(el('div', `num${s.type === 'head' ? ' untested' : ''}`, pad2(s.ch)), lbl, lcd, mid, zone);
   desk.append(strip);
-  bindTrack(track, i);
-  return { i, strip, lbl, lcd, track, cap, zone, zoneEls, info, shownPattern: 0 };
+  const out = { ...s, id, strip, lbl, lcd, track, cap, fill, zone, zoneEls, info, shownPattern: 0 };
+  bindTrack(track, out);
+  return out;
 }
-// CH1 has only two useful values (0 = uit, 96 = aan), so it is a switch you tap, not a fader you drag.
-function buildPowerStrip(desk) {
+// The laser's CH1 has only two useful values (0 = uit, 96 = aan), so it is a switch you tap, not a fader you
+// drag. The head gets the same switch for its light channels.
+function buildPowerStrip(desk, s) {
+  const id = stripId(s);
+  const isHead = s.type === 'head';
   const strip = el('div', 'strip');
-  strip.dataset.ch = 1;
-  const lbl = button('lbl', chanShort(0), (e) => { e.stopPropagation(); toggleTip(0); }, t('desk.helpAria', { name: chanName(0) }));
+  strip.dataset.ch = id;
+  const lbl = button('lbl', stripShort(s), (e) => { e.stopPropagation(); toggleTip(id); }, t('desk.helpAria', { name: stripName(s) }));
   const lcd = el('div', 'lcd', '000');
   const mid = el('div', 'smid');
-  const power = button('power', null, togglePower, t('desk.power'));
+  const power = button('power', null, () => (isHead ? toggleHeadPower(s.slot) : togglePower()), t(isHead ? 'head.power' : 'desk.power'));
   power.append(el('span', 'lamp'), el('span', 'word', t('desk.turnOn')));   // refreshDesk sets the real word
   mid.append(power);
   const zone = el('div', 'zone');
-  strip.append(el('div', 'num', '01'), lbl, lcd, mid, zone);
+  strip.append(el('div', 'num', isHead ? `F${s.slot}` : '01'), lbl, lcd, mid, zone);
   desk.append(strip);
-  return { i: 0, strip, lbl, lcd, power, zone, zoneEls: [], info: null, shownPattern: 0 };
+  return { ...s, id, strip, lbl, lcd, power, zone, zoneEls: [], info: null, shownPattern: 0 };
 }
 // An explicit tap (rule 5). deskSet refuses "aan" before calibration and shows why.
 function togglePower() {
-  deskSet(0, valueOf(1) >= MODE_ON_MIN ? 0 : MODE_ON);
+  deskSet({ slot: st ? st.laserSlot : null, type: 'laser', ch: 1 }, valueOf(1) >= MODE_ON_MIN ? 0 : MODE_ON);
 }
-function bindTrack(track, i) {
+// The head's switch, only ever on a tap. On: "f<n> off" (light and macro to 0, pan and motors stay).
+// Off: the last lit look this page saw for the head, else the dimmer and the white bee eye at full.
+// The channels that make light go last, so the look is complete before it shows.
+function toggleHeadPower(slot) {
+  const f = fixtureAt(slot);
+  if (!canDriveFx(f)) return;
+  const cur = fxLook(slot);
+  if (isHeadOn(cur)) {
+    outbox.forEach((_, k) => { if (keySlot(k) === slot) outbox.delete(k); });   // a queued drag must not undo it
+    if (!send(`f${slot} off`)) return;
+    for (let ch = HEAD_DIMMER; ch <= FX_CHANNELS.head; ch += 1) setLocalFx(slot, ch, 0);   // until the echo arrives
+  } else {
+    const lit = litLooks.get(litKey(f));
+    const want = lit ? lit.slice() : cur.map((v, k) => (k + 1 === HEAD_DIMMER || k + 1 === HEAD_EYE_WHITE ? HEAD_FULL : v));
+    const order = want.map((_, k) => k + 1).filter((ch) => !HEAD_LIGHT_LAST.includes(ch)).concat(HEAD_LIGHT_LAST);
+    order.forEach((ch) => { if (want[ch - 1] !== cur[ch - 1]) sendFx(slot, ch, want[ch - 1]); });
+  }
+  refreshDesk();
+  renderSide();
+}
+function bindTrack(track, s) {
+  const k = fxKey(s.slot || 0, s.ch);
   const fromPointer = (e) => {
     const r = track.getBoundingClientRect();
     const p = 1 - (e.clientY - r.top - TRACK_INSET) / (r.height - 2 * TRACK_INSET);
-    deskSet(i, posToValue(faderSpec(i), p));
+    deskSet(s, posToValue(faderSpec(s), p));
   };
   track.addEventListener('pointerdown', (e) => {
-    if (!canDrive()) return;
+    if (!canDriveStrip(s)) return;
     track.setPointerCapture(e.pointerId);
-    dragging.add(i + 1);
+    dragging.add(k);
     fromPointer(e);
   });
   track.addEventListener('pointermove', (e) => { if (track.hasPointerCapture(e.pointerId)) fromPointer(e); });
   const end = (e) => {
     if (track.hasPointerCapture(e.pointerId)) track.releasePointerCapture(e.pointerId);
-    dragging.delete(i + 1);
+    dragging.delete(k);
     flush();
   };
   track.addEventListener('pointerup', end);
   track.addEventListener('pointercancel', end);
   track.addEventListener('keydown', (e) => {
-    const spec = faderSpec(i);
-    const v = valueOf(i + 1);
+    const spec = faderSpec(s);
+    const v = fxValue(s.slot, s.ch);
     const delta = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 }[e.key];
     let next = null;
     if (e.key === 'Home') next = posToValue(spec, 0);
@@ -2415,7 +2877,7 @@ function bindTrack(track, i) {
     }
     if (next == null) return;
     e.preventDefault();
-    deskSet(i, next);
+    deskSet(s, next);
     flush();
   });
 }
@@ -2423,95 +2885,114 @@ function bindTrack(track, i) {
 function stepPattern(dir) {
   let n = patternNumber(valueOf(2));
   do { n = clamp(n + dir, 1, PATTERN_COUNT); } while (patternInfo(n) && patternInfo(n).duplicateOf && n > 1 && n < PATTERN_COUNT);
-  deskSet(1, patternValue(n));
+  deskSet({ slot: st ? st.laserSlot : null, type: 'laser', ch: 2 }, patternValue(n));
   flush();
 }
-function deskSet(i, v) {
-  if (!canDrive()) return;
-  const ch = i + 1;
-  if (ch === 1 && v >= MODE_ON_MIN && !isCalibrated()) {
+function deskSet(s, v) {
+  if (!canDriveStrip(s)) return;
+  if (s.type === 'laser' && s.ch === 1 && v >= MODE_ON_MIN && !isCalibrated()) {
     showMsg('err.not-calibrated', 'warn');
     refreshDesk();
     return;
   }
-  if (v === valueOf(ch)) return;
-  if (ch === 1) sendChannel(1, v);
-  else { setLocal(ch, v); outbox.set(ch, v); }
+  if (v === fxValue(s.slot, s.ch)) return;
+  if (s.type === 'laser' && s.ch === 1) sendChannel(1, v);
+  else queueFx(s.slot, s.ch, v);
   refreshDesk();
   renderSide();
 }
+const tipStrip = () => deskStrips.find((s) => s.id === ui.tipCh) || null;
+function stripValue(s) {
+  if (s.power && s.type === 'head') return isHeadOn(fxLook(s.slot)) ? 1 : 0;
+  return fxValue(s.slot, s.ch);
+}
 function refreshDesk() {
   if (!deskStrips.length) return;
-  deskStrips.forEach((s) => {
-    const ch = s.i + 1;
-    const v = valueOf(ch);
-    if (s.power) {
-      const isOn = v >= MODE_ON_MIN;
-      s.lcd.textContent = pad3(v);
-      s.zone.textContent = zoneText(s.i, v);
-      s.power.classList.toggle('on', isOn);
-      s.power.setAttribute('aria-pressed', String(isOn));
-      s.power.querySelector('.word').textContent = t(isOn ? 'desk.on' : 'desk.turnOn');  // off: say what a tap does
-      s.lbl.classList.toggle('open', ui.tipCh === s.i);
-      return;
-    }
-    const spec = faderSpec(s.i);
-    const pos = valueToPos(spec, v);
-    s.lcd.textContent = pad3(v);
-    s.cap.style.bottom = `calc(${TRACK_INSET}px + (100% - ${2 * TRACK_INSET}px) * ${pos})`;
-    s.zone.textContent = zoneText(s.i, v);
-    const zi = zoneIndex(ch, v);
-    s.zoneEls.forEach((z, k) => z.classList.toggle('cur', k === zi));
-    s.track.setAttribute('aria-valuemin', String(spec.steps ? spec.steps[0] : Math.min(spec.from, spec.to)));
-    s.track.setAttribute('aria-valuemax', String(spec.steps ? spec.steps[spec.steps.length - 1] : Math.max(spec.from, spec.to)));
-    s.track.setAttribute('aria-valuenow', String(v));
-    s.track.setAttribute('aria-valuetext', `${v}, ${zoneText(s.i, v)}`);
-    s.lbl.classList.toggle('open', ui.tipCh === s.i);
-    if (s.info) {
-      const n = patternNumber(v);
-      const p = patternInfo(n);
-      s.info.querySelector('.pnum').textContent = `#${n}`;
-      s.info.querySelector('.pcat').textContent = p ? categoryLabel(p.category) : '';
-      if (s.shownPattern !== n) { s.shownPattern = n; drawLook(s.info.querySelector('canvas'), [MODE_ON, v, 0, 0, 0, 0, 0, 0, 0, 0], { fill: 0.8, glow: 3 }); }
-    }
-  });
+  deskStrips.forEach((s) => (s.power ? refreshPower(s) : refreshFader(s)));
   const tip = $('tip');
-  if (tip && ui.tipCh != null) {
-    const g = guideFor(ui.tipCh);
-    const v = valueOf(ui.tipCh + 1);
-    tip.querySelectorAll('li').forEach((li, k) => {
-      const z = g.zones[k];
-      li.classList.toggle('cur', !!z && v >= z.lo && v <= z.hi);
-    });
+  const s = tip && tipStrip();
+  if (!s) return;
+  const g = stripGuide(s);
+  const v = stripValue(s);
+  tip.querySelectorAll('li').forEach((li, k) => {
+    const z = g.zones[k];
+    li.classList.toggle('cur', !!z && v >= z.lo && v <= z.hi);
+  });
+}
+function refreshPower(s) {
+  const isHead = s.type === 'head';
+  const isOn = isHead ? isHeadOn(fxLook(s.slot)) : fxValue(s.slot, 1) >= MODE_ON_MIN;
+  s.lcd.textContent = pad3(fxValue(s.slot, isHead ? HEAD_DIMMER : 1));
+  s.zone.textContent = t(isOn ? 'zone.on' : 'zone.off');
+  s.power.classList.toggle('on', isOn);
+  s.power.setAttribute('aria-pressed', String(isOn));
+  s.power.querySelector('.word').textContent = t(isOn ? 'desk.on' : 'desk.turnOn');   // off: say what a tap does
+  s.lbl.classList.toggle('open', ui.tipCh === s.id);
+}
+function refreshFader(s) {
+  const v = fxValue(s.slot, s.ch);
+  const spec = faderSpec(s);
+  const pos = valueToPos(spec, v);
+  const text = zoneText(s, v);
+  s.lcd.textContent = pad3(v);
+  s.cap.style.bottom = `calc(${TRACK_INSET}px + (100% - ${2 * TRACK_INSET}px) * ${pos})`;
+  if (s.fill) s.fill.style.height = `calc((100% - ${2 * TRACK_INSET}px) * ${pos})`;
+  s.zone.textContent = text;
+  const zi = zoneIndex(s, v);
+  s.zoneEls.forEach((z, k) => z.classList.toggle('cur', k === zi));
+  s.track.setAttribute('aria-valuemin', String(spec.steps ? spec.steps[0] : Math.min(spec.from, spec.to)));
+  s.track.setAttribute('aria-valuemax', String(spec.steps ? spec.steps[spec.steps.length - 1] : Math.max(spec.from, spec.to)));
+  s.track.setAttribute('aria-valuenow', String(v));
+  s.track.setAttribute('aria-valuetext', `${v}, ${text}`);
+  s.lbl.classList.toggle('open', ui.tipCh === s.id);
+  if (s.info) {
+    const n = patternNumber(v);
+    const p = patternInfo(n);
+    s.info.querySelector('.pnum').textContent = `#${n}`;
+    s.info.querySelector('.pcat').textContent = p ? categoryLabel(p.category) : '';
+    if (s.shownPattern !== n) { s.shownPattern = n; drawLook(s.info.querySelector('canvas'), [MODE_ON, v, 0, 0, 0, 0, 0, 0, 0, 0], { fill: 0.8, glow: 3 }); }
   }
 }
-function toggleTip(i) {
-  ui.tipCh = ui.tipCh === i ? null : i;
+function toggleTip(id) {
+  ui.tipCh = ui.tipCh === id ? null : id;
   renderTip();
   refreshDesk();
+}
+function stripGuide(s) {
+  if (s.type !== 'head') return guideFor(s.ch - 1);
+  return s.power ? headPowerGuide() : headGuide(s.ch);
+}
+function guideTopicOf(s) {
+  if (s.type !== 'head') return `ch${s.ch}`;
+  const group = HEAD_GROUPS.find(([, , chans]) => chans.includes(s.ch));
+  return group ? group[0] : 'h-intro';
 }
 function renderTip() {
   const old = $('tip');
   if (old) old.remove();
   if (ui.tipCh == null || ui.tab !== 'desk' || !deskStrips.length) return;
-  const i = ui.tipCh;
-  const g = guideFor(i);
+  const s = tipStrip();
+  if (!s) return;
+  const g = stripGuide(s);
+  const untested = s.type === 'head' && !s.power;
   const tip = el('div', 'tip');
   tip.id = 'tip';
   tip.setAttribute('role', 'dialog');
-  tip.setAttribute('aria-label', t('desk.tipAria', { name: chanName(i) }));
+  tip.setAttribute('aria-label', t('desk.tipAria', { name: stripName(s) }));
   const h = el('h4');
-  h.append(el('span', '', `${chanShort(i)} · ${chanName(i)}`), button('', '✕', () => toggleTip(i), t('desk.tipClose')));
+  const title = el('span', '', `${stripShort(s)} · ${stripName(s)}`);
+  if (untested) title.append(el('span', 'test', t('guide.test')));
+  h.append(title, button('', '✕', () => toggleTip(s.id), t('desk.tipClose')));
   tip.append(h, el('p', '', g.what));
   tip.append(zoneList(g.zones, 'ul', 'li'));
   (g.warn ? [g.warn] : []).forEach((w) => tip.append(el('div', 'warn', `⚠ ${w}`)));
   (g.notes || []).forEach(([text, isTest]) => { const p = el('p', '', text); if (isTest) p.append(el('span', 'test', t('guide.test'))); tip.append(p); });
-  tip.append(button('more', t('desk.more'), () => { ui.guide = `ch${i + 1}`; switchTab('guide'); }));
+  if (untested) tip.append(el('p', '', t('hguide.note')));
+  tip.append(button('more', t('desk.more'), () => { ui.guide = guideTopicOf(s); switchTab('guide'); }));
   const desk = $('desk');
   desk.append(tip);
-  const strip = deskStrips[i].strip;
   const width = tip.offsetWidth;
-  const left = clamp(strip.offsetLeft + strip.offsetWidth / 2 - 40, 0, Math.max(0, desk.clientWidth - width));
+  const left = clamp(s.strip.offsetLeft + s.strip.offsetWidth / 2 - 40, 0, Math.max(0, desk.clientWidth - width));
   tip.style.left = `${left}px`;
 }
 function zoneList(zones, tag, itemTag) {
@@ -2524,6 +3005,38 @@ function zoneList(zones, tag, itemTag) {
     list.append(item);
   });
   return list;
+}
+
+// --- the head's texts: after its manual, not checked on the real head yet ---------------------------------
+function headGuide(ch) {
+  const z = (lo, hi, text) => zone(lo, hi, `${lo}–${hi}`, text);
+  const full = (key) => [z(0, RAW_MAX, t(key))];
+  const split = (key) => HEAD_ZONES[ch].map(([lo, hi], k) => z(lo, hi, t(`${key}.z${k}`)));
+  if (ch === HEAD_PAN) return { what: t('hguide.1.what'), zones: full('hguide.1.z0') };
+  if (ch === HEAD_PAN_SPEED) return { what: t('hguide.2.what'), zones: full('hguide.2.z0') };
+  if (ch === HEAD_EYE) return { what: t('hguide.3.what'), zones: split('hguide.3') };
+  if (ch <= HEAD_MOTOR_3) return { what: t('hguide.motor.what', { n: ch - HEAD_MOTOR_1 + 1 }), zones: full('hguide.motor.z0') };
+  if (ch === HEAD_DIMMER) return { what: t('hguide.7.what'), zones: full('hguide.7.z0') };
+  if (ch === HEAD_STROBE) return { what: t('hguide.8.what'), zones: split('hguide.8') };
+  if (ch <= HEAD_BEAM_WHITE) return { what: t('hguide.color.what'), zones: full('hguide.level') };
+  if (ch <= HEAD_LASER_GREEN) return { what: t('hguide.laser.what'), zones: full('hguide.laser.z0') };
+  return { what: t('hguide.19.what'), zones: split('hguide.19') };
+}
+function headPowerGuide() {
+  return { what: t('hguide.power.what'), zones: [zone(0, 0, t('zone.off'), t('hguide.power.off')), zone(1, 1, t('zone.on'), t('hguide.power.on'))] };
+}
+const chanRange = (chans) => (chans.length > 1 ? `${chans[0]}–${chans[chans.length - 1]}` : String(chans[0]));
+function renderHeadTopic(art, key, chans) {
+  art.append(el('h3', '', `CH${chanRange(chans)} · ${t(`hguide.${key}.title`)}`), el('p', '', t(`hguide.${key}.p`)));
+  chans.forEach((ch) => {
+    const g = headGuide(ch);
+    const head = el('p', 'gch');
+    head.append(el('b', '', `CH${ch} · ${t(`head.${ch}.name`)}`), el('span', 'test', t('guide.test')));
+    art.append(head);
+    if (chans.length < 4) art.append(el('p', '', g.what));   // the eight colours share the group's explanation
+    art.append(zoneList(g.zones, 'div', 'div'));
+  });
+  art.append(el('p', 'gnote', t('hguide.note')));
 }
 
 // --- uitleg (guide) ------------------------------------------------------------------------------------
@@ -2590,14 +3103,21 @@ const GUIDE_PICTURES = {
   ch9: [[COLORS[0].label, look(22, { 9: 20 })], [COLORS[1].label, look(22, { 9: 160 })], [COLORS[2].label, look(22, { 9: 224 })]],
   ch10: [[DOTS[0].label, look(2)], [DOTS[1].label, look(2, { 10: 128 })]],
 };
+// The guide follows the picked fixture: the laser's channels, or the head's channel groups.
 function guideTopics() {
+  if (headView()) {
+    return [['h-intro', '', t('hguide.intro.title')], ...HEAD_GROUPS.map(([id, key, chans]) => [id, chanRange(chans), t(`hguide.${key}.title`)])];
+  }
   const channels = Array.from({ length: CH_COUNT }, (_, i) => [`ch${i + 1}`, String(i + 1), t(`chan.${i + 1}.topic`)]);
   return [['basis', '', t('guide.basis.title')], ['veilig', '', t('guide.veilig.title')], ...channels];
 }
 function renderGuide() {
+  const topics = guideTopics();
+  if (!topics.some(([id]) => id === ui.guide)) ui.guide = topics[0][0];
   const nav = $('gnav');
   nav.textContent = '';
-  guideTopics().forEach(([id, num, label]) => {
+  nav.classList.toggle('ranges', !!headView());   // "9–16" needs more room than "9"
+  topics.forEach(([id, num, label]) => {
     const b = button(ui.guide === id ? 'on' : '', null, () => { ui.guide = id; renderGuide(); $('garticle').scrollTop = 0; });
     b.dataset.topic = id;
     b.append(el('b', '', num), document.createTextNode(label));
@@ -2605,6 +3125,13 @@ function renderGuide() {
   });
   const art = $('garticle');
   art.textContent = '';
+  if (ui.guide === 'h-intro') {
+    art.append(el('h3', '', t('hguide.intro.title')));
+    for (let k = 1; k <= HEAD_INTRO_PARTS; k += 1) art.append(richText(t(`hguide.intro.p${k}`)));
+    return;
+  }
+  const group = HEAD_GROUPS.find(([id]) => id === ui.guide);
+  if (group) { renderHeadTopic(art, group[1], group[2]); return; }
   const intro = GUIDE_INTRO[ui.guide];
   if (intro) {
     art.append(el('h3', '', t(`guide.${ui.guide}.title`)));
@@ -2645,7 +3172,30 @@ function richText(text) {
 }
 
 // --- rendering --------------------------------------------------------------------------------------
+// Follows the picked fixture. The head has only the desk and the guide (its presets and shows come later).
+// Without a connection the page keeps showing what it showed.
+function syncView() {
+  if (!st) return;
+  const f = activeFixture();
+  const sig = f && f.type === 'head' ? `head:${f.slot}` : 'laser';
+  if (sig === ui.viewSig) return;
+  ui.viewSig = sig;
+  ui.tipCh = null;
+  if (sig !== 'laser') {
+    ui.builder = null;
+    ui.sheet = false;
+    ui.editor = null;
+    ui.editing = false;
+    ui.confirmSlot = null;
+    if (ui.tab === 'presets' || ui.tab === 'shows') ui.tab = 'desk';
+  }
+  buildDesk();
+  renderGuide();   // also moves the guide to a topic of this fixture
+  if (ui.tab === 'presets') rebuildTiles();
+  queueRedraw();
+}
 function switchTab(tab) {
+  if (headView() && (tab === 'presets' || tab === 'shows')) return;
   ui.tab = tab;
   ui.builder = null;
   ui.sheet = false;
@@ -2668,8 +3218,11 @@ function rebuildAll() {
   if (ui.editor) renderEditor();
 }
 function render() {
+  syncView();
+  const head = headView();
   document.body.classList.toggle('offline', !isOpen || !st);
-  document.body.classList.toggle('locked', !!(st && (st.cal || st.stopHeld || !hasLaser())));
+  document.body.classList.toggle('locked', !!(st && (st.cal || st.stopHeld || (!head && !hasLaser()))));
+  [...$('nav').children].forEach((b) => { b.hidden = !!head && (b.dataset.tab === 'presets' || b.dataset.tab === 'shows'); });
   ['presets', 'shows', 'desk', 'guide'].forEach((t) => { $(`view-${t}`).hidden = ui.tab !== t; });
   renderHeader();
   renderBanners();
@@ -2714,24 +3267,31 @@ function drawPlaceholder(cv) {
 function startAnim() { if (!animId && needsAnim()) animId = requestAnimationFrame(animate); }
 
 // --- incoming messages -----------------------------------------------------------------------------------
-// This page drives the laser only: it is found in the patch by its type.
-function laserOf(fixtures) {
-  return fixtures.find((f) => f && f.type === 'laser' && Array.isArray(f.ch) && f.ch.length >= CH_COUNT
-    && Number.isInteger(f.slot) && f.slot >= 1 && f.slot <= MAX_FIXTURES) || null;
+// The patched fixtures of a known type, each with exactly its type's channels.
+const isFixture = (f) => !!f && typeof f === 'object' && Object.prototype.hasOwnProperty.call(FX_CHANNELS, f.type)
+  && Array.isArray(f.ch) && f.ch.length >= FX_CHANNELS[f.type] && Number.isInteger(f.slot) && f.slot >= 1 && f.slot <= MAX_FIXTURES;
+function normFixture(f) {
+  return {
+    slot: f.slot, type: f.type, addr: clampInt(f.addr, 1, 512),
+    ch: f.ch.slice(0, FX_CHANNELS[f.type]).map((v) => clampInt(v, 0, RAW_MAX)),
+    preset: Number.isInteger(f.preset) ? f.preset : null,
+  };
 }
 function normState(m) {
   const pair = (v, d) => (Array.isArray(v) && v.length === 2 ? v.map((x) => clampInt(x, 0, RAW_MAX)) : d);
   const l = m.limits && typeof m.limits === 'object' ? m.limits : {};
   const h = l.ch6 && typeof l.ch6 === 'object' ? l.ch6 : {};
   const p = m.play && typeof m.play === 'object' ? m.play : null;
-  const laser = laserOf(m.fixtures);
+  const fixtures = m.fixtures.filter(isFixture).map(normFixture);
+  const laser = fixtures.find((f) => f.type === 'laser') || null;   // presets, shows and the limits are the laser's
   return {
-    ch: laser ? laser.ch.slice(0, CH_COUNT).map((v) => clampInt(v, 0, RAW_MAX)) : new Array(CH_COUNT).fill(0),
+    fixtures,
+    ch: laser ? laser.ch.slice() : new Array(CH_COUNT).fill(0),
     laserSlot: laser ? laser.slot : null,
     limits: { ch7: pair(l.ch7, [0, POS_MAX]), ch6: { on: !!h.on, range: pair(h.range, [0, POS_MAX]) }, calibrated: !!l.calibrated },
     stopHeld: !!m.stopHeld,
     cal: m.cal && typeof m.cal === 'object' ? { phase: String(m.cal.phase || '') } : null,
-    preset: laser && Number.isInteger(laser.preset) ? laser.preset : null,
+    preset: laser ? laser.preset : null,
     play: p ? { show: Number(p.show), step: Math.max(0, Number(p.step) || 0), steps: Math.max(1, Number(p.steps) || 1), holdLeftMs: Math.max(0, Number(p.holdLeftMs) || 0) } : null,
     libraryReset: !!m.libraryReset,
     settingsReset: !!m.settingsReset,
@@ -2761,14 +3321,19 @@ function onState(msg) {
   stAt = now();
   if (before && (before.preset !== st.preset || playKey(before) !== playKey(st))) releaseLocal();
   dropStaleLocal();
-  if (st.cal || st.stopHeld || !hasLaser() || (before && before.laserSlot !== st.laserSlot)) {
+  // Local values belong to the patch they were made in; a session or IO0 overrules them too.
+  const sig = JSON.stringify(st.fixtures.map((f) => [f.slot, f.type, f.addr]));
+  if (st.cal || st.stopHeld || sig !== patchSig) {
     clearLocal();
     if (ui.tipCh != null) { ui.tipCh = null; renderTip(); }
   }
-  const L = st.limits;
-  if (deskStrips.length && JSON.stringify([L.ch6.on, L.calibrated]) !== deskSig) buildDesk();
+  patchSig = sig;
+  // What the head's switch brings back: its last lit look seen in this page session.
+  st.fixtures.forEach((f) => { if (f.type === 'head' && isHeadOn(f.ch)) litLooks.set(litKey(f), f.ch.slice()); });
+  syncView();
+  if (deskStrips.length && deskSigNow() !== deskSig) buildDesk();
   if (!before || before.preset !== st.preset || !!before.cal !== !!st.cal) refreshTiles();
-  if (ui.tab === 'guide' && (!before || JSON.stringify(before.limits) !== JSON.stringify(L))) renderGuide();
+  if (ui.tab === 'guide' && (!before || JSON.stringify(before.limits) !== JSON.stringify(st.limits))) renderGuide();
   render();
 }
 function onLibrary(msg) {
@@ -2953,11 +3518,19 @@ $('offBtn').addEventListener('click', () => {
   if (!send('off')) return;
   clearTimeout(offTimer);
   offTimer = setTimeout(() => {
-    if (!st || st.ch[0] >= MODE_ON_MIN) {
+    if (!st || st.ch[0] >= MODE_ON_MIN || st.fixtures.some((f) => f.type === 'head' && isHeadOn(f.ch))) {
       showMsg('msg.offUnconfirmed', 'error');
     }
   }, OFF_CONFIRM_MS);
 });
+// Only changes what the desk shows; nothing is sent.
+[...$('bankSeg').children].forEach((b) => b.addEventListener('click', () => {
+  if (ui.bank === b.dataset.bank) return;
+  ui.bank = b.dataset.bank;
+  ui.tipCh = null;
+  buildDesk();
+  render();
+}));
 $('saveBtn').addEventListener('click', openSheet);
 $('bCancel').addEventListener('click', closeBuilder);
 $('bSave').addEventListener('click', saveBuilder);
