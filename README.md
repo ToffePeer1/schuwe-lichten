@@ -18,9 +18,12 @@ whatever the phone asks for. Everything fits in a small 3D-printed box with an X
 ## Features
 
 - **Phone page, no app.** Join the ESP32's WiFi and open `http://192.168.4.1` in the browser. Made for landscape. The interface is in Dutch or English: switch with NL | EN next to the off button. Each phone remembers its choice; the first visit follows the phone's language.
-- **Presets** with drawings of the actual patterns, a **quick builder** (shape, colour, movement, size, height, lines/dots, shown live on the laser),
+- **Presets for every light**: laser presets with drawings of the actual patterns, moving-head presets with their colours,
+  and a **quick builder** for the laser (shape, colour, movement, size, height, lines/dots, shown live),
   and a **lighting-desk page** with a fader per channel and an explanation behind every label.
-- **Shows:** a looping list of presets with hold times. The ESP32 plays them itself, so the phone can lock, switch apps or leave the WiFi.
+- **Shows:** a looping list of steps, each giving the laser, the head or both a preset and holding it.
+  A show can play another show as a step, so a head routine ("spin red, strobe, spin red") becomes a building block for bigger shows.
+  A show plays with whichever of its lights are connected. The ESP32 plays it itself, so the phone can lock, switch apps or leave the WiFi.
 - **Height limit, calibrated on site** in a PIN-protected admin page. It is applied to every outgoing frame, inside presets and shows too.
   An optional side limit does the same horizontally.
 - **Stops:** the big UIT button works from every phone, always. The board's BOOT button doubles as a hardware stop.
@@ -144,7 +147,8 @@ The USB serial console accepts the same commands as the WebSocket and counts as 
 - `7 40` sets channel 7.
 - `off` switches the laser off.
 - `?` prints the status.
-- `preset load 1` and `show play 1` load a preset or start a show.
+- `preset load 1` and `show play 1` load a preset or start a show. `f2 preset save 5 Rood` saves light 2's look.
+- `show save 1 1=1:20,1=2+s2,:10 Avond` makes a show: laser preset 1 for 2 s, then laser preset 2 while show 2 plays once, then a 1 s pause.
 - `pin reset` restores the factory PIN.
 
 All commands are in [docs/PROTOCOL.md](docs/PROTOCOL.md).
