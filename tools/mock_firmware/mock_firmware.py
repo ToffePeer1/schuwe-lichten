@@ -26,17 +26,20 @@ The patch (lib/laser_core/src/fixtures.*, controller.cpp), up to 4 fixtures on o
 - The state has 'fixtures': [{slot, type, addr, ch, preset}] for the patched slots only.
 
 Library details, mirroring lib/laser_core/src/controller.cpp and src/library_service.cpp:
-- Presets and shows hold laser looks and act on the laser's slot (no-fixture without a laser).
-  A head channel change or 'f<head> off' leaves a running show alone.
-- play.step is 0-based (like cal.step); play.steps is the step count.
-- 'preset load' sets the laser's preset to that slot and stops a running show; a show step sets
-  it to the step's preset; a manual laser channel command, 'off', '0' or any blackout clears it.
+- Presets are typed ('laser' or 'head'), 48 slots. '[f<n>] preset save|load' acts on fixture n
+  (save: slot 1 without a prefix; load: the first fixture of the preset's type); wrong-type if they differ.
+- Shows are steps of cues ('<patch slot>=<preset>'), a hold or a nested show, a pause (':10');
+  they are unfolded at 'show play'. A cue reaches a fixture only if the types match; the show drives
+  the fixtures its cues reach, and a manual change or preset load on one of those stops it.
+- play.step is 0-based (like cal.step); play.steps counts the unfolded show.
+- 'preset load' sets that fixture's preset and stops a show driving it; a show step sets it to the
+  step's preset; a manual channel command, 'off', '0' or any blackout clears it.
 - 'preset save' (presetSaved): a playing show that uses the slot stops (the look stays).
-  If no show is playing afterwards, state.preset = slot when the current look equals the
-  saved one, else it is cleared if it was that slot. A show still playing keeps its marking.
-- 'preset delete' clears state.preset if it was that slot.
-- 'show play' refuses (not-calibrated) if ANY step would switch the laser on while
-  uncalibrated. 'show stop' with nothing playing is a harmless no-op.
+  The saved fixture's preset = slot when its look equals the saved one (unless a show drives it);
+  any other fixture that had that slot loses it.
+- 'preset delete' clears every fixture's preset that was that slot.
+- 'show play' refuses (not-calibrated) if a step would switch the laser on while uncalibrated,
+  and no-fixture if it would drive nothing. 'show stop' with nothing playing is a harmless no-op.
 - 'show save' over the playing show, or 'show delete' of it, stops playback (the look stays).
 - Step timing keeps its schedule: a late tick shortens the next hold by the lateness.
 - Library changes broadcast the library and the state; no 'saved' event is sent for them.
@@ -578,7 +581,7 @@ class MockFirmware:
             return
         prefix = PREFIX_PATTERN.fullmatch(kind)
         rest = line.split(None, 1)[1] if len(line.split()) > 1 else ""
-        if prefix and rest.split()[0].lower() == "preset":  # "f2 preset save|load ..."
+        if prefix and rest.lower().split()[:1] == ["preset"]:  # "f2 preset save|load ..." (a bare "f2" is bad-command below)
             self.library_command(client, "preset", rest, out, fixture=int(prefix[1]))
             return
         words = line.lower().split()  # the firmware lower-cases every other command
