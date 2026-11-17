@@ -24,8 +24,9 @@ void printHelp() {
   Serial.println("  lim mark low7|high7|left6|right6, lim h on|off, lim save, lim check|redo (optional check),");
   Serial.println("  dbg start|stop (raw laser channels, NO limits), pin <old> <new>, pin reset,");
   Serial.println("  patch <1-4> none|laser <addr>|head <addr> (which light sits at which DMX address)");
-  Serial.println("library: preset save <1-32> <name>, preset load|delete <slot>, lib (list),");
-  Serial.println("  show save <1-16> <p:t,...> <name> (t in 0.1 s), show play <slot>, show stop, show delete <slot>");
+  Serial.println("library: [f<n>] preset save <1-48> <name>, [f<n>] preset load <slot>, preset delete <slot>, lib,");
+  Serial.println("  show save <1-16> <steps> <name>, steps like '1=3+2=7:50,s4' (fixture=preset, :hold in 0.1 s,");
+  Serial.println("  s<n> = play show n once), show play <slot>, show stop, show delete <slot>");
 }
 
 void printLibrary() {
@@ -34,20 +35,16 @@ void printLibrary() {
   for (size_t i = 0; i < laser::PRESET_SLOTS; ++i) {
     const laser::Preset& p = lib.presets[i];
     if (p.isUsed) {
-      Serial.printf("  %2u %s\n", static_cast<unsigned>(i + 1), p.name);
+      Serial.printf("  %2u %-5s %s\n", static_cast<unsigned>(i + 1), laser::fixtureTypeName(p.type), p.name);
     }
   }
-  Serial.println("shows:");
+  Serial.println("shows (fixture=preset cues, :hold in 0.1 s, s<n> = nested show):");
+  char steps[laser::MAX_LINE_LENGTH + 1];
   for (size_t i = 0; i < laser::SHOW_SLOTS; ++i) {
     const laser::Show& s = lib.shows[i];
-    if (!s.isUsed) {
-      continue;
+    if (s.isUsed && laser::formatSteps(s, steps, sizeof(steps))) {
+      Serial.printf("  %2u %s: %s\n", static_cast<unsigned>(i + 1), s.name, steps);
     }
-    Serial.printf("  %2u %s:", static_cast<unsigned>(i + 1), s.name);
-    for (uint8_t k = 0; k < s.stepCount; ++k) {
-      Serial.printf(" %u(%u.%us)", s.steps[k].preset, s.steps[k].holdTenths / 10, s.steps[k].holdTenths % 10);
-    }
-    Serial.println();
   }
 }
 

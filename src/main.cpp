@@ -21,7 +21,7 @@
 namespace {
 
 constexpr uint32_t SERIAL_SETTLE_MS = 200;
-constexpr size_t SERIAL_RX_BUFFER_BYTES = 1024;  // a long "show save" line during a flash write
+constexpr size_t SERIAL_RX_BUFFER_BYTES = 2048;  // a long "show save" line during a flash write
 constexpr uint32_t DMX_HEALTH_CHECK_INTERVAL_MS = 1000;
 constexpr uint32_t STATION_POLL_INTERVAL_MS = 250;  // asking the WiFi driver every loop pass is wasteful
 
@@ -121,10 +121,10 @@ void drainStopEvents() {
 
 }  // namespace
 
-// The default 8 KB is tight: a library command copies the Context (~0.5 KB,
-// a running show included) several times down the call chain. "?" prints the
+// The default 8 KB is too small: a library command copies the Context (~1.5 KB,
+// a running show included) several times, and a command line is up to 1 KB. "?" prints the
 // unused stack of both tasks so this can be checked on the board.
-SET_LOOP_TASK_STACK_SIZE(12 * 1024);
+SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 
 void setup() {
   // Hold the DMX line idle ("mark") until the UART takes the pin over.

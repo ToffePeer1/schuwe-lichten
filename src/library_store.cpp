@@ -10,9 +10,12 @@ namespace {
 
 constexpr char PRESETS_PATH[] = "/presets.bin";
 constexpr char SHOWS_PATH[] = "/shows.bin";
-constexpr size_t BUFFER_SIZE = 2048;
-static_assert(BUFFER_SIZE >= 1 + 32 * (1 + 33 + 10) + 4, "presets blob must fit");
-static_assert(BUFFER_SIZE >= 1 + 16 * (1 + 33 + 1 + 24 * 3) + 4, "shows blob must fit");
+constexpr size_t BUFFER_SIZE = 4096;
+static_assert(BUFFER_SIZE >= 1 + laser::PRESET_SLOTS * (1 + 1 + 33 + laser::MAX_FIXTURE_CHANNELS) + 4,
+              "presets blob must fit");
+static_assert(BUFFER_SIZE >=
+                  1 + laser::SHOW_SLOTS * (1 + 33 + 1 + laser::SHOW_MAX_STEPS * (laser::MAX_FIXTURES + 3)) + 4,
+              "shows blob must fit");
 
 // Loop task only, so static buffers are safe and keep the stack small.
 uint8_t writeBuffer[BUFFER_SIZE];
@@ -51,13 +54,13 @@ bool writeVerified(const char* path, const uint8_t* data, size_t size) {
 }
 
 // Missing file = empty slots (not an error). Present but invalid = reset.
-bool loadFile(const char* path, size_t expected, bool (*decode)(const uint8_t*, size_t, laser::Library*),
-              laser::Library* library) {
+// Decode checks the size and version itself, so older files still load.
+bool loadFile(const char* path, bool (*decode)(const uint8_t*, size_t, laser::Library*), laser::Library* library) {
   if (!LittleFS.exists(path)) {
     return false;
   }
   const size_t size = readFile(path, readBuffer, sizeof(readBuffer));
-  return size != expected || !decode(readBuffer, size, library);
+  return size == 0 || !decode(readBuffer, size, library);
 }
 
 }  // namespace
@@ -68,8 +71,8 @@ LoadResult load(laser::Library* library) {
   if (!isMounted) {
     return {false, false, false, 0};
   }
-  const bool wasPresetsReset = loadFile(PRESETS_PATH, laser::presetsBlobSize(), laser::decodePresets, library);
-  const bool wasShowsReset = loadFile(SHOWS_PATH, laser::showsBlobSize(), laser::decodeShows, library);
+  const bool wasPresetsReset = loadFile(PRESETS_PATH, laser::decodePresets, library);
+  const bool wasShowsReset = loadFile(SHOWS_PATH, laser::decodeShows, library);
   const uint8_t droppedShows = laser::dropDanglingShows(*library);
   return {true, wasPresetsReset, wasShowsReset || droppedShows > 0, droppedShows};
 }

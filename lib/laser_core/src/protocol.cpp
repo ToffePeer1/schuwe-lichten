@@ -345,49 +345,73 @@ void readName(Cursor* c, Command* command) {
   c->p = c->end;
 }
 
-// "p:t,p:t,...": syntax only; ranges are checked by the library.
-void parseSteps(const char* word, Command* command) {
-  const char* p = word;
-  while (*p != '\0') {
-    if (command->stepCount == SHOW_MAX_STEPS) {
-      command->areStepsMalformed = true;
-      return;
+// One part of a step: "<fixture>=<preset>" (a cue) or "s<show>" (a nested show).
+bool parseStepPart(const char* part, StepSpec* out) {
+  unsigned number = 0;
+  if (part[0] == 's') {
+    if (out->subShow != 0 || !parseNumber(part + 1, 3, &number) || number == 0) {
+      return false;  // a second nested show, or no slot
     }
-    char part[16];
-    size_t n = 0;
-    while (*p != '\0' && *p != ',' && n + 1 < sizeof(part)) {
-      part[n++] = *p++;
-    }
-    part[n] = '\0';
-    if (*p == ',') {
-      ++p;
-      if (*p == '\0') {
-        command->areStepsMalformed = true;  // trailing comma
-        return;
-      }
-    } else if (*p != '\0') {
-      command->areStepsMalformed = true;  // part too long
-      return;
-    }
-    char* colon = std::strchr(part, ':');
-    unsigned preset = 0;
-    unsigned hold = 0;
-    if (colon == nullptr) {
-      command->areStepsMalformed = true;
-      return;
-    }
+    out->subShow = static_cast<uint16_t>(number);
+    return true;
+  }
+  const unsigned fixture = isDigit(part[0]) ? static_cast<unsigned>(part[0] - '0') : 0;
+  if (fixture < 1 || fixture > MAX_FIXTURES || part[1] != '=' || !parseNumber(part + 2, 3, &number) || number == 0 ||
+      out->cues[fixture - 1] != 0) {
+    return false;  // bad fixture, no preset, or two cues for one fixture
+  }
+  out->cues[fixture - 1] = static_cast<uint16_t>(number);
+  return true;
+}
+
+// One step, e.g. "1=3+2=7:50", "s4" or "1=5+s2". Overwrites ':' and '+'.
+bool parseStep(char* text, StepSpec* out) {
+  char* colon = std::strchr(text, ':');
+  if (colon != nullptr) {
     *colon = '\0';
-    if (!parseNumber(part, 3, &preset) || !parseNumber(colon + 1, 4, &hold)) {
-      command->areStepsMalformed = true;
+    unsigned hold = 0;
+    if (!parseNumber(colon + 1, 4, &hold)) {
+      return false;
+    }
+    out->holdTenths = static_cast<uint16_t>(hold);
+    out->hasHold = true;
+  }
+  if (*text == '\0') {
+    return out->hasHold;  // ":50" is a pause: no cues, just wait
+  }
+  for (char* part = text;;) {
+    char* plus = std::strchr(part, '+');
+    if (plus != nullptr) {
+      *plus = '\0';
+    }
+    if (!parseStepPart(part, out)) {
+      return false;
+    }
+    if (plus == nullptr) {
+      return true;
+    }
+    part = plus + 1;
+  }
+}
+
+// Comma-separated steps: syntax only; the library checks ranges and meaning.
+void parseSteps(char* word, Command* command) {
+  command->areStepsMalformed = true;
+  for (char* step = word;;) {
+    char* comma = std::strchr(step, ',');
+    if (comma != nullptr) {
+      *comma = '\0';
+    }
+    if (command->stepCount == SHOW_MAX_STEPS || !parseStep(step, &command->steps[command->stepCount])) {
       return;
     }
-    command->stepPresets[command->stepCount] = static_cast<uint16_t>(preset);
-    command->stepHolds[command->stepCount] = static_cast<uint16_t>(hold);
     ++command->stepCount;
+    if (comma == nullptr) {
+      break;
+    }
+    step = comma + 1;
   }
-  if (command->stepCount == 0) {
-    command->areStepsMalformed = true;
-  }
+  command->areStepsMalformed = false;
 }
 
 Command parsePresetCommand(Cursor* c) {
@@ -444,6 +468,20 @@ bool parseLibraryCommand(const char* line, size_t length, Command* out) {
   Cursor c{line, line + length};
   char first[8];
   nextWord(&c, first, sizeof(first));
+  uint8_t fixture = 0;
+  if (parseFixturePrefix(first, &fixture)) {
+    nextWord(&c, first, sizeof(first));
+    if (!is(first, "preset")) {
+      return false;  // "f2 7 40" and friends are for the token parser
+    }
+    *out = parsePresetCommand(&c);
+    const bool takesPrefix = out->type == CommandType::PresetSave || out->type == CommandType::PresetLoad;
+    out->fixture = fixture;
+    if (!takesPrefix) {
+      *out = Command{};
+    }
+    return true;
+  }
   if (is(first, "preset")) {
     *out = parsePresetCommand(&c);
     return true;

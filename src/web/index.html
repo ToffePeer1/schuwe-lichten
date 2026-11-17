@@ -206,6 +206,20 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
 .stepchip span { font: 700 12px/1.2 var(--sans); overflow-wrap: anywhere; min-width: 0; }
 .stepchip b { font: 700 11px var(--mono); color: var(--amber); white-space: nowrap; }
 .stepchip.cur { box-shadow: inset 0 0 0 2px var(--amber); }
+.stepchip .same { color: var(--faint); font-weight: 600; }
+.stepchip > span:first-child { margin-left: 7px; }
+.stepchip.pause { box-shadow: inset 0 0 0 1px #3a3a3a; background: transparent; }
+.stepchip.pause.cur { box-shadow: inset 0 0 0 2px var(--amber); }
+.stepchip.multi { flex-direction: column; align-items: stretch; gap: 3px; padding: 4px 9px 5px 4px; }
+.stepchip .cue { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.stepchip .cue canvas { width: 24px; height: 24px; border-radius: 6px; }
+.stepchip .cue .dash { width: 24px; height: 24px; flex: none; display: grid; place-items: center; color: #4a4a4a; font: 700 12px var(--sans); }
+.stepchip .tag { flex: none; width: 15px; font: 800 9px/1 var(--mono); color: var(--label); text-align: center; }
+.stepchip.multi > b { padding-left: 3px; }
+.nest { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; border-radius: 7px; padding: 3px 8px; background: var(--amber-bg);
+  color: var(--amber-text); box-shadow: inset 0 0 0 1px rgba(255, 176, 0, .35); font: 700 12px/1.2 var(--sans); }
+.nest small { flex: none; font: 800 8.5px/1.1 var(--sans); letter-spacing: .06em; text-transform: uppercase; opacity: .8; }
+.nest span { min-width: 0; overflow-wrap: anywhere; }
 .card { background: var(--surface); border-radius: 20px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .card b { font: 800 18px/1.2 var(--sans); letter-spacing: -.01em; }
 
@@ -214,10 +228,38 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
 .edtop { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 8px; }
 .edinfo { flex: none; display: flex; align-items: baseline; gap: 10px; }
 .edsteps { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 6px; }
-.srow { display: grid; grid-template-columns: 20px 40px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; background: var(--surface); border-radius: 14px; padding: 5px 6px 5px 10px; min-height: 52px; flex: none; }
+.srow { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto auto; align-items: center; gap: 6px 8px; background: var(--surface); border-radius: 14px; padding: 5px 6px 5px 10px; min-height: 52px; flex: none; }
+.srow.open { box-shadow: inset 0 0 0 2px #3a3a3a; }
 .srow .no { font: 700 12px var(--mono); color: var(--label); }
-.srow canvas { width: 40px; height: 40px; border-radius: 8px; background: var(--well); }
-.srow .nm { font: 800 14px/1.2 var(--sans); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.srow .sum { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 42px; border: 0; background: none; color: var(--text); padding: 0; text-align: left; }
+.srow .sum canvas { width: 40px; height: 40px; flex: none; border-radius: 8px; background: var(--well); }
+.srow .sum canvas + canvas { margin-left: -14px; box-shadow: -2px 0 0 var(--surface); }
+.srow .nm { flex: 1; min-width: 0; font: 800 14px/1.2 var(--sans); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.srow .nm.same { color: var(--muted); font-weight: 700; }
+.srow .chev { flex: none; color: var(--faint); font: 800 12px/1 var(--sans); }
+.sbody { grid-column: 2 / -1; display: grid; grid-template-columns: minmax(0, 120px) minmax(0, 1fr); gap: 6px 10px; align-items: center; padding: 2px 0 4px; }
+.sbody .flabel { font: 800 10px/1.2 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--label); overflow-wrap: anywhere; }
+.sbody .flabel.off { color: var(--faint); }
+.choice { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 44px; border: 0; border-radius: 12px; background: var(--raised); color: var(--text); padding: 3px 12px 3px 3px; text-align: left; }
+.choice canvas { width: 38px; height: 38px; flex: none; border-radius: 9px; background: var(--well); }
+.choice span { flex: 1; min-width: 0; font: 700 13.5px/1.2 var(--sans); overflow-wrap: anywhere; }
+.choice.same span { color: var(--muted); }
+.choice .dash { width: 38px; height: 38px; flex: none; border-radius: 9px; display: grid; place-items: center; background: var(--well); color: #555; font: 800 14px var(--sans); }
+.choice::after { content: "▾"; flex: none; color: var(--faint); font-size: 12px; }
+.seg { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 3px; background: var(--well); border-radius: 12px; padding: 3px; justify-self: start; max-width: 100%; }
+.seg button { border: 0; background: none; color: var(--muted); font: 800 12.5px/1.15 var(--sans); border-radius: 9px; padding: 4px 12px; min-height: 36px; min-width: 0; overflow-wrap: anywhere; }
+.seg button.on { background: var(--text); color: var(--bg); }
+.nestbtn { position: relative; justify-self: end; flex-direction: column; align-items: flex-start; gap: 1px; border: 0; min-height: 44px;
+  min-width: 120px; max-width: 220px; padding: 4px 24px 4px 10px; text-align: left; }
+.nestbtn::after { content: "▾"; position: absolute; right: 9px; top: 50%; transform: translateY(-50%); font-size: 11px; opacity: .8; }
+.addrow { flex: none; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.4fr); gap: 6px; }
+.addrow .addstep { min-width: 0; padding: 4px 8px; overflow-wrap: anywhere; }
+.addstep:disabled { opacity: .35; }
+.pickgrid .tile.same { box-shadow: inset 0 0 0 2px #2c2c2c; background: transparent; }
+.pickgrid .tile .big { position: absolute; left: 0; right: 0; top: 0; height: calc(100% - 30px); display: grid; place-items: center; color: #555; font: 800 22px var(--sans); pointer-events: none; }
+.pickgrid .tile.showtile .big { color: var(--amber); font-size: 18px; }
+.pickgrid .tile.on { box-shadow: inset 0 0 0 3px var(--text); }
+.pickgrid .empty { grid-column: 1 / -1; }
 .hold { display: grid; grid-template-columns: 36px 58px 10px 36px; gap: 4px; align-items: center; }
 .hold .unit { font: 700 11px var(--sans); color: var(--muted); }
 .hold input { font-size: 15px; text-align: center; min-height: 36px; border: 0; padding: 0 4px; width: 100%; min-width: 0; }
@@ -340,8 +382,11 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
   .desk { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
   .edtop { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .edtop .field { grid-column: 1 / -1; }
-  .srow { grid-template-columns: 18px 36px minmax(0, 1fr) auto; }
+  .srow { grid-template-columns: 18px minmax(0, 1fr) auto; }
   .srow .rowbtns { grid-column: 2 / -1; justify-content: flex-end; }
+  .srow .sum canvas { width: 36px; height: 36px; }
+  .sbody { grid-column: 1 / -1; grid-template-columns: minmax(0, 92px) minmax(0, 1fr); }
+  .nestbtn { max-width: 150px; }
   .guide { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .gnav { flex-direction: row; flex-wrap: wrap; overflow: visible; }
   .gnav button { padding: 6px 8px; font-size: 12px; }
@@ -425,7 +470,7 @@ body.offline .lockable, body.locked .lockable { opacity: .35; pointer-events: no
         <div class="edinfo"><span class="label" id="eCount">0 stappen</span><span class="hint" id="eTotal"></span></div>
         <div class="edsteps lockable" id="eSteps"></div>
         <div class="picker" id="ePicker" hidden>
-          <div class="pickhead"><span class="label" data-t="editor.pick">Kies de preset voor de nieuwe stap</span><button type="button" class="btn" id="ePickBack" data-t="common.back">Terug</button></div>
+          <div class="pickhead"><span class="label" id="ePickTitle"></span><button type="button" class="btn" id="ePickBack" data-t="common.back">Terug</button></div>
           <div class="pickgrid" id="ePickGrid"></div>
         </div>
       </section>
@@ -539,6 +584,7 @@ const STR = {
     'side.headDimmer': 'Dimmer {pct} %',
     'side.headStrobe': 'strobe {hz} Hz',
     'side.headLasers': 'lasers aan',
+    'side.pause': 'pauze',
 
     'look.spins': 'draait',
     'look.flips': 'spiegelt',
@@ -546,12 +592,30 @@ const STR = {
     'look.zooms': 'zoomt',
     'look.dots': 'punten',
     'look.off': 'laser uit',
+    'look.eyeSpins': 'oog draait',
+    'look.headDark': 'donker',
     'pattern.n': 'Patroon {n}',
+    'head.suggest': 'Hoofd, {color}',
+    'hue.red': 'rood',
+    'hue.orange': 'oranje',
+    'hue.yellow': 'geel',
+    'hue.green': 'groen',
+    'hue.cyan': 'cyaan',
+    'hue.blue': 'blauw',
+    'hue.purple': 'paars',
+    'hue.pink': 'roze',
+    'hue.white': 'wit',
+    'hue.dark': 'donker',
 
     'tiles.newAria': 'Nieuwe preset maken',
     'tiles.new': '＋ Nieuw',
     'tiles.emptyTitle': 'Nog geen presets',
     'tiles.emptyHint': 'Maak er een met ＋ Nieuw, of stel de laser in op de Lichttafel en tik ＋ Bewaar als preset.',
+    'tiles.newHead': '＋ Bewaar',
+    'tiles.newHeadSmall': 'De look van nu',
+    'tiles.newHeadAria': 'De look van het hoofd bewaren als preset',
+    'tiles.emptyHeadTitle': 'Nog geen presets voor het hoofd',
+    'tiles.emptyHeadHint': 'Stel het hoofd in op de Lichttafel en tik ＋ Bewaar als preset. Een show kan het hoofd en de laser dan samen sturen.',
     'tiles.start': '{name} starten',
     'tiles.delete': '{name} verwijderen',
     'tiles.now': 'NU',
@@ -629,17 +693,22 @@ const STR = {
     'sheet.question': 'Hoe heet deze look?',
     'sheet.asNow': 'Zoals de laser nu staat.',
     'sheet.dark': 'Let op: de laser staat uit, dus deze preset is donker. Handig als pauze in een show.',
-    'sheet.hint': 'Bewaart alle 10 kanalen zoals de laser nu staat.',
     'sheet.hintSlot': 'Bewaart alle 10 kanalen zoals de laser nu staat, op plek {slot} van {total}.',
+    'sheet.darkHead': 'Let op: het hoofd geeft nu geen licht, dus deze preset is donker.',
+    'sheet.hintHead': 'Bewaart alle 19 kanalen zoals het hoofd nu staat, op plek {slot} van {total}.',
 
     'shows.emptyTitle': 'Nog geen shows',
-    'shows.emptyHint': 'Een show speelt presets na elkaar af, elk zo lang als jij wilt, en begint dan opnieuw. De ESP32 speelt hem zelf: je telefoon mag op slot of weg.',
+    'shows.emptyHint': 'Een show speelt stappen na elkaar af en begint dan opnieuw. Elke stap geeft de lichten een preset en duurt zo lang als jij wilt. De ESP32 speelt hem zelf: je telefoon mag op slot of weg.',
     'shows.needPresets': 'Maak eerst een paar presets.',
     'shows.editAria': '{name} bewerken',
     'shows.playAria': '{name} afspelen',
     'shows.stopAria': '{name} stoppen',
     'shows.playing': 'Speelt · stap {step}/{steps} · nog {left} s',
     'shows.meta': '{steps} · {time} per ronde · blijft lopen zonder telefoon',
+    'shows.same': 'ongewijzigd',
+    'shows.pause': 'Pauze',
+    'shows.nested': 'show in een show',
+    'shows.gone': 'Show {slot} (weg)',
     'steps.one': '{n} stap',
     'steps.other': '{n} stappen',
 
@@ -649,7 +718,9 @@ const STR = {
     'editor.total': '{time} per ronde, daarna begint hij opnieuw.',
     'editor.empty': 'Voeg minstens één stap toe.',
     'editor.sure': 'Zeker? Tik nog eens',
-    'editor.add': '＋ Stap toevoegen',
+    'editor.add': '＋ Stap',
+    'editor.addPause': '＋ Pauze',
+    'editor.addShow': '＋ Show in een show',
     'editor.gone': 'Preset {slot} (weg)',
     'editor.secAria': 'Stap {n}: seconden',
     'editor.shorter': 'Stap {n} korter',
@@ -657,8 +728,21 @@ const STR = {
     'editor.up': 'Stap {n} omhoog',
     'editor.down': 'Stap {n} omlaag',
     'editor.remove': 'Stap {n} weghalen',
-    'editor.pick': 'Kies de preset voor de nieuwe stap',
-    'editor.pickAria': '{name} als stap toevoegen',
+    'editor.openAria': 'Stap {n} openen',
+    'editor.closeAria': 'Stap {n} dichtklappen',
+    'editor.then': 'Daarna',
+    'editor.modeHold': 'Wachten',
+    'editor.modeShow': 'Show in een show',
+    'editor.unpatched': 'Plek {n} (niet in de patch)',
+    'editor.choiceAria': '{fx} in stap {n}: {name}',
+    'editor.showAria': 'Show in stap {n}: {name}',
+    'editor.pickFor': 'Preset voor {fx} in stap {n}',
+    'editor.pickShow': 'Welke show speelt stap {n} één keer af?',
+    'editor.pickAria': '{name} kiezen',
+    'editor.same': 'Ongewijzigd',
+    'editor.sameHint': 'Blijft zoals het is',
+    'editor.noPresetsFor': 'Nog geen presets voor {fx}.',
+    'editor.noShows': 'Er is nog geen andere show die hier kan: niet deze show zelf, en niet een show waar deze al in zit.',
 
     'chan.1.short': 'MODUS',
     'chan.1.name': 'Modus',
@@ -787,8 +871,8 @@ const STR = {
     'guide.test': 'TESTEN',
     'guide.basis.title': 'Zo werkt het',
     'guide.basis.p1': 'Je telefoon praat via **de wifi van de ESP32** met de ESP32. Die stuurt de laser 40 keer per seconde aan via de DMX-kabel: 10 kanalen, vanaf zijn DMX-adres (standaard 1).',
-    'guide.basis.p2': '**Presets** zijn opgeslagen looks van alle 10 kanalen. Tik een tegel en de laser laat hem zien. Een nieuwe maak je met ＋ Nieuw (de snelbouwer), of stel de laser in op de Lichttafel en tik ＋ Bewaar als preset.',
-    'guide.basis.p3': '**Shows** spelen presets na elkaar, elk zo lang als jij wilt, en beginnen dan opnieuw. De ESP32 speelt de show zelf: je telefoon mag op slot, naar een andere app of van de wifi.',
+    'guide.basis.p2': '**Presets** zijn opgeslagen looks van een licht: alle kanalen van de laser, of van het hoofd. Tik een tegel en het licht laat hem zien. Een nieuwe maak je met ＋ Nieuw (de snelbouwer), of stel het licht in op de Lichttafel en tik ＋ Bewaar als preset.',
+    'guide.basis.p3': '**Shows** spelen stappen na elkaar en beginnen dan opnieuw. Een stap geeft elk licht een preset of laat het ongewijzigd, en wacht dan zo lang als jij wilt. Een pauze wacht alleen; een show in een show speelt een andere show één keer af. De ESP32 speelt de show zelf: je telefoon mag op slot, naar een andere app of van de wifi.',
     'guide.basis.p4': '**Lichttafel**: alle 10 kanalen met de hand. Tik op een naam voor uitleg. Een schuif bewegen neemt het over van een lopende show.',
     'guide.basis.p5': '**Beheer** (met pincode): de hoogtegrens instellen, kanalen uitproberen in Debug, de lichten (DMX-adressen) en de pincode.',
     'guide.basis.p6': '[TEST] betekent: nog niet op de echte laser bevestigd. Probeer het uit in Beheer → Debug.',
@@ -858,7 +942,7 @@ const STR = {
     'hguide.intro.p1': 'Het bewegend hoofd heeft 19 kanalen. Alles hier komt uit de handleiding en is nog niet op het echte hoofd gecontroleerd. [TEST]',
     'hguide.intro.p2': '**Lichttafel**: twee banken, te wisselen rechtsboven. **Beweging** heeft pan, de motoren, dimmer, strobe en macro; **Kleur** het bijenoog, de straal en de twee lasers. Tik op een naam voor uitleg.',
     'hguide.intro.p3': '**ZET AAN** geeft de laatste look van het hoofd terug die deze telefoon zag, of anders de dimmer vol met een wit bijenoog. **UIT** en de stopknop (IO0) zetten ook het hoofd uit; pan en motoren blijven staan.',
-    'hguide.intro.p4': 'Het hoofd heeft geen grenzen: de hoogtegrens geldt alleen voor de laser. Presets en shows voor het hoofd komen later.',
+    'hguide.intro.p4': 'Het hoofd heeft geen grenzen: de hoogtegrens geldt alleen voor de laser. Zijn looks bewaar je met ＋ Bewaar als preset, en een show kan het hoofd en de laser samen sturen.',
     'hguide.pan.title': 'Pan en snelheid',
     'hguide.pan.p': 'Pan draait het hele hoofd rond. De snelheid bepaalt hoe vlot het naar een nieuwe stand gaat.',
     'hguide.eye.title': 'Bijenoog-motor',
@@ -922,10 +1006,15 @@ const STR = {
     'err.bad-slot': 'Die plek bestaat niet.',
     'err.empty-slot': 'Die plek is leeg: misschien heeft iemand anders hem net verwijderd.',
     'err.bad-name': 'Die naam kan niet: 1 tot 32 tekens, zonder " of \\.',
-    'err.bad-steps': 'De show klopt niet: 1 tot 24 stappen, elk met een bestaande preset en 0,1 tot 600 seconden.',
+    'err.bad-steps': 'De show klopt niet: 1 tot 24 stappen, elk met bestaande presets of een bestaande show, en 0,1 tot 600 seconden.',
     'err.preset-in-use': 'Deze preset zit in een show. Haal hem daar eerst uit.',
     'err.no-fixture': 'Dat licht staat niet (meer) in de patch. Kijk in Beheer → Lichten.',
     'err.bad-patch': 'Dat past niet in de patch: lampen mogen niet overlappen of voorbij kanaal 512 lopen, en er mag maar één laser zijn.',
+    'err.wrong-type': 'Die preset hoort bij een ander soort licht.',
+    'err.show-in-use': 'Deze show zit in een andere show. Haal hem daar eerst uit.',
+    'err.show-loop': 'Dan zou de show zichzelf afspelen (via een show in een show). Kies een andere show.',
+    'err.show-too-long': 'Zo wordt de show te lang: hoogstens 3 shows diep, 64 stappen en 24 verschillende presets, ook in de shows waar hij in zit.',
+    'err.showNoFixture': 'Deze show stuurt geen van de lichten in de patch aan.',
     'err.inUse.one': '{name} zit nog in de show {shows}. Haal hem daar eerst uit.',
     'err.inUse.other': '{name} zit nog in de shows {shows}. Haal hem daar eerst uit.',
     'err.unknown': 'Fout van de laser: {code}',
@@ -1011,6 +1100,7 @@ const STR = {
     'side.headDimmer': 'Dimmer {pct} %',
     'side.headStrobe': 'strobe {hz} Hz',
     'side.headLasers': 'lasers on',
+    'side.pause': 'pause',
 
     'look.spins': 'spinning',
     'look.flips': 'flipping',
@@ -1018,12 +1108,30 @@ const STR = {
     'look.zooms': 'zooming',
     'look.dots': 'dots',
     'look.off': 'laser off',
+    'look.eyeSpins': 'eye turns',
+    'look.headDark': 'dark',
     'pattern.n': 'Pattern {n}',
+    'head.suggest': 'Head, {color}',
+    'hue.red': 'red',
+    'hue.orange': 'orange',
+    'hue.yellow': 'yellow',
+    'hue.green': 'green',
+    'hue.cyan': 'cyan',
+    'hue.blue': 'blue',
+    'hue.purple': 'purple',
+    'hue.pink': 'pink',
+    'hue.white': 'white',
+    'hue.dark': 'dark',
 
     'tiles.newAria': 'Make a new preset',
     'tiles.new': '＋ New',
     'tiles.emptyTitle': 'No presets yet',
     'tiles.emptyHint': 'Make one with ＋ New, or set up the laser on the Desk and tap ＋ Save as preset.',
+    'tiles.newHead': '＋ Save',
+    'tiles.newHeadSmall': 'The look right now',
+    'tiles.newHeadAria': "Save the head's look as a preset",
+    'tiles.emptyHeadTitle': 'No presets for the head yet',
+    'tiles.emptyHeadHint': 'Set up the head on the Desk and tap ＋ Save as preset. A show can then drive the head and the laser together.',
     'tiles.start': 'Start {name}',
     'tiles.delete': 'Delete {name}',
     'tiles.now': 'NOW',
@@ -1101,17 +1209,22 @@ const STR = {
     'sheet.question': 'What should this look be called?',
     'sheet.asNow': 'As the laser is now.',
     'sheet.dark': 'Note: the laser is off, so this preset is dark. Handy as a pause in a show.',
-    'sheet.hint': 'Saves all 10 channels as the laser is now.',
     'sheet.hintSlot': 'Saves all 10 channels as the laser is now, in slot {slot} of {total}.',
+    'sheet.darkHead': 'Note: the head gives no light right now, so this preset is dark.',
+    'sheet.hintHead': 'Saves all 19 channels as the head is now, in slot {slot} of {total}.',
 
     'shows.emptyTitle': 'No shows yet',
-    'shows.emptyHint': 'A show plays presets one after another, each for as long as you like, and then starts over. The ESP32 plays it by itself: your phone can be locked or gone.',
+    'shows.emptyHint': 'A show plays steps one after another and then starts over. Each step gives the fixtures a preset and lasts as long as you like. The ESP32 plays it by itself: your phone can be locked or gone.',
     'shows.needPresets': 'Make a few presets first.',
     'shows.editAria': 'Edit {name}',
     'shows.playAria': 'Play {name}',
     'shows.stopAria': 'Stop {name}',
     'shows.playing': 'Playing · step {step}/{steps} · {left} s left',
     'shows.meta': '{steps} · {time} per loop · keeps running without a phone',
+    'shows.same': 'unchanged',
+    'shows.pause': 'Pause',
+    'shows.nested': 'show in a show',
+    'shows.gone': 'Show {slot} (gone)',
     'steps.one': '{n} step',
     'steps.other': '{n} steps',
 
@@ -1121,7 +1234,9 @@ const STR = {
     'editor.total': '{time} per loop, then it starts over.',
     'editor.empty': 'Add at least one step.',
     'editor.sure': 'Sure? Tap again',
-    'editor.add': '＋ Add step',
+    'editor.add': '＋ Step',
+    'editor.addPause': '＋ Pause',
+    'editor.addShow': '＋ Show in a show',
     'editor.gone': 'Preset {slot} (gone)',
     'editor.secAria': 'Step {n}: seconds',
     'editor.shorter': 'Step {n} shorter',
@@ -1129,8 +1244,21 @@ const STR = {
     'editor.up': 'Move step {n} up',
     'editor.down': 'Move step {n} down',
     'editor.remove': 'Remove step {n}',
-    'editor.pick': 'Choose the preset for the new step',
-    'editor.pickAria': 'Add {name} as a step',
+    'editor.openAria': 'Open step {n}',
+    'editor.closeAria': 'Fold step {n}',
+    'editor.then': 'Then',
+    'editor.modeHold': 'Hold',
+    'editor.modeShow': 'Show in a show',
+    'editor.unpatched': 'Slot {n} (not patched)',
+    'editor.choiceAria': '{fx} in step {n}: {name}',
+    'editor.showAria': 'Show in step {n}: {name}',
+    'editor.pickFor': 'Preset for {fx} in step {n}',
+    'editor.pickShow': 'Which show does step {n} play once?',
+    'editor.pickAria': 'Choose {name}',
+    'editor.same': 'Unchanged',
+    'editor.sameHint': 'Stays as it is',
+    'editor.noPresetsFor': 'No presets for {fx} yet.',
+    'editor.noShows': "There is no other show that fits here yet: not this show itself, and not a show it is already in.",
 
     'chan.1.short': 'MODE',
     'chan.1.name': 'Mode',
@@ -1259,8 +1387,8 @@ const STR = {
     'guide.test': 'UNTESTED',
     'guide.basis.title': 'How it works',
     'guide.basis.p1': "Your phone talks to the ESP32 over **the ESP32's WiFi**. The ESP32 drives the laser 40 times a second over the DMX cable: 10 channels, starting at its DMX address (1 by default).",
-    'guide.basis.p2': '**Presets** are saved looks of all 10 channels. Tap a tile and the laser shows it. Make a new one with ＋ New (the quick builder), or set up the laser on the Desk and tap ＋ Save as preset.',
-    'guide.basis.p3': '**Shows** play presets one after another, each for as long as you like, and then start over. The ESP32 plays the show by itself: your phone can be locked, switch to another app or leave the WiFi.',
+    'guide.basis.p2': '**Presets** are saved looks of one fixture: all channels of the laser, or of the head. Tap a tile and the fixture shows it. Make a new one with ＋ New (the quick builder), or set up the fixture on the Desk and tap ＋ Save as preset.',
+    'guide.basis.p3': '**Shows** play steps one after another and then start over. A step gives each fixture a preset or leaves it unchanged, then holds for as long as you like. A pause only waits; a show in a show plays another show once. The ESP32 plays the show by itself: your phone can be locked, switch to another app or leave the WiFi.',
     'guide.basis.p4': '**Desk**: all 10 channels by hand. Tap a name for an explanation. Moving a slider takes over from a running show.',
     'guide.basis.p5': '**Admin** (with PIN): set the height limit, try out channels in Debug, the fixtures (DMX addresses) and the PIN.',
     'guide.basis.p6': '[TEST] means: not yet confirmed on the real laser. Try it out in Admin → Debug.',
@@ -1330,7 +1458,7 @@ const STR = {
     'hguide.intro.p1': 'The moving head has 19 channels. Everything here comes from its manual and has not been checked on the real head yet. [TEST]',
     'hguide.intro.p2': '**Desk**: two banks, switched at the top right. **Movement** has pan, the motors, dimmer, strobe and macro; **Color** has the bee eye, the beam and the two lasers. Tap a name for an explanation.',
     'hguide.intro.p3': "**TURN ON** brings back the head's last look this phone saw, or else the dimmer at full with a white bee eye. **OFF** and the stop button (IO0) switch the head off too; pan and the motors stay where they are.",
-    'hguide.intro.p4': 'The head has no limits: the height limit is only for the laser. Presets and shows for the head come later.',
+    'hguide.intro.p4': 'The head has no limits: the height limit is only for the laser. Save its looks with ＋ Save as preset, and a show can drive the head and the laser together.',
     'hguide.pan.title': 'Pan and speed',
     'hguide.pan.p': 'Pan turns the whole head around. The speed sets how quickly it moves to a new position.',
     'hguide.eye.title': 'Bee-eye motor',
@@ -1394,10 +1522,15 @@ const STR = {
     'err.bad-slot': 'That slot does not exist.',
     'err.empty-slot': 'That slot is empty: maybe someone else just deleted it.',
     'err.bad-name': 'That name is not allowed: 1 to 32 characters, without " or \\.',
-    'err.bad-steps': 'The show is not valid: 1 to 24 steps, each with an existing preset and 0.1 to 600 seconds.',
+    'err.bad-steps': 'The show is not valid: 1 to 24 steps, each with existing presets or an existing show, and 0.1 to 600 seconds.',
     'err.preset-in-use': 'This preset is in a show. Remove it from there first.',
     'err.no-fixture': "That fixture isn't in the patch (anymore). Check Admin → Fixtures.",
     'err.bad-patch': "That doesn't fit the patch: lights can't overlap or run past channel 512, and there can be only one laser.",
+    'err.wrong-type': 'That preset is for another kind of fixture.',
+    'err.show-in-use': 'This show is inside another show. Remove it from there first.',
+    'err.show-loop': 'Then the show would play itself (through a show in a show). Pick another show.',
+    'err.show-too-long': 'That makes the show too long: at most 3 shows deep, 64 steps and 24 different presets, also in the shows it is part of.',
+    'err.showNoFixture': 'This show drives none of the patched fixtures.',
     'err.inUse.one': '{name} is still in the show {shows}. Remove it from there first.',
     'err.inUse.other': '{name} is still in the shows {shows}. Remove it from there first.',
     'err.unknown': 'Error from the laser: {code}',
@@ -1447,12 +1580,19 @@ const MODE_ON = 96;             // CH1 manual (64-127); auto/sound (128-255) no 
 const MODE_ON_MIN = 64;
 const RAW_MAX = 255;
 const POS_MAX = 127;
-const PRESET_SLOTS = 32;
+const PRESET_SLOTS = 48;        // shared by every fixture type
 const SHOW_SLOTS = 16;
 const MAX_STEPS = 24;
+const SHOW_MAX_DEPTH = 3;       // a show in a show in a show (the firmware checks it on save)
+const SHOW_MAX_FLAT = 64;       // steps of one pass with every nested show played out
 const HOLD_MIN = 1;             // tenths of a second
 const HOLD_MAX = 6000;
 const DEFAULT_HOLD = 50;
+const PAUSE_HOLD = 10;
+const CUE_PATTERN = /^([1-4])=(\d{1,3})$/;
+const NESTED_PATTERN = /^s(\d{1,3})$/;
+const HOLD_PATTERN = /^\d{1,4}$/;
+const NO_FIXTURE_PLAY_MS = 3000; // a 'no-fixture' this soon after 'show play' is about that show
 const NAME_MAX_BYTES = 32;
 const FLUSH_MS = 60;
 const RECONNECT_MS = 1000;
@@ -1500,8 +1640,11 @@ const HEAD_MOTOR_1 = 4;             // 4-6: 0-180 degrees
 const HEAD_MOTOR_3 = 6;
 const HEAD_DIMMER = 7;
 const HEAD_STROBE = 8;              // 0-9 none, 10-255 = 1-25 Hz
-const HEAD_EYE_WHITE = 12;          // 9-12 bee eye red, green, blue, white
-const HEAD_BEAM_WHITE = 16;         // 13-16 beam red, green, blue, white
+const HEAD_EYE_RED = 9;             // 9-12 bee eye red, green, blue, white
+const HEAD_EYE_WHITE = 12;
+const HEAD_BEAM_RED = 13;           // 13-16 beam red, green, blue, white
+const HEAD_BEAM_WHITE = 16;
+const HEAD_EYE_TURNS = 128;         // CH3 from here: the bee eye turns by itself
 const HEAD_LASER_RED = 17;
 const HEAD_LASER_GREEN = 18;
 const HEAD_MACRO = 19;              // 0-50 DMX, 51-150 moves by itself, 151-250 sound, 251-255 reset
@@ -1624,6 +1767,8 @@ let offTimer = 0;
 let patterns = null;             // [{number, name, nameEn, category, categoryEn, duplicateOf, strokes, box, points}]
 let patternsLoading = false;
 let pending = null;              // a library command waiting for its library echo
+let playSent = 0;                // when this page last sent 'show play' (for a 'no-fixture' answer)
+const unfolded = new Map();      // show slot -> its flat steps (cleared with every library)
 let msgTimer = 0;
 let msgNow = null;               // the toast's { key, vars }
 let connNow = { key: 'conn.connecting', kind: '' };
@@ -1638,8 +1783,10 @@ const dragging = new Set();
 const outbox = new Map();        // key -> value
 const thumbs = new Set();        // { cv, draw } redrawn on resize and when a view appears
 const litLooks = new Map();      // `${slot}:${addr}` -> the head's last lit look seen in this page session
+// sheet: the patch slot whose look "＋ Bewaar als preset" saves (null: closed).
+// editor: { slot, steps: [{ cues, sub, hold }], open: the expanded step (-1: none), picker: null | { k, fx, kind } }.
 const ui = {
-  tab: 'presets', editing: false, confirmSlot: null, builder: null, sheet: false, editor: null,
+  tab: 'presets', editing: false, confirmSlot: null, builder: null, sheet: null, editor: null,
   tipCh: null, guide: 'basis', deleteArmed: 0,
   fx: storedFixture(), bank: 'move', viewSig: '',
 };
@@ -1686,13 +1833,95 @@ function fxLook(slot) {
 const isHeadOn = (ch) => (ch[HEAD_DIMMER - 1] || 0) > 0 || (ch[HEAD_LASER_RED - 1] || 0) > 0 || (ch[HEAD_LASER_GREEN - 1] || 0) > 0;
 const litKey = (f) => `${f.slot}:${f.addr}`;
 const canEdit = () => isOpen && !!st && !st.cal;
-const presetList = () => [...lib.presets.values()].sort((a, b) => a.slot - b.slot);
+const canPlay = () => isOpen && !!st && !st.cal && !st.stopHeld && st.fixtures.length > 0;
+// The presets of one fixture type (every preset without a type), in slot order.
+const presetList = (type) => [...lib.presets.values()].filter((p) => !type || p.type === type).sort((a, b) => a.slot - b.slot);
 const showList = () => [...lib.shows.values()].sort((a, b) => a.slot - b.slot);
 const freeSlot = (map, count) => { for (let s = 1; s <= count; s += 1) if (!map.has(s)) return s; return 0; };
 const presetName = (slot) => (lib.presets.has(slot) ? lib.presets.get(slot).name : `Preset ${slot}`);
 const showName = (slot) => (lib.shows.has(slot) ? lib.shows.get(slot).name : `Show ${slot}`);
-const showsUsing = (slot) => showList().filter((s) => s.steps.some(([p]) => p === slot));
-const totalHold = (steps) => steps.reduce((n, [, t]) => n + t, 0);
+// The shows with a cue for a preset, and the shows that play a show inside them.
+const showsUsing = (slot) => showList().filter((s) => s.steps.some((step) => step.cues.includes(slot)));
+const showsNesting = (slot) => showList().filter((s) => s.steps.some((step) => step.sub === slot));
+// The type of the fixture this page shows: its presets are the ones on the Presets tab.
+const viewType = () => (headView() ? 'head' : 'laser');
+
+// --- shows: the step text ("1=3+2=7:50,s4,1=5+s2,:10", docs/PROTOCOL.md) ------------------------------------
+// A step is { cues: [preset per patch slot 1-4, 0 = unchanged], sub: a show played once through (0 = none), hold: tenths }.
+const noCues = () => new Array(MAX_FIXTURES).fill(0);
+const isPause = (step) => !step.sub && step.cues.every((p) => !p);
+// The firmware's parser, for its own output: null if the text doesn't parse.
+function parseSteps(text) {
+  const steps = [];
+  for (const part of String(text).split(',')) {
+    const [body, hold, extra] = part.split(':');
+    if (extra !== undefined || steps.length === MAX_STEPS) return null;
+    const step = { cues: noCues(), sub: 0, hold: 0 };
+    for (const item of body ? body.split('+') : []) {
+      const cue = CUE_PATTERN.exec(item);
+      const nested = NESTED_PATTERN.exec(item);
+      if (cue && Number(cue[2]) && !step.cues[cue[1] - 1]) step.cues[cue[1] - 1] = Number(cue[2]);
+      else if (nested && Number(nested[1]) && !step.sub) step.sub = Number(nested[1]);
+      else return null;
+    }
+    if (hold === undefined ? !step.sub : step.sub || !HOLD_PATTERN.test(hold)) return null;
+    if (!step.sub) step.hold = clampInt(hold, HOLD_MIN, HOLD_MAX);
+    steps.push(step);
+  }
+  return steps;
+}
+// The same grammar back, as 'show save' takes it: cues in patch-slot order, then the nested show or the hold.
+function formatSteps(steps) {
+  return steps.map((s) => {
+    const cues = s.cues.map((p, k) => (p ? `${k + 1}=${p}` : '')).filter(Boolean);
+    return s.sub ? [...cues, `s${s.sub}`].join('+') : `${cues.join('+')}:${s.hold}`;
+  }).join(',');
+}
+// One pass in tenths of a second, nested shows played out.
+function stepsTenths(steps, depth = 1) {
+  return steps.reduce((n, s) => {
+    if (!s.sub) return n + s.hold;
+    const sub = lib.shows.get(s.sub);
+    return n + (sub && depth <= SHOW_MAX_DEPTH ? stepsTenths(sub.steps, depth + 1) : 0);
+  }, 0);
+}
+// Whether show a plays show b somewhere inside it.
+function playsShow(a, b, depth = 1) {
+  const show = lib.shows.get(a);
+  if (!show || depth > SHOW_MAX_DEPTH + 1) return false;
+  return show.steps.some((s) => s.sub && (s.sub === b || playsShow(s.sub, b, depth + 1)));
+}
+// The show as the firmware plays it (its Unfolder): nested shows played out, and the cues of a step that
+// plays a show waiting for that show's first step, whose own cues win. Each flat step is
+// { looks: [preset per patch slot], hold, top: the index of its step in the show itself }; null if it can't unfold.
+function unfoldShow(slot) {
+  if (unfolded.has(slot)) return unfolded.get(slot);
+  const flat = [];
+  let looks = noCues();
+  let top = 0;
+  const walk = (n, depth, path) => {
+    const show = lib.shows.get(n);
+    if (!show || path.includes(n) || depth > SHOW_MAX_DEPTH) return false;
+    for (let k = 0; k < show.steps.length; k += 1) {
+      const step = show.steps[k];
+      if (depth === 1) top = k;
+      step.cues.forEach((p, i) => { if (p) looks[i] = p; });
+      if (step.sub) {
+        if (!walk(step.sub, depth + 1, [...path, n])) return false;
+        continue;
+      }
+      if (flat.length === SHOW_MAX_FLAT) return false;
+      flat.push({ looks, hold: step.hold, top });
+      looks = noCues();
+    }
+    return true;
+  };
+  const result = walk(slot, 1, []) ? flat : null;
+  unfolded.set(slot, result);
+  return result;
+}
+// What a cue does on a patched fixture: the preset reaches it only when the types match.
+const cueFits = (presetSlot, f) => !!f && lib.presets.has(presetSlot) && lib.presets.get(presetSlot).type === f.type;
 
 // --- patterns and drawing ----------------------------------------------------------------------
 function patternInfo(n) { return patterns ? patterns[n - 1] || null : null; }
@@ -1905,6 +2134,115 @@ function colorSwatch(v) {
   return COLORS[0].swatch;
 }
 
+// --- the head's looks --------------------------------------------------------------------------------
+// The colour a group of four (red, green, blue, white, from channel `red`) mixes: white adds to each.
+const headMix = (ch, red) => [0, 1, 2].map((k) => Math.min(RAW_MAX, ch[red - 1 + k] + ch[red + 2]));
+// Draws a head look: the beam as a soft ring, the bee eye as seven lenses, the two lasers as rays and the
+// strobe as a dashed ring. The dimmer sets how bright it all is; a dark look stays faintly visible.
+const HEAD_LASER_RAYS = [[HEAD_LASER_RED, [255, 70, 70], [-0.4, 0.9, 2.3]], [HEAD_LASER_GREEN, [70, 255, 116], [-2.5, 0.2, 1.6]]];
+const rgba = (rgb, a) => `rgba(${rgb.join(', ')}, ${a})`;
+function drawHead(cv, ch, opt = {}) {
+  const fit = fitCanvas(cv);
+  if (!fit) return;
+  const { ctx, w, h } = fit;
+  const dim = ch[HEAD_DIMMER - 1] / RAW_MAX;
+  const g = { ctx, cx: w / 2, cy: h / 2, R: Math.min(w, h) * 0.5 * (opt.fill || 0.8), level: dim > 0 ? 0.4 + 0.6 * dim : 0.16 };
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  headBeam(g, headMix(ch, HEAD_BEAM_RED));
+  headLasers(g, ch);
+  headEye(g, ch, opt);
+  if (ch[HEAD_STROBE - 1] >= STROBE_MIN) headRing(g, 0.8, 'rgba(245, 242, 234, .55)', 1.4, [3, 4]);
+  ctx.restore();
+}
+// A ring around the housing, so the lenses keep their own colour.
+function headBeam({ ctx, cx, cy, R, level }, beam) {
+  if (!beam.some(Boolean)) return;
+  const glow = ctx.createRadialGradient(cx, cy, R * 0.6, cx, cy, R);
+  glow.addColorStop(0, rgba(beam, 0.85 * level));
+  glow.addColorStop(1, rgba(beam, 0));
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, TAU);
+  ctx.arc(cx, cy, R * 0.6, 0, TAU, true);
+  ctx.fill();
+}
+function headLasers({ ctx, cx, cy, R }, ch) {
+  HEAD_LASER_RAYS.forEach(([c, rgb, angles]) => {
+    const v = ch[c - 1] / RAW_MAX;
+    if (!v) return;
+    ctx.strokeStyle = rgba(rgb, 0.35 + 0.65 * v);
+    ctx.shadowColor = rgba(rgb, 1);
+    ctx.shadowBlur = 4;
+    ctx.lineWidth = Math.max(1, R / 40);
+    angles.forEach((a) => {
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * R * 0.3, cy + Math.sin(a) * R * 0.3);
+      ctx.lineTo(cx + Math.cos(a) * R * 1.05, cy + Math.sin(a) * R * 1.05);
+      ctx.stroke();
+    });
+  });
+  ctx.shadowBlur = 0;
+}
+function headRing({ ctx, cx, cy, R }, radius, color, width, dash) {
+  ctx.shadowBlur = 0;
+  ctx.setLineDash(dash || []);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R * radius, 0, TAU);
+  ctx.stroke();
+}
+// The housing and its seven lenses, lit in the eye's colour; they turn in the preview when CH3 turns the eye.
+function headEye(g, ch, opt) {
+  const { ctx, cx, cy, R, level } = g;
+  headRing(g, 0.62, 'rgba(245, 242, 234, .16)', 1.2);
+  const eye = headMix(ch, HEAD_EYE_RED);
+  const lit = eye.some(Boolean);
+  const turns = ch[HEAD_EYE - 1] >= HEAD_EYE_TURNS && opt.animate;
+  const spin = turns ? (opt.t || 0) * (ch[HEAD_EYE - 1] < 192 ? -1 : 1) * 1.2 : 0;
+  const lens = R * 0.15;
+  for (let k = 0; k < 7; k += 1) {
+    const a = spin + (k * TAU) / 6;
+    ctx.beginPath();
+    ctx.arc(k ? cx + R * 0.36 * Math.cos(a) : cx, k ? cy + R * 0.36 * Math.sin(a) : cy, lens, 0, TAU);
+    if (lit) {
+      ctx.fillStyle = rgba(eye, level);
+      ctx.shadowColor = rgba(eye, level);
+      ctx.shadowBlur = lens;
+      ctx.fill();
+    } else {
+      ctx.strokeStyle = 'rgba(245, 242, 234, .22)';
+      ctx.stroke();
+    }
+  }
+}
+// Short words for a head look: "Dimmer 80 % · strobe 12 Hz · oog draait", or "donker".
+function headLookWords(ch) {
+  if (!isHeadOn(ch)) return t('look.headDark');
+  const words = [headWords(ch)];
+  if (ch[HEAD_EYE - 1] >= HEAD_EYE_TURNS) words.push(t('look.eyeSpins'));
+  return words.join(' · ');
+}
+// A colour word for a name suggestion ("Hoofd, rood"): the bee eye, else the beam.
+function hueWord(ch) {
+  const eye = headMix(ch, HEAD_EYE_RED);
+  const [r, g, b] = eye.some(Boolean) ? eye : headMix(ch, HEAD_BEAM_RED);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  if (!max || !isHeadOn(ch)) return t('hue.dark');
+  if (max - min < max * 0.25) return t('hue.white');
+  const d = max - min;
+  const hue = (max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60;
+  const names = [[15, 'red'], [45, 'orange'], [70, 'yellow'], [160, 'green'], [200, 'cyan'], [255, 'blue'], [290, 'purple'], [340, 'pink'], [360, 'red']];
+  return t(`hue.${names.find(([limit]) => hue < limit)[1]}`);
+}
+// A preset's picture and words, whatever its type.
+function drawPreset(cv, p, opt) {
+  if (p.type === 'head') drawHead(cv, p.ch, opt);
+  else drawLook(cv, p.ch, opt);
+}
+const presetWords = (p) => (p.type === 'head' ? headLookWords(p.ch) : lookWords(p.ch));
+
 // --- sending ----------------------------------------------------------------------------------
 function send(text) {
   if (!isOpen) {
@@ -1946,6 +2284,7 @@ function clearLocal() { local.clear(); dragging.clear(); outbox.clear(); }
 // A preset load or a show step replaces the look: drop local values not under a finger.
 function releaseLocal() { local.forEach((_, k) => { if (!dragging.has(k) && !outbox.has(k)) local.delete(k); }); }
 const playKey = (s) => (s && s.play ? `${s.play.show}:${s.play.step}` : '');
+const presetsKey = (s) => s.fixtures.map((f) => `${f.slot}:${f.preset}`).join(',');   // what each fixture last loaded
 
 function setPending(p) { pending = { ...p, at: now() }; }
 
@@ -1977,7 +2316,7 @@ function renderHeader() {
   const act = $('tabAction');
   const overlay = ui.builder || ui.sheet || ui.editor;
   let label = '';
-  if (isOpen && !overlay && ui.tab === 'presets' && lib.presets.size) label = t(ui.editing ? 'nav.done' : 'common.edit');
+  if (isOpen && !overlay && ui.tab === 'presets' && presetList(viewType()).length) label = t(ui.editing ? 'nav.done' : 'common.edit');
   if (isOpen && !overlay && ui.tab === 'shows') label = t('nav.newShow');
   act.hidden = !label;
   act.textContent = label;
@@ -2012,14 +2351,22 @@ function setNow(label, name, meta, cls) {
   $('nowMeta').textContent = meta;
   $('now').className = `now ${cls || ''}`;
 }
+// The playing show, counted unfolded (nested shows played out) like the firmware's play.step and play.steps.
 function playInfo() {
   if (!st || !st.play) return null;
-  const show = lib.shows.get(st.play.show);
-  const steps = show ? show.steps : [];
-  const step = clamp(st.play.step, 0, Math.max(0, st.play.steps - 1));
-  const hold = steps[step] ? steps[step][1] * 100 : 0;
+  const show = lib.shows.get(st.play.show) || null;
+  const steps = st.play.steps;
+  const step = clamp(st.play.step, 0, Math.max(0, steps - 1));
+  const flat = show ? unfoldShow(show.slot) : null;
+  const cur = flat && flat.length === steps ? flat[step] : null;   // null while the library is out of step
   const left = Math.max(0, st.play.holdLeftMs - (now() - stAt));
-  return { show, step, steps: st.play.steps, hold, left, presetSlot: steps[step] ? steps[step][0] : 0 };
+  return { show, step, steps, hold: cur ? cur.hold * 100 : 0, left, cur };
+}
+// The presets a flat step puts on the patched fixtures ("Ster + Rood draaiend"), or "pauze".
+function playLooksText(cur) {
+  if (!cur) return '–';
+  const names = st.fixtures.filter((f) => cueFits(cur.looks[f.slot - 1], f)).map((f) => presetName(cur.looks[f.slot - 1]));
+  return names.length ? names.join(' + ') : t('side.pause');
 }
 function renderSide() {
   const prog = $('nowProg');
@@ -2027,7 +2374,6 @@ function renderSide() {
   $('nowSwatch').hidden = true;
   renderSwitcher();
   const head = headView();
-  $('saveBtn').hidden = !!head;   // presets hold laser looks for now
   if (!isOpen || !st) { setNow(t('side.laser'), t('conn.lost'), t('side.noConnHint')); return; }
   if (st.stopHeld) { setNow(t('side.stopLabel'), t('side.stopName'), t('side.stopHint'), 'n-stop'); return; }
   if (st.cal) {
@@ -2035,25 +2381,31 @@ function renderSide() {
     setNow(t(debug ? 'side.debug' : 'side.cal'), t('side.locked'), t('side.lockedHint'), 'n-sess');
     return;
   }
-  if (head) { renderHeadSide(head); return; }
-  if (!hasLaser()) { setNow(t('side.laser'), t('side.noLaser'), t('side.noLaserHint')); return; }
-  const ch = currentLook();
+  if (!head && !hasLaser()) { setNow(t('side.laser'), t('side.noLaser'), t('side.noLaserHint')); return; }
   const play = playInfo();
   if (play) {
     setNow(t('side.playing'), play.show ? play.show.name : showName(st.play.show),
-      t('side.playMeta', { step: play.step + 1, steps: play.steps, preset: presetName(play.presetSlot), left: Math.ceil(play.left / 1000) }), 'n-play');
+      t('side.playMeta', { step: play.step + 1, steps: play.steps, preset: playLooksText(play.cur), left: Math.ceil(play.left / 1000) }), 'n-play');
     renderProgress(prog, play);
-  } else if (ch[0] < MODE_ON_MIN) {
+  } else if (head) {
+    renderHeadSide(head);
+  } else {
+    renderLaserSide(currentLook());
+  }
+  const swatch = head ? headSwatch(fxLook(head.slot)) : valueOf(1) >= MODE_ON_MIN ? colorSwatch(valueOf(9)) : null;
+  if (swatch && (!head || isHeadOn(fxLook(head.slot)))) {
+    $('nowSwatch').hidden = false;
+    $('nowSwatch').style.background = swatch;
+  }
+}
+function renderLaserSide(ch) {
+  if (ch[0] < MODE_ON_MIN) {
     const start = t(ui.tab === 'desk' ? 'side.startDesk' : 'side.startPreset');
     setNow(t('side.now'), t('side.laserOff'), isCalibrated() ? start : t('side.calFirst'));
   } else if (st.preset != null && lib.presets.has(st.preset)) {
     setNow(t('side.now'), presetName(st.preset), t('side.presetMeta', { look: lookWords(ch) }));
   } else {
     setNow(t('side.now'), t('side.custom'), lookWords(ch));
-  }
-  if (ch[0] >= MODE_ON_MIN) {
-    $('nowSwatch').hidden = false;
-    $('nowSwatch').style.background = colorSwatch(ch[8]);
   }
 }
 // One entry per patched fixture, only when there is more than one. Choosing is per phone and
@@ -2094,12 +2446,8 @@ const macroZone = (v) => HEAD_ZONES[HEAD_MACRO].findIndex(([a, b]) => v >= a && 
 function renderHeadSide(f) {
   const ch = fxLook(f.slot);
   if (!isHeadOn(ch)) { setNow(fixtureLabel(f), t('side.headOff'), t('side.headStart')); return; }
-  setNow(fixtureLabel(f), t('side.headOn'), headWords(ch));
-  const swatch = headSwatch(ch);
-  if (swatch) {
-    $('nowSwatch').hidden = false;
-    $('nowSwatch').style.background = swatch;
-  }
+  const preset = f.preset != null && lib.presets.get(f.preset);
+  setNow(fixtureLabel(f), preset && preset.type === 'head' ? preset.name : t('side.headOn'), headLookWords(ch));
 }
 // "Dimmer 100 % · strobe 12 Hz · beweegt zelf".
 function headWords(ch) {
@@ -2112,8 +2460,7 @@ function headWords(ch) {
 }
 // The colours the head mixes: the bee eye, then the beam (only the lit ones; null while both are dark).
 function headSwatch(ch) {
-  const mix = (red) => [0, 1, 2].map((k) => Math.min(RAW_MAX, ch[red + k] + ch[red + 3]));   // white adds to each
-  const lit = [mix(HEAD_EYE_WHITE - 4), mix(HEAD_BEAM_WHITE - 4)].filter((c) => c.some(Boolean)).map((c) => `rgb(${c.join(', ')})`);
+  const lit = [headMix(ch, HEAD_EYE_RED), headMix(ch, HEAD_BEAM_RED)].filter((c) => c.some(Boolean)).map((c) => `rgb(${c.join(', ')})`);
   if (!lit.length) return null;
   return lit.length === 1 ? lit[0] : `linear-gradient(90deg, ${lit[0]} 0 50%, ${lit[1]} 50%)`;
 }
@@ -2130,20 +2477,24 @@ function renderProgress(prog, play) {
 }
 
 // --- presets ---------------------------------------------------------------------------------------
+// The tiles are the presets of the fixture this page shows: the laser's looks, or the head's.
 function rebuildTiles() {
   const host = $('tiles');
   host.textContent = '';
-  const list = presetList();
+  const isHead = viewType() === 'head';
+  const list = presetList(viewType());
+  host.dataset.type = viewType();
   list.forEach((p) => host.append(makeTile(p)));
-  if (!ui.editing && list.length < PRESET_SLOTS) {
-    const add = button('tile add', null, openBuilder, t('tiles.newAria'));
+  if (!ui.editing && lib.presets.size < PRESET_SLOTS) {
+    // The laser has the quick builder; the head saves what the desk set up.
+    const add = isHead ? button('tile add', null, openSheet, t('tiles.newHeadAria')) : button('tile add', null, openBuilder, t('tiles.newAria'));
     add.id = 'addTile';
-    add.append(document.createTextNode(t('tiles.new')), el('small', '', t('builder.title')));
+    add.append(document.createTextNode(t(isHead ? 'tiles.newHead' : 'tiles.new')), el('small', '', t(isHead ? 'tiles.newHeadSmall' : 'builder.title')));
     host.append(add);
   }
   if (!list.length) {
     const empty = el('div', 'empty');
-    empty.append(el('b', '', t('tiles.emptyTitle')), el('p', 'hint', t('tiles.emptyHint')));
+    empty.append(el('b', '', t(isHead ? 'tiles.emptyHeadTitle' : 'tiles.emptyTitle')), el('p', 'hint', t(isHead ? 'tiles.emptyHeadHint' : 'tiles.emptyHint')));
     host.append(empty);
   }
   refreshTiles();
@@ -2154,12 +2505,12 @@ function makeTile(p) {
   tile.dataset.slot = p.slot;
   const cv = el('canvas');
   const txt = el('div', 'txt');
-  txt.append(el('div', 'name', p.name), el('div', 'meta', lookWords(p.ch)));
+  txt.append(el('div', 'name', p.name), el('div', 'meta', presetWords(p)));
   const hit = button('hit', null, () => onTileTap(p.slot), t(ui.editing ? 'tiles.delete' : 'tiles.start', { name: p.name }));
   const badge = el('span', 'badge', t('tiles.now'));
   badge.hidden = true;
   tile.append(cv, txt, hit, badge);
-  addThumb(cv, () => drawLook(cv, p.ch, { fill: 0.86, flatSize: true }));
+  addThumb(cv, () => drawPreset(cv, p, { fill: 0.86, flatSize: true }));
   if (ui.editing) {
     tile.append(button('del', '✕', () => askDelete(p.slot), t('tiles.delete', { name: p.name })));
     if (ui.confirmSlot === p.slot) tile.append(makeConfirm(p));
@@ -2177,19 +2528,23 @@ function makeConfirm(p) {
   box.append(row);
   return box;
 }
+// NU marks the preset the shown fixture last loaded (its own 'preset' in the state).
 function refreshTiles() {
-  const active = st && !st.cal ? st.preset : null;
+  const f = st && !st.cal ? activeFixture() : null;
+  const active = f ? f.preset : null;
   $('tiles').querySelectorAll('.tile[data-slot]').forEach((t) => {
     const on = !ui.editing && Number(t.dataset.slot) === active;
     t.classList.toggle('on', on);
     t.querySelector('.badge').hidden = !on;
   });
 }
+// Loads onto the shown fixture. The prefix matters: without it the firmware picks the first fixture of the type.
 function onTileTap(slot) {
   if (ui.editing) { askDelete(slot); return; }
-  if (!canDrive()) return;
+  const f = activeFixture();
+  if (!f || !(f.type === 'laser' ? canDrive() : canDriveFx(f))) return;
   releaseLocal();
-  send(`preset load ${slot}`);
+  send(`f${f.slot} preset load ${slot}`);
 }
 function askDelete(slot) {
   ui.confirmSlot = slot;
@@ -2224,7 +2579,7 @@ function suggestName(b) {
   return cleanName(`${patternName(b.pattern || 1)}, ${t(COLORS[b.color].short).toLowerCase()}`);
 }
 function openBuilder() {
-  if (!canEdit()) return;
+  if (!canEdit() || headView()) return;   // the builder makes laser looks
   const first = pickablePatterns(CATEGORIES[0])[0];
   ui.builder = {
     pattern: null, cat: first && first.category ? first.category : '', tab: 'vorm',
@@ -2305,8 +2660,8 @@ function builderStatus(b) {
   return [t('builder.st.live'), true];
 }
 function canSaveBuilder(b) {
-  return !!b.pattern && canDrive() && isCalibrated() && valueOf(1) >= MODE_ON_MIN && !!freeSlot(lib.presets, PRESET_SLOTS) &&
-    !pending;
+  return !!b.pattern && st && st.laserSlot != null && canDrive() && isCalibrated() && valueOf(1) >= MODE_ON_MIN &&
+    !!freeSlot(lib.presets, PRESET_SLOTS) && !pending;
 }
 function renderBuilderPane() {
   const b = ui.builder;
@@ -2425,44 +2780,62 @@ function saveBuilder() {
   if (!name) { showMsg('err.bad-name', 'error'); return; }
   flush();
   applyBuilder(b, false);   // the save stores the live look, so it must be complete (it is on: canSaveBuilder)
-  if (send(`preset save ${slot} ${name}`)) setPending({ kind: 'preset-save', slot, name, from: 'builder' });
+  if (send(`f${st.laserSlot} preset save ${slot} ${name}`)) setPending({ kind: 'preset-save', slot, name, from: 'builder' });
   renderBuilderHead();
 }
 
 // --- "＋ Bewaar als preset" ------------------------------------------------------------------------------
+// Saves the shown fixture's look, as a preset of its type.
 function openSheet() {
-  if (!canEdit()) return;
+  const f = activeFixture();
+  if (!canEdit() || !f) return;
   if (!freeSlot(lib.presets, PRESET_SLOTS)) { showMsg('msg.presetsFull', 'warn', { n: PRESET_SLOTS }); return; }
-  ui.sheet = true;
+  ui.sheet = f.slot;
   ui.builder = null;
   ui.editor = null;
+  ui.editing = false;
+  ui.confirmSlot = null;
   $('sName').value = '';
   render();
   if (!window.matchMedia('(pointer: coarse)').matches) $('sName').focus();
 }
-function closeSheet() { ui.sheet = false; render(); }
+function closeSheet() { ui.sheet = null; render(); }
+const sheetFixture = () => (ui.sheet != null ? fixtureAt(ui.sheet) : null);
 function renderSheet() {
-  $('sheet').hidden = !ui.sheet;
-  if (!ui.sheet) return;
-  const ch = currentLook();
-  const n = patternNumber(ch[1]);
-  $('sLook').textContent = `#${n} ${patternName(n)}`;
-  $('sLookMeta').textContent = lookWords(ch, false) || t('sheet.asNow');
-  $('sName').placeholder = cleanName(patternName(n));
+  const f = sheetFixture();
+  if (ui.sheet != null && !f) ui.sheet = null;   // the patch changed under it
+  $('sheet').hidden = !f;
+  if (!f) return;
   const slot = freeSlot(lib.presets, PRESET_SLOTS);
-  $('sHint').textContent = ch[0] < MODE_ON_MIN ? t('sheet.dark')
-    : slot ? t('sheet.hintSlot', { slot, total: PRESET_SLOTS }) : t('sheet.hint');
-  $('sHint').className = `hint${ch[0] < MODE_ON_MIN ? ' warn' : ''}`;
+  let dark;
+  if (f.type === 'head') {
+    const ch = fxLook(f.slot);
+    dark = !isHeadOn(ch);
+    $('sLook').textContent = fixtureLabel(f);
+    $('sLookMeta').textContent = headLookWords(ch);
+    $('sName').placeholder = cleanName(t('head.suggest', { color: hueWord(ch) }));
+    $('sHint').textContent = dark ? t('sheet.darkHead') : slot ? t('sheet.hintHead', { slot, total: PRESET_SLOTS }) : t('msg.presetsFull', { n: PRESET_SLOTS });
+  } else {
+    const ch = currentLook();
+    const n = patternNumber(ch[1]);
+    dark = ch[0] < MODE_ON_MIN;
+    $('sLook').textContent = `#${n} ${patternName(n)}`;
+    $('sLookMeta').textContent = lookWords(ch, false) || t('sheet.asNow');
+    $('sName').placeholder = cleanName(patternName(n));
+    $('sHint').textContent = dark ? t('sheet.dark') : slot ? t('sheet.hintSlot', { slot, total: PRESET_SLOTS }) : t('msg.presetsFull', { n: PRESET_SLOTS });
+  }
+  $('sHint').className = `hint${dark ? ' warn' : ''}`;
   $('sSave').disabled = !canEdit() || !slot || !!pending;
   startAnim();
 }
 function saveSheet() {
+  const f = sheetFixture();
   const slot = freeSlot(lib.presets, PRESET_SLOTS);
-  if (!slot || !canEdit()) return;
+  if (!f || !slot || !canEdit()) return;
   const name = cleanName($('sName').value) || cleanName($('sName').placeholder);
   if (!name) { showMsg('err.bad-name', 'error'); return; }
   flush();
-  if (send(`preset save ${slot} ${name}`)) setPending({ kind: 'preset-save', slot, name, from: 'sheet' });
+  if (send(`f${f.slot} preset save ${slot} ${name}`)) setPending({ kind: 'preset-save', slot, name, from: 'sheet' });
   renderSheet();
 }
 
@@ -2484,6 +2857,13 @@ function rebuildShows() {
   refreshShows();
   queueRedraw();
 }
+// A card has a line per patched fixture (a cue for a slot that isn't patched reaches nothing, so it isn't shown).
+const cardFixtures = () => (st && st.fixtures.length ? st.fixtures : [{ slot: 1, type: 'laser' }]);
+// "L" for the laser, "H" for a head ("H3" when there are several).
+function fxTag(f) {
+  if (f.type === 'laser') return 'L';
+  return st && st.fixtures.filter((x) => x.type === 'head').length > 1 ? `H${f.slot}` : 'H';
+}
 function makeShowCard(s) {
   const card = el('div', 'show');
   card.dataset.show = s.slot;
@@ -2496,17 +2876,56 @@ function makeShowCard(s) {
   play.dataset.play = s.slot;
   acts.append(edit, play);
   const chips = el('div', 'steplist');
-  s.steps.forEach(([p, tenths], k) => {
-    const chip = el('div', 'stepchip');
-    chip.dataset.step = k;
-    const cv = el('canvas');
-    chip.append(cv, el('span', '', presetName(p)), el('b', '', fmtSec(tenths)));
-    chips.append(chip);
-    const preset = lib.presets.get(p);
-    if (preset) addThumb(cv, () => drawLook(cv, preset.ch, { fill: 0.86, glow: 2, line: 1.3, flatSize: true }));
-  });
+  s.steps.forEach((step, k) => chips.append(makeStepChip(step, k)));
   card.append(info, acts, chips);
   return card;
+}
+// One chip per step. With one fixture: [drawing] name, then the time. With more: a line per fixture
+// ("ongewijzigd" when the step leaves it alone), then the time. A pause has no cues; a step that plays
+// a show ends with that show's name in amber instead of a time, and lists only the fixtures it cues
+// (the nested show decides about the others).
+function makeStepChip(step, k) {
+  const all = cardFixtures();
+  const fxs = step.sub ? all.filter((f) => step.cues[f.slot - 1]) : all;
+  const pause = isPause(step);
+  const multi = fxs.length > 1 && !pause;
+  const chip = el('div', `stepchip${pause ? ' pause' : ''}${multi ? ' multi' : ''}`);
+  chip.dataset.step = k;
+  const end = step.sub ? nestChip(step.sub) : el('b', '', fmtSec(step.hold));
+  if (pause) {
+    chip.append(el('span', '', t('shows.pause')), end);
+  } else if (multi) {
+    fxs.forEach((f) => chip.append(cueLine(step, f)));
+    chip.append(end);
+  } else {
+    const p = fxs.length ? step.cues[fxs[0].slot - 1] : 0;
+    if (p) chip.append(...cueParts(p, fxs[0], 30));
+    else if (!step.sub) chip.append(el('span', 'same', t('shows.same')));
+    chip.append(end);
+  }
+  return chip;
+}
+function cueLine(step, f) {
+  const line = el('div', 'cue');
+  const p = step.cues[f.slot - 1];
+  line.append(el('span', 'tag', fxTag(f)));
+  if (p) line.append(...cueParts(p, f, 24));
+  else line.append(el('i', 'dash', '–'), el('span', 'same', t('shows.same')));
+  return line;
+}
+// The drawing and name of a cue's preset. A preset of another type than the fixture reaches nothing: dimmed.
+function cueParts(p, f, size) {
+  const preset = lib.presets.get(p);
+  const name = el('span', cueFits(p, f) ? '' : 'same', preset ? preset.name : t('editor.gone', { slot: p }));
+  if (!preset) return [name];
+  const cv = el('canvas');
+  addThumb(cv, () => drawPreset(cv, preset, { fill: size > 26 ? 0.86 : 0.9, glow: 2, line: size > 26 ? 1.3 : 1.1, flatSize: true }));
+  return [cv, name];
+}
+function nestChip(sub) {
+  const nest = el('div', 'nest');
+  nest.append(el('small', '', t('shows.nested')), el('span', '', lib.shows.has(sub) ? showName(sub) : t('shows.gone', { slot: sub })));
+  return nest;
 }
 function refreshShows() {
   const play = playInfo();
@@ -2519,35 +2938,48 @@ function refreshShows() {
     btn.textContent = playing ? '■' : '▶';
     btn.classList.toggle('stop', playing);
     btn.setAttribute('aria-label', t(playing ? 'shows.stopAria' : 'shows.playAria', { name: s ? s.name : 'Show' }));
-    card.querySelectorAll('.stepchip').forEach((c) => c.classList.toggle('cur', playing && Number(c.dataset.step) === play.step));
+    // play.step counts the show unfolded: the chip of the step it came from lights up (a nested show's for all its steps).
+    const top = playing && play.cur ? play.cur.top : -1;
+    card.querySelectorAll('.stepchip').forEach((c) => c.classList.toggle('cur', Number(c.dataset.step) === top));
     const meta = card.querySelector('.smeta');
     if (playing) meta.textContent = t('shows.playing', { step: play.step + 1, steps: play.steps, left: Math.ceil(play.left / 1000) });
-    else if (s) meta.textContent = t('shows.meta', { steps: stepsText(s.steps.length), time: fmtSec(totalHold(s.steps)) });
+    else if (s) meta.textContent = t('shows.meta', { steps: stepsText(s.steps.length), time: fmtSec(stepsTenths(s.steps)) });
   });
 }
 function togglePlay(slot) {
-  if (!canDrive()) return;
+  if (!canPlay()) return;
   releaseLocal();
   if (st.play && st.play.show === slot) send('show stop');
-  else send(`show play ${slot}`);
+  else if (send(`show play ${slot}`)) playSent = now();
 }
 
 // --- show editor ------------------------------------------------------------------------------------
+// A list of steps, one of them open. An open step has a preset picker per patched fixture (that fixture's
+// type, or "ongewijzigd") and, after it, either a hold time or a show it plays once ("show in een show").
+// The rows stay compact so it works on a phone in landscape; the pickers open over the list.
+const copyStep = (s) => ({ cues: s.cues.slice(), sub: s.sub, hold: s.hold });
 function openEditor(slot) {
   if (!canEdit()) return;
   const s = slot != null ? lib.shows.get(slot) : null;
   if (slot == null && !freeSlot(lib.shows, SHOW_SLOTS)) { showMsg('msg.showsFull', 'warn', { n: SHOW_SLOTS }); return; }
-  ui.editor = { slot: s ? s.slot : null, steps: s ? s.steps.map(([p, t]) => [p, t]) : [], picker: !s };
+  ui.editor = { slot: s ? s.slot : null, steps: s ? s.steps.map(copyStep) : [], open: -1, picker: null };
   clearTimeout(ui.deleteArmed);
   ui.deleteArmed = 0;
-  ui.sheet = false;
+  ui.sheet = null;
   ui.builder = null;
   $('eName').value = s ? s.name : '';
   render();
-  renderEditor();
+  if (s) renderEditor();
+  else addStep();   // a new show starts with picking its first preset
 }
-function closeEditor() { ui.editor = null; render(); }
-function setSteps(steps) { ui.editor = { ...ui.editor, steps }; renderEditor(); }
+function closeEditor() {
+  clearTimeout(ui.deleteArmed);
+  ui.deleteArmed = 0;
+  ui.editor = null;
+  render();
+}
+function setEditor(change) { ui.editor = { ...ui.editor, ...change }; renderEditor(); }
+function setStep(k, change) { setEditor({ steps: ui.editor.steps.map((s, i) => (i === k ? { ...s, ...change } : s)) }); }
 function stepHold(t, dir) {
   if (dir > 0) return HOLD_STEPS.find((v) => v > t) || HOLD_MAX;
   return [...HOLD_STEPS].reverse().find((v) => v < t) || HOLD_MIN;
@@ -2557,17 +2989,59 @@ function parseHold(text, fallback) {
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return clampInt(n * 10, HOLD_MIN, HOLD_MAX);
 }
+// A new step copies the hold time of the last step that shows presets.
+function lastHold(steps) {
+  const s = [...steps].reverse().find((x) => !x.sub && !isPause(x));
+  return s ? s.hold : DEFAULT_HOLD;
+}
+// The rows of an open step: every patched fixture, plus a slot that isn't patched but has a cue in this
+// step. That cue is kept when the show is saved (it plays again once the fixture is back), and can be cleared.
+function editorRows(step) {
+  const rows = (st ? st.fixtures : []).map((f) => ({ slot: f.slot, type: f.type, label: fixtureLabel(f), patched: true }));
+  step.cues.forEach((p, k) => {
+    if (!p || rows.some((r) => r.slot === k + 1)) return;
+    const preset = lib.presets.get(p);
+    rows.push({ slot: k + 1, type: preset ? preset.type : 'laser', label: t('editor.unpatched', { n: k + 1 }), patched: false });
+  });
+  return rows.sort((a, b) => a.slot - b.slot);
+}
+// "＋ Stap" picks a preset for the fixture on screen (or the first patched one that has presets).
+function newStepFixture() {
+  const active = activeFixture();
+  return [active, ...(st ? st.fixtures : [])].find((f) => f && presetList(f.type).length) || null;
+}
+function addStep() {
+  const f = newStepFixture();
+  if (f) openPicker('new', f.slot, 'preset');
+  else addPause();
+}
+function addPause() {
+  const steps = [...ui.editor.steps, { cues: noCues(), sub: 0, hold: PAUSE_HOLD }];
+  setEditor({ steps, open: -1, picker: null });
+  scrollToStep(steps.length - 1);
+}
+function scrollToStep(k) {
+  const row = $('eSteps').querySelector(`.srow[data-k="${k}"]`);
+  if (row) row.scrollIntoView({ block: 'nearest' });
+}
+
 function renderEditor() {
   const e = ui.editor;
   $('editor').hidden = !e;
   if (!e) return;
   const host = $('eSteps');
   host.textContent = '';
-  e.steps.forEach(([p, t], k) => host.append(makeStepRow(p, t, k, e.steps.length)));
-  const add = button('addstep', t('editor.add'), () => { ui.editor = { ...ui.editor, picker: true }; renderEditor(); });
-  add.id = 'eAdd';
-  add.disabled = e.steps.length >= MAX_STEPS;
-  host.append(add);
+  e.steps.forEach((step, k) => host.append(makeStepRow(step, k, e.steps.length)));
+  const adds = el('div', 'addrow');
+  const full = e.steps.length >= MAX_STEPS;
+  [['eAdd', 'editor.add', addStep], ['eAddPause', 'editor.addPause', addPause], ['eAddShow', 'editor.addShow', () => openPicker('new', 0, 'show')]]
+    .forEach(([id, key, onClick]) => {
+      const b = button('addstep', t(key), onClick);
+      b.id = id;
+      b.disabled = full;
+      adds.append(b);
+    });
+  host.append(adds);
   renderEditorHead();
   renderPicker();
   queueRedraw();
@@ -2576,74 +3050,218 @@ function renderEditorHead() {
   const e = ui.editor;
   const n = e.steps.length;
   $('eCount').textContent = n >= MAX_STEPS ? t('editor.max', { steps: stepsText(n) }) : stepsText(n);
-  $('eTotal').textContent = n ? t('editor.total', { time: fmtSec(totalHold(e.steps)) }) : t('editor.empty');
+  $('eTotal').textContent = n ? t('editor.total', { time: fmtSec(stepsTenths(e.steps)) }) : t('editor.empty');
   $('eDelete').hidden = e.slot == null;
   $('eDelete').textContent = t(ui.deleteArmed ? 'editor.sure' : 'common.delete');
   $('eDelete').className = `btn${ui.deleteArmed ? ' red' : ''}`;
   $('eSave').disabled = !n || !canEdit() || !!pending;
 }
-function makeStepRow(p, tenths, k, count) {
-  const row = el('div', 'srow');
-  row.dataset.k = k;
-  const cv = el('canvas');
-  const preset = lib.presets.get(p);
+// [n] [drawings, preset names ▾] [hold time, or the show it plays] [↑ ↓ ✕], and the pickers when it is open.
+function makeStepRow(step, k, count) {
+  const isOpenRow = ui.editor.open === k;
   const n = k + 1;
-  row.append(el('span', 'no', String(n)), cv, el('div', 'nm', preset ? preset.name : t('editor.gone', { slot: p })));
-  if (preset) addThumb(cv, () => drawLook(cv, preset.ch, { fill: 0.84, glow: 2, line: 1.3, flatSize: true }));
+  const row = el('div', `srow${isOpenRow ? ' open' : ''}`);
+  row.dataset.k = k;
+  const sum = button('sum', null, () => setEditor({ open: isOpenRow ? -1 : k }), t(isOpenRow ? 'editor.closeAria' : 'editor.openAria', { n }));
+  sum.setAttribute('aria-expanded', String(isOpenRow));
+  fillSummary(sum, step, isOpenRow);
+  row.append(el('span', 'no', String(n)), sum, step.sub ? nestButton(step, k) : holdControl(step, k), rowButtons(k, count));
+  if (isOpenRow) row.append(stepBody(step, k));
+  return row;
+}
+function fillSummary(sum, step, isOpenRow) {
+  const cues = editorRows(step).map((r) => step.cues[r.slot - 1]).filter(Boolean);
+  cues.slice(0, 3).forEach((p) => {
+    const preset = lib.presets.get(p);
+    if (!preset) return;
+    const cv = el('canvas');
+    sum.append(cv);
+    addThumb(cv, () => drawPreset(cv, preset, { fill: 0.84, glow: 2, line: 1.3, flatSize: true }));
+  });
+  const names = cues.map((p) => (lib.presets.has(p) ? presetName(p) : t('editor.gone', { slot: p })));
+  const text = names.length ? names.join(' + ') : t(step.sub ? 'shows.same' : 'shows.pause');
+  sum.append(el('span', `nm${names.length ? '' : ' same'}`, text), el('span', 'chev', isOpenRow ? '▴' : '▾'));
+}
+function holdControl(step, k) {
+  const n = k + 1;
   const hold = el('div', 'hold');
   const input = el('input', 'lcd');
   input.type = 'text';
   input.inputMode = 'decimal';
-  input.value = fmtSecInput(tenths);
+  input.value = fmtSecInput(step.hold);
   input.setAttribute('aria-label', t('editor.secAria', { n }));
-  const update = (value) => setSteps(ui.editor.steps.map((s, i) => (i === k ? [s[0], value] : s)));
-  input.addEventListener('change', () => update(parseHold(input.value, tenths)));
+  const update = (value) => setStep(k, { hold: value });
+  input.addEventListener('change', () => update(parseHold(input.value, step.hold)));
   input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') input.blur(); });
-  hold.append(button('ib', '−', () => update(stepHold(tenths, -1)), t('editor.shorter', { n })), input, el('span', 'unit', 's'),
-    button('ib', '+', () => update(stepHold(tenths, 1)), t('editor.longer', { n })));
+  hold.append(button('ib', '−', () => update(stepHold(step.hold, -1)), t('editor.shorter', { n })), input, el('span', 'unit', 's'),
+    button('ib', '+', () => update(stepHold(step.hold, 1)), t('editor.longer', { n })));
+  return hold;
+}
+function nestButton(step, k) {
+  const name = lib.shows.has(step.sub) ? showName(step.sub) : t('shows.gone', { slot: step.sub });
+  const b = button('nest nestbtn', null, () => openPicker(k, 0, 'show'), t('editor.showAria', { n: k + 1, name }));
+  b.append(el('small', '', t('shows.nested')), el('span', '', name));
+  return b;
+}
+function rowButtons(k, count) {
+  const n = k + 1;
+  const e = ui.editor;
+  const move = (a, b) => setEditor({
+    steps: e.steps.map((s, i) => (i === a ? e.steps[b] : i === b ? e.steps[a] : s)),
+    open: e.open === a ? b : e.open === b ? a : e.open,
+  });
   const btns = el('div', 'rowbtns');
-  const swap = (a, b) => setSteps(ui.editor.steps.map((s, i) => (i === a ? ui.editor.steps[b] : i === b ? ui.editor.steps[a] : s)));
-  const up = button('ib', '↑', () => swap(k, k - 1), t('editor.up', { n }));
+  const up = button('ib', '↑', () => move(k, k - 1), t('editor.up', { n }));
   up.disabled = k === 0;
   up.dataset.up = k;
-  const down = button('ib', '↓', () => swap(k, k + 1), t('editor.down', { n }));
+  const down = button('ib', '↓', () => move(k, k + 1), t('editor.down', { n }));
   down.disabled = k === count - 1;
-  const remove = button('ib', '✕', () => setSteps(ui.editor.steps.filter((_, i) => i !== k)), t('editor.remove', { n }));
+  const remove = button('ib', '✕', () => setEditor({
+    steps: e.steps.filter((_, i) => i !== k), open: e.open === k ? -1 : e.open > k ? e.open - 1 : e.open,
+  }), t('editor.remove', { n }));
+  remove.dataset.remove = k;
   btns.append(up, down, remove);
-  row.append(hold, btns);
-  return row;
+  return btns;
+}
+// The open step: a picker per fixture, then "Daarna: Wachten | Show in een show".
+function stepBody(step, k) {
+  const body = el('div', 'sbody');
+  editorRows(step).forEach((r) => body.append(el('span', `flabel${r.patched ? '' : ' off'}`, r.label), choiceButton(step, k, r)));
+  const seg = el('div', 'seg');
+  seg.setAttribute('role', 'group');
+  seg.setAttribute('aria-label', t('editor.then'));
+  [['hold', 'editor.modeHold'], ['show', 'editor.modeShow']].forEach(([mode, key]) => {
+    const on = (mode === 'show') === !!step.sub;
+    const b = button(on ? 'on' : '', t(key), () => setMode(k, mode));
+    b.dataset.mode = mode;
+    b.setAttribute('aria-pressed', String(on));
+    seg.append(b);
+  });
+  body.append(el('span', 'flabel', t('editor.then')), seg);
+  return body;
+}
+function choiceButton(step, k, r) {
+  const p = step.cues[r.slot - 1];
+  const preset = p ? lib.presets.get(p) : null;
+  const name = p ? (preset ? preset.name : t('editor.gone', { slot: p })) : t('editor.same');
+  const b = button(`choice${p ? '' : ' same'}`, null, () => openPicker(k, r.slot, 'preset'), t('editor.choiceAria', { fx: r.label, n: k + 1, name }));
+  b.dataset.fx = r.slot;
+  if (preset) {
+    const cv = el('canvas');
+    b.append(cv);
+    addThumb(cv, () => drawPreset(cv, preset, { fill: 0.84, glow: 2, line: 1.3, flatSize: true }));
+  } else {
+    b.append(el('i', 'dash', '–'));
+  }
+  b.append(el('span', '', name));
+  return b;
+}
+// Back to a hold keeps the step's old time; a show is only set once one is picked.
+function setMode(k, mode) {
+  const step = ui.editor.steps[k];
+  if (mode === 'show') openPicker(k, 0, 'show');
+  else if (step.sub) setStep(k, { sub: 0, hold: step.hold || lastHold(ui.editor.steps) });
+}
+
+// --- the picker over the step list: a preset for one fixture in one step, or a show to play -------------------
+function openPicker(k, slot, kind) { setEditor({ picker: { k, slot, kind } }); }
+function closePicker() { setEditor({ picker: null }); }
+// How many levels deep a show goes, itself included (1 = it plays no other show).
+function showDepth(slot, depth = 1) {
+  const show = lib.shows.get(slot);
+  if (!show || depth > SHOW_MAX_DEPTH + 1) return depth;
+  return show.steps.reduce((d, s) => (s.sub ? Math.max(d, showDepth(s.sub, depth + 1)) : d), depth);
+}
+// A step may play any other show, except (as a convenience; the firmware checks on save) one that already
+// plays this show, or one so deeply nested itself that this show would go past SHOW_MAX_DEPTH.
+function pickableShows() {
+  const self = ui.editor.slot;
+  return showList().filter((s) => s.slot !== self && !(self != null && playsShow(s.slot, self))
+    && 1 + showDepth(s.slot) <= SHOW_MAX_DEPTH);
 }
 function renderPicker() {
   const e = ui.editor;
-  $('ePicker').hidden = !e.picker;
-  if (!e.picker) return;
+  const pk = e.picker;
+  $('ePicker').hidden = !pk;
+  if (!pk) return;
   const grid = $('ePickGrid');
   grid.textContent = '';
-  presetList().forEach((p) => {
-    const tile = button('tile', null, () => {
-      const last = ui.editor.steps[ui.editor.steps.length - 1];
-      ui.editor = { ...ui.editor, picker: false, steps: [...ui.editor.steps, [p.slot, last ? last[1] : DEFAULT_HOLD]] };
-      renderEditor();
-      const list = $('eSteps');
-      list.scrollTop = list.scrollHeight;
-    }, t('editor.pickAria', { name: p.name }));
-    tile.dataset.pick = p.slot;
+  const isNew = pk.k === 'new';
+  const n = isNew ? e.steps.length + 1 : pk.k + 1;
+  if (pk.kind === 'show') {
+    $('ePickTitle').textContent = t('editor.pickShow', { n });
+    const current = isNew ? 0 : e.steps[pk.k].sub;
+    const list = pickableShows();
+    list.forEach((s) => grid.append(pickTile(s.name, `${stepsText(s.steps.length)} · ${fmtSec(stepsTenths(s.steps))}`,
+      s.slot === current, () => pickShow(s.slot), 'showtile', '▶', s.slot)));
+    if (!list.length) grid.append(pickNote(t('editor.noShows')));
+    return;
+  }
+  const r = editorRows(isNew ? { cues: noCues() } : e.steps[pk.k]).find((x) => x.slot === pk.slot);
+  if (!r) { closePicker(); return; }   // the patch changed under it
+  $('ePickTitle').textContent = t('editor.pickFor', { fx: r.label, n });
+  const current = isNew ? -1 : e.steps[pk.k].cues[pk.slot - 1];
+  if (!isNew) grid.append(pickTile(t('editor.same'), t('editor.sameHint'), current === 0, () => pickPreset(0), 'same', '–', 0));
+  const presets = presetList(r.type);
+  presets.forEach((p) => {
+    const tile = pickTile(p.name, presetWords(p), p.slot === current, () => pickPreset(p.slot), '', null, p.slot);
     const cv = el('canvas');
-    const txt = el('div', 'txt');
-    txt.append(el('div', 'name', p.name), el('div', 'meta', lookWords(p.ch)));
-    tile.append(cv, txt);
+    tile.prepend(cv);
+    addThumb(cv, () => drawPreset(cv, p, { fill: 0.86, flatSize: true }));
     grid.append(tile);
-    addThumb(cv, () => drawLook(cv, p.ch, { fill: 0.86, flatSize: true }));
   });
+  if (!presets.length) grid.append(pickNote(t('editor.noPresetsFor', { fx: r.label })));
 }
+function pickTile(name, meta, isOn, onPick, cls, glyph, value) {
+  const tile = button(`tile${cls ? ` ${cls}` : ''}${isOn ? ' on' : ''}`, null, onPick, t('editor.pickAria', { name }));
+  tile.dataset.pick = value;
+  tile.setAttribute('aria-pressed', String(isOn));
+  if (glyph) tile.append(el('span', 'big', glyph));
+  const txt = el('div', 'txt');
+  txt.append(el('div', 'name', name), el('div', 'meta', meta));
+  tile.append(txt);
+  return tile;
+}
+function pickNote(text) {
+  const note = el('div', 'empty');
+  note.append(el('p', 'hint', text));
+  return note;
+}
+function pickPreset(p) {
+  const e = ui.editor;
+  const pk = e.picker;
+  if (pk.k === 'new') {
+    const cues = noCues();
+    cues[pk.slot - 1] = p;
+    const steps = [...e.steps, { cues, sub: 0, hold: lastHold(e.steps) }];
+    // With more fixtures the new step opens, so the others can get a preset in it too.
+    setEditor({ steps, picker: null, open: st && st.fixtures.length > 1 ? steps.length - 1 : -1 });
+    scrollToStep(steps.length - 1);
+    return;
+  }
+  ui.editor = { ...e, picker: null };
+  setStep(pk.k, { cues: e.steps[pk.k].cues.map((c, i) => (i === pk.slot - 1 ? p : c)) });
+}
+function pickShow(slot) {
+  const e = ui.editor;
+  const pk = e.picker;
+  if (pk.k === 'new') {
+    const steps = [...e.steps, { cues: noCues(), sub: slot, hold: lastHold(e.steps) }];
+    setEditor({ steps, picker: null, open: steps.length - 1 });
+    scrollToStep(steps.length - 1);
+    return;
+  }
+  ui.editor = { ...e, picker: null };
+  setStep(pk.k, { sub: slot });
+}
+
 function saveShow() {
   const e = ui.editor;
   if (!e || !e.steps.length || !canEdit()) return;
   const slot = e.slot != null ? e.slot : freeSlot(lib.shows, SHOW_SLOTS);
   if (!slot) { showMsg('msg.showsFullShort', 'warn', { n: SHOW_SLOTS }); return; }
   const name = cleanName($('eName').value) || `Show ${slot}`;
-  const steps = e.steps.map(([p, t]) => `${p}:${t}`).join(',');
-  if (send(`show save ${slot} ${steps} ${name}`)) setPending({ kind: 'show-save', slot, name });
+  if (send(`show save ${slot} ${formatSteps(e.steps)} ${name}`)) setPending({ kind: 'show-save', slot, name });
   renderEditor();
 }
 function deleteShow() {
@@ -2656,7 +3274,8 @@ function deleteShow() {
   }
   clearTimeout(ui.deleteArmed);
   ui.deleteArmed = 0;
-  if (send(`show delete ${e.slot}`)) setPending({ kind: 'show-delete', slot: e.slot, name: showName(e.slot) });
+  const users = showsNesting(e.slot).map((s) => s.name);
+  if (send(`show delete ${e.slot}`)) setPending({ kind: 'show-delete', slot: e.slot, name: showName(e.slot), users });
   renderEditor();
 }
 
@@ -3172,7 +3791,8 @@ function richText(text) {
 }
 
 // --- rendering --------------------------------------------------------------------------------------
-// Follows the picked fixture. The head has only the desk and the guide (its presets and shows come later).
+// Follows the picked fixture: its desk, its guide and its presets. The shows are shared by every fixture,
+// so an open show editor stays; the builder (laser looks) and the save sheet (that fixture's look) close.
 // Without a connection the page keeps showing what it showed.
 function syncView() {
   if (!st) return;
@@ -3181,24 +3801,19 @@ function syncView() {
   if (sig === ui.viewSig) return;
   ui.viewSig = sig;
   ui.tipCh = null;
-  if (sig !== 'laser') {
-    ui.builder = null;
-    ui.sheet = false;
-    ui.editor = null;
-    ui.editing = false;
-    ui.confirmSlot = null;
-    if (ui.tab === 'presets' || ui.tab === 'shows') ui.tab = 'desk';
-  }
+  ui.builder = null;
+  ui.sheet = null;
+  ui.editing = false;
+  ui.confirmSlot = null;
   buildDesk();
   renderGuide();   // also moves the guide to a topic of this fixture
-  if (ui.tab === 'presets') rebuildTiles();
+  rebuildTiles();
   queueRedraw();
 }
 function switchTab(tab) {
-  if (headView() && (tab === 'presets' || tab === 'shows')) return;
   ui.tab = tab;
   ui.builder = null;
-  ui.sheet = false;
+  ui.sheet = null;
   ui.editor = null;
   ui.editing = false;
   ui.confirmSlot = null;
@@ -3222,7 +3837,6 @@ function render() {
   const head = headView();
   document.body.classList.toggle('offline', !isOpen || !st);
   document.body.classList.toggle('locked', !!(st && (st.cal || st.stopHeld || (!head && !hasLaser()))));
-  [...$('nav').children].forEach((b) => { b.hidden = !!head && (b.dataset.tab === 'presets' || b.dataset.tab === 'shows'); });
   ['presets', 'shows', 'desk', 'guide'].forEach((t) => { $(`view-${t}`).hidden = ui.tab !== t; });
   renderHeader();
   renderBanners();
@@ -3239,7 +3853,7 @@ function render() {
 }
 
 // Animated preview while the builder or the save sheet is open (about 30 frames per second).
-function needsAnim() { return !document.hidden && (!!ui.builder || ui.sheet); }
+function needsAnim() { return !document.hidden && (!!ui.builder || ui.sheet != null); }
 function animate(ts) {
   animId = 0;
   if (!needsAnim()) return;
@@ -3248,7 +3862,9 @@ function animate(ts) {
     const t = ts / 1000;
     if (ui.builder && ui.builder.pattern) drawLook($('bCanvas'), builderLook(ui.builder), { t, animate: true, fill: 0.84, ignoreMode: true });
     else if (ui.builder) drawPlaceholder($('bCanvas'));
-    if (ui.sheet) drawLook($('sCanvas'), currentLook(), { t, animate: true, fill: 0.84 });
+    const f = sheetFixture();
+    if (f && f.type === 'head') drawHead($('sCanvas'), fxLook(f.slot), { t, animate: true, fill: 0.84 });
+    else if (f) drawLook($('sCanvas'), currentLook(), { t, animate: true, fill: 0.84 });
   }
   animId = requestAnimationFrame(animate);
 }
@@ -3297,18 +3913,21 @@ function normState(m) {
     settingsReset: !!m.settingsReset,
   };
 }
+// Presets carry their fixture type and exactly its channels; a show's steps come as the 'show save' text.
 function normLibrary(m) {
   const presets = new Map();
   const shows = new Map();
   (Array.isArray(m.presets) ? m.presets : []).forEach((p) => {
     const slot = Number(p && p.slot);
-    if (!Number.isInteger(slot) || !Array.isArray(p.ch) || p.ch.length < CH_COUNT) return;
-    presets.set(slot, { slot, name: String(p.name || `Preset ${slot}`), ch: p.ch.slice(0, CH_COUNT).map((v) => clampInt(v, 0, RAW_MAX)) });
+    const type = p && p.type;
+    if (!Number.isInteger(slot) || slot < 1 || slot > PRESET_SLOTS || !Object.prototype.hasOwnProperty.call(FX_CHANNELS, type)
+      || !Array.isArray(p.ch) || p.ch.length < FX_CHANNELS[type]) return;
+    presets.set(slot, { slot, type, name: String(p.name || `Preset ${slot}`), ch: p.ch.slice(0, FX_CHANNELS[type]).map((v) => clampInt(v, 0, RAW_MAX)) });
   });
   (Array.isArray(m.shows) ? m.shows : []).forEach((s) => {
     const slot = Number(s && s.slot);
-    if (!Number.isInteger(slot) || !Array.isArray(s.steps)) return;
-    const steps = s.steps.filter((x) => Array.isArray(x) && x.length >= 2).map(([p, t]) => [Number(p), clampInt(t, HOLD_MIN, HOLD_MAX)]);
+    const steps = s && typeof s.steps === 'string' ? parseSteps(s.steps) : null;
+    if (!Number.isInteger(slot) || slot < 1 || slot > SHOW_SLOTS || !steps) return;
     shows.set(slot, { slot, name: String(s.name || `Show ${slot}`), steps });
   });
   return { presets, shows };
@@ -3319,7 +3938,7 @@ function onState(msg) {
   const before = st;
   st = normState(msg);
   stAt = now();
-  if (before && (before.preset !== st.preset || playKey(before) !== playKey(st))) releaseLocal();
+  if (before && (presetsKey(before) !== presetsKey(st) || playKey(before) !== playKey(st))) releaseLocal();
   dropStaleLocal();
   // Local values belong to the patch they were made in; a session or IO0 overrules them too.
   const sig = JSON.stringify(st.fixtures.map((f) => [f.slot, f.type, f.addr]));
@@ -3327,24 +3946,31 @@ function onState(msg) {
     clearLocal();
     if (ui.tipCh != null) { ui.tipCh = null; renderTip(); }
   }
+  const patchMoved = sig !== patchSig;
   patchSig = sig;
+  if (patchMoved) {   // show cards and the editor have a line per patched fixture
+    rebuildShows();
+    if (ui.editor) renderEditor();
+  }
   // What the head's switch brings back: its last lit look seen in this page session.
   st.fixtures.forEach((f) => { if (f.type === 'head' && isHeadOn(f.ch)) litLooks.set(litKey(f), f.ch.slice()); });
   syncView();
   if (deskStrips.length && deskSigNow() !== deskSig) buildDesk();
-  if (!before || before.preset !== st.preset || !!before.cal !== !!st.cal) refreshTiles();
+  if (!before || presetsKey(before) !== presetsKey(st) || !!before.cal !== !!st.cal) refreshTiles();
   if (ui.tab === 'guide' && (!before || JSON.stringify(before.limits) !== JSON.stringify(st.limits))) renderGuide();
   render();
 }
 function onLibrary(msg) {
   lib = normLibrary(msg);
+  unfolded.clear();
   libSeen = true;
   clearTimeout(libTimer);
   resolvePending();
   if (ui.confirmSlot != null && !lib.presets.has(ui.confirmSlot)) ui.confirmSlot = null;
-  if (ui.editing && !lib.presets.size) ui.editing = false;
+  if (ui.editing && !presetList(viewType()).length) ui.editing = false;
   rebuildTiles();
   rebuildShows();
+  if (ui.editor) renderEditor();   // names and drawings of its presets and shows
   render();
 }
 function resolvePending() {
@@ -3360,7 +3986,7 @@ function resolvePending() {
   pending = null;
   if (kind === 'preset-save') {
     if (from === 'builder') ui.builder = null;
-    if (from === 'sheet') ui.sheet = false;
+    if (from === 'sheet') ui.sheet = null;
     showMsg('msg.presetSaved', 'ok', { name: quote(name) });
   } else if (kind === 'preset-delete') {
     ui.confirmSlot = null;
@@ -3379,12 +4005,16 @@ function onStop(msg) {
   showMsg(key || 'stop.unknown', reason === 'calibration-saved' ? 'ok' : 'stop', key ? undefined : { reason });
   clearLocal();
 }
-// An error toast as [key, values]. The show names of preset-in-use are a list (see renderMsg).
+// An error toast as [key, values]. A preset or show that can't be deleted names the shows that use it
+// (a list, see renderMsg). 'no-fixture' right after 'show play' is about that show.
+const IN_USE = { 'preset-in-use': ['preset-delete', showsUsing], 'show-in-use': ['show-delete', showsNesting] };
 function errorMsg(code) {
-  if (code === 'preset-in-use' && pending && pending.kind === 'preset-delete') {
-    const users = pending.users && pending.users.length ? pending.users : showsUsing(pending.slot).map((s) => s.name);
+  const inUse = IN_USE[code];
+  if (inUse && pending && pending.kind === inUse[0]) {
+    const users = pending.users && pending.users.length ? pending.users : inUse[1](pending.slot).map((s) => s.name);
     if (users.length) return [users.length === 1 ? 'err.inUse.one' : 'err.inUse.other', { name: quote(pending.name), shows: users }];
   }
+  if (code === 'no-fixture' && playSent && now() - playSent < NO_FIXTURE_PLAY_MS) return ['err.showNoFixture'];
   const key = errKey(code);
   return key ? [key] : ['err.unknown', { code }];
 }
@@ -3392,12 +4022,13 @@ function onError(msg) {
   const code = String(msg.code || '');
   const [key, vars] = errorMsg(code);
   showMsg(key, 'error', vars);
+  playSent = 0;
   if (pending) {
     if (pending.kind === 'preset-delete') ui.confirmSlot = null;
     pending = null;
     rebuildTiles();
   }
-  if (code === 'empty-slot' || code === 'preset-in-use') send('lib');
+  if (code === 'empty-slot' || code === 'preset-in-use' || code === 'show-in-use') send('lib');
   clearLocal();
   if (isOpen) ws.send('?');   // resync: undo optimistic values
   render();
@@ -3541,12 +4172,8 @@ $('sName').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveSheet
 $('eCancel').addEventListener('click', closeEditor);
 $('eSave').addEventListener('click', saveShow);
 $('eDelete').addEventListener('click', deleteShow);
-$('ePickBack').addEventListener('click', () => {
-  if (!ui.editor) return;
-  if (!ui.editor.steps.length && ui.editor.slot == null) { closeEditor(); return; }
-  ui.editor = { ...ui.editor, picker: false };
-  renderEditor();
-});
+// Back to the step list, also for a new show without steps (it may start with a pause or another show).
+$('ePickBack').addEventListener('click', () => { if (ui.editor) closePicker(); });
 $('body').addEventListener('click', (e) => {
   if (ui.tipCh != null && !e.target.closest('.tip') && !e.target.closest('.lbl')) { ui.tipCh = null; renderTip(); refreshDesk(); }
 });

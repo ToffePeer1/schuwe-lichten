@@ -34,20 +34,22 @@ Result persist(bool (*save)(const laser::Library&), bool* isFileReset) {
 }
 
 Result savePreset(SharedLaserState& state, const laser::Command& command) {
-  const laser::LibraryStatus status = laser::checkPresetSave(command);
+  const laser::Context ctx = state.snapshot(nullptr);
+  const uint8_t fixture = command.fixture == 0 ? 0 : static_cast<uint8_t>(command.fixture - 1);
+  const laser::FixtureType type = ctx.settings.patch.slots[fixture].type;
+  const laser::LibraryStatus status = laser::checkPresetSave(live, command, type);
   if (status != laser::LibraryStatus::Ok) {
     return fail(laser::libraryError(status));
   }
-  const laser::Context ctx = state.snapshot(nullptr);
-  if (laser::laserIndex(ctx.settings.patch) == laser::NO_FIXTURE) {
-    return fail(laser::ErrorCode::NoFixture);  // presets hold laser looks for now
+  if (type == laser::FixtureType::None) {
+    return fail(laser::ErrorCode::NoFixture);
   }
-  const laser::Channels look = laser::sanitizeLook(laser::laserChannels(ctx), ctx.settings.limits);
+  const laser::FixtureChannels look = laser::sanitizeLook(type, ctx.fixtures[fixture].channels, ctx.settings.limits);
   scratch = live;
-  laser::storePreset(scratch, command.slot, command.name, look);
+  laser::storePreset(scratch, command.slot, command.name, type, look);
   Result result = persist(library_store::savePresets, &isPresetsReset);
   if (result.isChanged) {
-    result.outcome = state.presetSaved(command.slot, look);  // a playing show may use this preset
+    result.outcome = state.presetSaved(command.slot, fixture, look);  // a playing show may use this preset
   }
   return result;
 }
@@ -75,13 +77,13 @@ Result saveShow(SharedLaserState& state, const laser::Command& command) {
   laser::storeShow(scratch, command);
   Result result = persist(library_store::saveShows, &isShowsReset);
   if (result.isChanged) {
-    result.outcome = state.showDeleted(command.slot);  // a playing copy would be stale
+    result.outcome = state.showChanged(command.slot);  // a playing copy would be stale
   }
   return result;
 }
 
 Result deleteShow(SharedLaserState& state, const laser::Command& command) {
-  const laser::LibraryStatus status = laser::checkShowSlot(live, command.slot);
+  const laser::LibraryStatus status = laser::checkShowDelete(live, command.slot);
   if (status != laser::LibraryStatus::Ok) {
     return fail(laser::libraryError(status));
   }
@@ -89,9 +91,20 @@ Result deleteShow(SharedLaserState& state, const laser::Command& command) {
   laser::eraseShow(scratch, command.slot);
   Result result = persist(library_store::saveShows, &isShowsReset);
   if (result.isChanged) {
-    result.outcome = state.showDeleted(command.slot);
+    result.outcome = state.showChanged(command.slot);
   }
   return result;
+}
+
+// Without a prefix a preset goes to the first patched fixture of its type.
+uint8_t firstFixtureOfType(SharedLaserState& state, laser::FixtureType type) {
+  const laser::Patch patch = state.snapshot(nullptr).settings.patch;
+  for (uint8_t i = 0; i < laser::MAX_FIXTURES; ++i) {
+    if (patch.slots[i].type == type) {
+      return i;
+    }
+  }
+  return laser::NO_FIXTURE;
 }
 
 }  // namespace
@@ -143,7 +156,10 @@ Result execute(SharedLaserState& state, const laser::Command& command) {
       if (status != laser::LibraryStatus::Ok) {
         return fail(laser::libraryError(status));
       }
-      return ok(state.loadPreset(command.slot, live.presets[command.slot - 1].channels));
+      const laser::Preset& preset = live.presets[command.slot - 1];
+      const uint8_t fixture =
+          command.fixture != 0 ? static_cast<uint8_t>(command.fixture - 1) : firstFixtureOfType(state, preset.type);
+      return ok(state.loadPreset(fixture, command.slot, preset));
     }
     case laser::CommandType::ShowPlay: {
       const laser::LibraryStatus status = laser::checkShowSlot(live, command.slot);

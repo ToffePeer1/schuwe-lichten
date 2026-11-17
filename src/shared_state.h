@@ -17,11 +17,11 @@ class SharedLaserState {
   laser::Outcome clientLeft(uint8_t slot);
 
   // Library actions (see laser::loadPreset and friends).
-  laser::Outcome loadPreset(uint16_t slot, const laser::Channels& look);
+  laser::Outcome loadPreset(uint8_t fixture, uint16_t slot, const laser::Preset& preset);
   laser::Outcome startShow(uint16_t slot, const laser::ActiveShow& show);
   laser::Outcome stopShow();
-  laser::Outcome showDeleted(uint16_t slot);
-  laser::Outcome presetSaved(uint16_t slot, const laser::Channels& look);
+  laser::Outcome showChanged(uint16_t slot);
+  laser::Outcome presetSaved(uint16_t slot, uint8_t fixture, const laser::FixtureChannels& look);
   laser::Outcome presetDeleted(uint16_t slot);
 
   // DMX task, once per frame: stop button, timeouts, then the universe to send.

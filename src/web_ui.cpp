@@ -24,7 +24,7 @@ extern const char PATTERNS_JSON_END[] asm("_binary_build_web_patterns_json_gz_en
 namespace {
 
 constexpr size_t STATE_JSON_SIZE = 2048;  // 4 fixtures of up to 19 channels (~600 B), a session, a show
-constexpr size_t LIBRARY_JSON_SIZE = 10240;  // 32 presets + 16 shows of 24 steps, worst case ~8 KB
+constexpr size_t LIBRARY_JSON_SIZE = 20480;  // 48 presets of 19 channels + 16 shows of 24 steps, worst case ~18 KB
 constexpr size_t EVENT_JSON_SIZE = 128;
 
 constexpr bool isDigitsOnly(const char* s, size_t i = 0) {
@@ -200,9 +200,9 @@ bool buildLibraryJson() {
     if (!preset.isUsed) {
       continue;
     }
-    json.add("%s{\"slot\":%u,\"name\":\"%s\",\"ch\":[", isFirst ? "" : ",", static_cast<unsigned>(i + 1),
-             preset.name);
-    for (size_t c = 0; c < laser::CHANNEL_COUNT; ++c) {
+    json.add("%s{\"slot\":%u,\"type\":\"%s\",\"name\":\"%s\",\"ch\":[", isFirst ? "" : ",",
+             static_cast<unsigned>(i + 1), laser::fixtureTypeName(preset.type), preset.name);
+    for (uint8_t c = 0; c < laser::channelCount(preset.type); ++c) {
       json.add(c == 0 ? "%u" : ",%u", preset.channels[c]);
     }
     json.add("]}");
@@ -210,26 +210,23 @@ bool buildLibraryJson() {
   }
   json.add("],\"shows\":[");
   isFirst = true;
+  char steps[laser::MAX_LINE_LENGTH + 1];  // the same text as "show save" takes, e.g. "1=3+2=7:50,s4"
   for (size_t i = 0; i < laser::SHOW_SLOTS; ++i) {
     const laser::Show& show = lib.shows[i];
-    if (!show.isUsed) {
+    if (!show.isUsed || !laser::formatSteps(show, steps, sizeof(steps))) {
       continue;
     }
-    json.add("%s{\"slot\":%u,\"name\":\"%s\",\"steps\":[", isFirst ? "" : ",", static_cast<unsigned>(i + 1),
-             show.name);
-    for (uint8_t k = 0; k < show.stepCount; ++k) {
-      json.add("%s[%u,%u]", k == 0 ? "" : ",", show.steps[k].preset, show.steps[k].holdTenths);
-    }
-    json.add("]}");
+    json.add("%s{\"slot\":%u,\"name\":\"%s\",\"steps\":\"%s\"}", isFirst ? "" : ",", static_cast<unsigned>(i + 1),
+             show.name, steps);
     isFirst = false;
   }
   json.add("]}");
   return json.isComplete();
 }
 
-// Worst case (every slot full, longest names) is ~8 KB in one frame, more than
-// the TCP send buffer (~5.7 KB), so the write waits for the phone's ACKs. It is
-// only sent on connect and after a library change, so that is accepted.
+// Worst case (every slot full, longest names and shows) is ~18 KB in one frame,
+// more than the TCP send buffer (~5.7 KB), so the write waits for the phone's
+// ACKs. It is only sent on connect and after a library change, so that is accepted.
 void sendLibrary(int16_t num) {
   if (!buildLibraryJson()) {
     Serial.println("ERROR: library JSON does not fit its buffer; not sent");

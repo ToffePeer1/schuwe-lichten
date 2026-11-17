@@ -27,13 +27,13 @@ Moving head channels, from its manual (not yet checked on the real fixture): 1 p
 
 The USB serial console (115200 baud) speaks the same commands, one per line. Serial counts as physical access,
 so it is always admin (no PIN), it is exempt from the heartbeat rule, and only serial can run `pin reset`.
-Lines are at most 255 bytes.
+Lines are at most 1023 bytes.
 
 ## Commands (client → ESP32)
 
 | Command | Who | Effect |
 |---|---|---|
-| `<ch> <value>` | anyone | Set a channel of fixture 1 (during a calibration or debug session: of the laser) to 0-255. On the laser: CH1 ≥ 128 is refused, CH1 ≥ 64 needs a calibrated limit, CH6/CH7 are clamped, and a running show stops. |
+| `<ch> <value>` | anyone | Set a channel of fixture 1 (during a calibration or debug session: of the laser) to 0-255. On the laser: CH1 ≥ 128 is refused, CH1 ≥ 64 needs a calibrated limit, CH6/CH7 are clamped. A show that drives the fixture stops. |
 | `f<1-4> <ch> <value>` | anyone | The same for the fixture in that slot. |
 | `0` | anyone | Every channel of every fixture to 0. Ends a calibration or debug session. `f<n> 0`: only that fixture. |
 | `off` | anyone | Every fixture off (laser CH1 = 0, head CH7-19 = 0), positions kept. Ends a session. `f<n> off`: only that fixture. |
@@ -52,13 +52,36 @@ Lines are at most 255 bytes.
 | `lim check` / `lim redo` | owner | Start the optional check round / go back to adjusting. |
 | `lim save` | owner | Save the marked limits, then black out. |
 | `dbg start` / `dbg stop` | admin | Raw debug session: the owner's `<ch> <value>` is sent without any limits. |
-| `preset save <1-32> <name>` | anyone | Save the current look into the slot (overwrites). |
-| `preset load <slot>` / `preset delete <slot>` | anyone | Load (stops a show) or delete a preset. A preset used by a show can't be deleted. |
-| `show save <1-16> <p:t,...> <name>` | anyone | A looping show: preset `p` for `t` tenths of a second (1-6000), 1-24 steps. |
-| `show play <slot>` / `show stop` / `show delete <slot>` | anyone | Play, stop (the look stays) or delete a show. |
+| `[f<n>] preset save <1-48> <name>` | anyone | Save fixture n's current look (default fixture 1) as a preset of its type, overwriting the slot. |
+| `[f<n>] preset load <slot>` | anyone | Load onto fixture n, or without a prefix onto the first patched fixture of the preset's type. `wrong-type` if the types differ. Stops a show that drives that fixture. |
+| `preset delete <slot>` | anyone | Delete a preset. One used by a show can't be deleted (`preset-in-use`). |
+| `show save <1-16> <steps> <name>` | anyone | A looping show of 1-24 steps, see [Shows](#shows). |
+| `show play <slot>` / `show stop` | anyone | Play a show, or stop it (the looks stay). |
+| `show delete <slot>` | anyone | Delete a show. One nested in another show can't be deleted (`show-in-use`). |
 | `lib` | anyone | Send me the library message. |
 
 Names are 1-32 bytes of UTF-8 without control characters, `"` or `\`. They are the rest of the line after the slot (or the steps).
+
+## Shows
+
+A show is a list of steps that loops. A step gives some fixtures a preset (a *cue*) and leaves the rest alone, then either
+**holds** for a time or **plays another show once through** (a nested show). Steps are written without spaces, separated by commas:
+
+| Part | Meaning |
+|---|---|
+| `2=7` | Cue: the fixture in patch slot 2 gets preset 7. Several cues are joined with `+`: `1=3+2=7`. |
+| `:50` | Hold for 50 tenths of a second (0.1 s - 10 min). A step without cues, `:50`, is a pause. |
+| `s4` | Play show 4 once through, then go on. Cues in the same step (`1=5+s4`) apply when it starts; the nested show's own first-step cues win. |
+
+Example: `show save 1 1=1:20,1=2+s2,:10 Avond` shows laser preset 1 for 2 s, then laser preset 2 while show 2 (say, a head
+routine) plays once, then pauses 1 s, and starts over.
+
+- A cue only reaches a fixture whose type matches the preset (a laser preset on the laser, a head preset on a head),
+  so a show made for laser and head also plays when only one of them is connected. It is refused (`no-fixture`) if it would drive nothing.
+- A show drives the fixtures its cues reach. A manual change or preset load on one of them stops the show; other fixtures don't.
+- Saving checks that the show and every show that nests it still work: no loop (`show-loop`), nested at most 3 deep,
+  and unfolded at most 64 steps and 24 different presets (`show-too-long`).
+- Editing a preset or show that the playing show was built from stops it.
 
 ## Messages (ESP32 → client)
 
@@ -87,8 +110,8 @@ Every message is one JSON object with a `type`.
 - `fixtures` lists the patched slots in order. `ch` is what each fixture was asked for. The firmware applies the type's rules on every frame,
   so what goes out on the wire can differ (see `?` on serial).
 - `limits` are the laser's. `limits.ch7` is `[low, high]`, where low is the value that puts the beam **lowest**. It may be larger than high on an inverted mount.
-- `preset` is the fixture's last loaded preset, or `null` after a manual change. Presets and shows hold laser looks for now.
-  `play` is `null` unless a show runs. `play.step` is 0-based.
+- `preset` is the fixture's last loaded preset, or `null` after a manual change.
+- `play` is `null` unless a show runs. `play.step` (0-based) and `play.steps` count the show unfolded, nested shows played out.
 - `settingsReset` / `libraryReset`: stored settings or presets/shows were corrupt and loaded as empty.
 - `cal` is `null`, or a session:
 
@@ -107,8 +130,9 @@ Every message is one JSON object with a `type`.
 
 ```json
 { "type": "library",
-  "presets": [ { "slot": 1, "name": "Ster draaiend", "ch": [96, 102, 140, 0, 0, 0, 52, 40, 224, 0] } ],
-  "shows": [ { "slot": 1, "name": "Avondshow", "steps": [[1, 50], [2, 30]] } ] }
+  "presets": [ { "slot": 1, "type": "laser", "name": "Ster draaiend", "ch": [96, 102, 140, 0, 0, 0, 52, 40, 224, 0] },
+               { "slot": 7, "type": "head", "name": "Rood draaiend", "ch": [128, 0, 200, 90, 90, 90, 255, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] } ],
+  "shows": [ { "slot": 1, "name": "Avondshow", "steps": "1=1+2=7:50,s2,:10" } ] }
 ```
 
 **Events:**
@@ -123,7 +147,8 @@ Every message is one JSON object with a `type`.
 Error codes: `bad-command`, `not-admin`, `serial-only`, `calibration-busy`, `not-owner`, `stop-held`, `auto-blocked`, `not-calibrated`,
 `wrong-phase`, `need-worst-case-look`, `need-both-marks`, `need-horizontal-marks`, `equal-ends`, `bad-pin`, `locked`, `not-calibrating`,
 `save-failed`, `bad-slot`, `empty-slot`, `bad-name`, `bad-steps`, `preset-in-use`,
-`no-fixture` (nothing patched where the command points, or no laser for a laser-only action), `bad-patch`.
+`no-fixture` (nothing patched where the command points, or nothing a show or session could drive), `bad-patch`,
+`wrong-type`, `show-in-use`, `show-loop`, `show-too-long`.
 
 Stop reasons: `button` (IO0), `off`, `blackout` (`0`), `calibration-stopped`, `calibration-timeout` (no heartbeat), `calibration-owner-left`,
 `patch-changed`, `calibration-saved`, `debug-stopped`.
