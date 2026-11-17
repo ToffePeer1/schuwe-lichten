@@ -740,16 +740,33 @@ class MockFirmware:
         return True
 
     @staticmethod
-    def parse_patch(args: list[str]) -> tuple[int, PatchSlot] | None:
-        """'<1-4> none' or '<1-4> laser|head <1-512>' (firmware parsePatch)."""
+    def parse_patch_slot(kind: str, address_text: str) -> PatchSlot | None:
+        if kind not in ("laser", "head") or not NUMBER_PATTERN.fullmatch(address_text):
+            return None
+        address = int(address_text)
+        return PatchSlot(kind, address) if 1 <= address <= UNIVERSE_SIZE else None
+
+    @staticmethod
+    def parse_patch_entry(entry: str) -> PatchSlot | None:
+        """'none' or 'laser:<address>' / 'head:<address>' (firmware parsePatchEntry)."""
+        if entry == "none":
+            return PatchSlot()
+        kind, colon, address = entry.partition(":")
+        return MockFirmware.parse_patch_slot(kind, address) if colon else None
+
+    @staticmethod
+    def parse_patch(args: list[str]) -> tuple[PatchSlot, ...] | tuple[int, PatchSlot] | None:
+        """'<1-4> none', '<1-4> laser|head <1-512>' or 'set <entry>,<entry>,<entry>,<entry>' (firmware parsePatch).
+        Returns the whole new patch for 'set', else (slot, entry)."""
+        if len(args) == 2 and args[0] == "set":
+            entries = [MockFirmware.parse_patch_entry(e) for e in args[1].split(",")]
+            return tuple(entries) if len(entries) == len(DEFAULT_PATCH) and None not in entries else None
         if len(args) < 2 or not re.fullmatch(r"[1-4]", args[0]):
             return None
         if args[1:] == ["none"]:
             return int(args[0]), PatchSlot()
-        if len(args) != 3 or args[1] not in ("laser", "head") or not NUMBER_PATTERN.fullmatch(args[2]):
-            return None
-        address = int(args[2])
-        return (int(args[0]), PatchSlot(args[1], address)) if 1 <= address <= UNIVERSE_SIZE else None
+        entry = MockFirmware.parse_patch_slot(args[1], args[2]) if len(args) == 3 else None
+        return (int(args[0]), entry) if entry else None
 
     def cmd_patch(self, client: Client, args: list[str], out: Out) -> None:
         parsed = self.parse_patch(args)
@@ -761,8 +778,11 @@ class MockFirmware:
         if self.cal is not None:
             self.error(client, "calibration-busy", out)
             return
-        slot, entry = parsed
-        patch = tuple(entry if i == slot - 1 else s for i, s in enumerate(self.patch))
+        if len(parsed) == len(DEFAULT_PATCH):
+            patch = parsed  # "patch set": every slot at once
+        else:
+            slot, entry = parsed
+            patch = tuple(entry if i == slot - 1 else s for i, s in enumerate(self.patch))
         if patch_problem(patch):
             self.error(client, "bad-patch", out)
             return
