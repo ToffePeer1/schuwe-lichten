@@ -10,7 +10,7 @@
 
 namespace laser {
 
-constexpr size_t MAX_LINE_LENGTH = 255;
+constexpr size_t MAX_LINE_LENGTH = 1023;  // "show save" with 24 steps that cue 4 fixtures is ~650 bytes
 constexpr size_t PIN_MIN_DIGITS = 6;
 constexpr size_t PIN_MAX_DIGITS = 8;
 constexpr size_t NAME_MAX_BYTES = 32;   // preset/show names, UTF-8
@@ -49,14 +49,24 @@ enum class CommandType : uint8_t {
   LimSave,        // "lim save"
   LimRedo,        // "lim redo"
   // Library (anyone on the WiFi)
-  PresetSave,     // "preset save <slot> <name>"
-  PresetLoad,     // "preset load <slot>"
+  PresetSave,     // "[f<n>] preset save <slot> <name>": fixture n's look (default f1)
+  PresetLoad,     // "[f<n>] preset load <slot>": onto fixture n, or the first fixture of the preset's type
   PresetDelete,   // "preset delete <slot>"
-  ShowSave,       // "show save <slot> <p:t,p:t,...> <name>"
+  ShowSave,       // "show save <slot> <steps> <name>", steps as in StepSpec, comma-separated
   ShowPlay,       // "show play <slot>"
   ShowStop,       // "show stop"
   ShowDelete,     // "show delete <slot>"
   LibraryList,    // "lib"
+};
+
+// One show step as typed, syntax only (the library checks ranges and meaning):
+// "<fixture>=<preset>" cues joined by '+', then ":<hold>" or an "s<show>" part,
+// e.g. "1=3+2=7:50", "s4" or "1=5+s2".
+struct StepSpec {
+  uint16_t cues[MAX_FIXTURES] = {};  // preset slot per patch slot, 0 = no cue
+  uint16_t subShow = 0;              // nested show slot, 0 = none
+  uint16_t holdTenths = 0;
+  bool hasHold = false;
 };
 
 struct Command {
@@ -75,8 +85,7 @@ struct Command {
   char name[NAME_MAX_BYTES + 1] = {};  // original case, trimmed
   bool isNameTooLong = false;
   uint8_t stepCount = 0;
-  uint16_t stepPresets[SHOW_MAX_STEPS] = {};
-  uint16_t stepHolds[SHOW_MAX_STEPS] = {};  // tenths of a second
+  StepSpec steps[SHOW_MAX_STEPS];
   bool areStepsMalformed = false;
 };
 

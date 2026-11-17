@@ -14,7 +14,7 @@
 namespace {
 
 constexpr dmx_port_t DMX_PORT = static_cast<dmx_port_t>(DMX_UART_NUM);
-constexpr uint32_t DMX_TASK_STACK_BYTES = 6144;  // the tick copies the Context (incl. a running show)
+constexpr uint32_t DMX_TASK_STACK_BYTES = 10240;  // the tick copies the Context (incl. a running show, ~1 KB)
 constexpr UBaseType_t DMX_TASK_PRIORITY = 3;  // above the Arduino loop task (1)
 constexpr BaseType_t DMX_TASK_CORE = 1;       // same core as the driver ISR; WiFi runs on core 0
 

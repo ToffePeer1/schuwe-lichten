@@ -33,7 +33,7 @@ void test_fixture_prefix_only_on_channel_and_stop_commands() {
   const Command zero = parseCommand("f4 0");
   TEST_ASSERT_EQUAL(CommandType::Blackout, zero.type);
   TEST_ASSERT_EQUAL_UINT8(4, zero.fixture);
-  const char* bad[] = {"f5 7 40", "f0 7 40", "f2", "f2 hb", "f1 auth 123456", "f2 cal start", "f2 preset load 1", "f 7 40",
+  const char* bad[] = {"f5 7 40", "f0 7 40", "f2", "f2 hb", "f1 auth 123456", "f2 cal start", "f 7 40",
                        "f12 7 40"};
   for (const char* line : bad) {
     TEST_ASSERT_EQUAL_MESSAGE(CommandType::Invalid, typeOf(line), line);
@@ -178,20 +178,51 @@ void test_preset_commands_keep_name_case_and_spaces() {
   TEST_ASSERT_EQUAL(CommandType::Invalid, typeOf("preset eat 1"));
 }
 
+void test_preset_save_and_load_take_a_fixture_prefix() {
+  const Command save = parseCommand("F2 preset save 7 Rood draaiend");
+  TEST_ASSERT_EQUAL(CommandType::PresetSave, save.type);
+  TEST_ASSERT_EQUAL_UINT8(2, save.fixture);
+  TEST_ASSERT_EQUAL_UINT16(7, save.slot);
+  TEST_ASSERT_EQUAL_STRING("Rood draaiend", save.name);
+  const Command load = parseCommand("f3 preset load 48");
+  TEST_ASSERT_EQUAL(CommandType::PresetLoad, load.type);
+  TEST_ASSERT_EQUAL_UINT8(3, load.fixture);
+  TEST_ASSERT_EQUAL_UINT8(0, parseCommand("preset load 48").fixture);  // the library picks a fixture of the right type
+  const char* bad[] = {"f2 preset delete 3", "f5 preset load 1", "f2 show play 1", "f2 lib", "f2 preset"};
+  for (const char* line : bad) {
+    TEST_ASSERT_EQUAL_MESSAGE(CommandType::Invalid, typeOf(line), line);
+  }
+}
+
 void test_show_commands_and_steps() {
-  const Command save = parseCommand("show save 2 1:50,12:6000,3:1 Mijn show");
+  const Command save = parseCommand("show save 2 1=3+2=7:50,2=8:6000,s4,1=5+S2 Mijn show");
   TEST_ASSERT_EQUAL(CommandType::ShowSave, save.type);
   TEST_ASSERT_EQUAL_UINT16(2, save.slot);
   TEST_ASSERT_EQUAL_STRING("Mijn show", save.name);
-  TEST_ASSERT_EQUAL_UINT8(3, save.stepCount);
-  TEST_ASSERT_EQUAL_UINT16(12, save.stepPresets[1]);
-  TEST_ASSERT_EQUAL_UINT16(6000, save.stepHolds[1]);
+  TEST_ASSERT_EQUAL_UINT8(4, save.stepCount);
   TEST_ASSERT_FALSE(save.areStepsMalformed);
-  TEST_ASSERT_TRUE(parseCommand("show save 2 1:50, x").areStepsMalformed);
-  TEST_ASSERT_TRUE(parseCommand("show save 2 1:50,,2:3 x").areStepsMalformed);
-  TEST_ASSERT_TRUE(parseCommand("show save 2 1-50 x").areStepsMalformed);
-  TEST_ASSERT_TRUE(parseCommand("show save 2 1:12345 x").areStepsMalformed);
-  TEST_ASSERT_EQUAL(CommandType::Invalid, typeOf("show save 2 1:50"));  // no name
+  const StepSpec& first = save.steps[0];
+  TEST_ASSERT_EQUAL_UINT16(3, first.cues[0]);
+  TEST_ASSERT_EQUAL_UINT16(7, first.cues[1]);
+  TEST_ASSERT_EQUAL_UINT16(0, first.cues[2]);
+  TEST_ASSERT_TRUE(first.hasHold);
+  TEST_ASSERT_EQUAL_UINT16(50, first.holdTenths);
+  TEST_ASSERT_EQUAL_UINT16(0, first.subShow);
+  TEST_ASSERT_EQUAL_UINT16(6000, save.steps[1].holdTenths);
+  TEST_ASSERT_EQUAL_UINT16(4, save.steps[2].subShow);  // a nested show, no hold
+  TEST_ASSERT_FALSE(save.steps[2].hasHold);
+  TEST_ASSERT_EQUAL_UINT16(5, save.steps[3].cues[0]);  // cues at the start of nested show 2
+  TEST_ASSERT_EQUAL_UINT16(2, save.steps[3].subShow);
+  TEST_ASSERT_TRUE(parseCommand("show save 2 :50 x").steps[0].hasHold);  // a pause: no cues, just wait
+  // Syntax errors; meaning (does preset 3 exist, hold vs nested show) is the library's job.
+  const char* malformed[] = {"show save 2 1=3:50, x", "show save 2 1=3:50,,2=3:3 x", "show save 2 1-50 x",
+                             "show save 2 1=3:12345 x", "show save 2 5=3:50 x", "show save 2 0=3:50 x",
+                             "show save 2 1=0:50 x", "show save 2 1=3+1=4:50 x", "show save 2 s1+s2 x",
+                             "show save 2 s0 x", "show save 2 1=3+:50 x", "show save 2 1:50 x"};
+  for (const char* line : malformed) {
+    TEST_ASSERT_TRUE_MESSAGE(parseCommand(line).areStepsMalformed, line);
+  }
+  TEST_ASSERT_EQUAL(CommandType::Invalid, typeOf("show save 2 1=3:50"));  // no name
   TEST_ASSERT_EQUAL(CommandType::ShowPlay, typeOf("show play 4"));
   TEST_ASSERT_EQUAL(CommandType::ShowStop, typeOf("show stop"));
   TEST_ASSERT_EQUAL(CommandType::ShowDelete, typeOf("show delete 4"));
@@ -202,15 +233,25 @@ void test_show_commands_and_steps() {
 }
 
 void test_max_steps_and_line_length() {
-  char line[300] = "show save 1 ";
+  char line[MAX_LINE_LENGTH + 2] = "show save 1 ";
   for (int i = 0; i < 25; ++i) {
-    std::strcat(line, i == 0 ? "1:10" : ",1:10");
+    std::strcat(line, i == 0 ? "1=1:10" : ",1=1:10");
   }
   std::strcat(line, " x");
   TEST_ASSERT_TRUE(parseCommand(line).areStepsMalformed);  // 25 steps > 24
-  char tooLong[300];
-  std::memset(tooLong, 'a', 260);
-  tooLong[260] = '\0';
+  // The longest real show line: 24 steps with a cue for every fixture and a 4-digit hold.
+  char longest[MAX_LINE_LENGTH + 2] = "show save 16 ";
+  for (size_t i = 0; i < SHOW_MAX_STEPS; ++i) {
+    std::strcat(longest, i == 0 ? "1=48+2=48+3=48+4=48:6000" : ",1=48+2=48+3=48+4=48:6000");
+  }
+  std::strcat(longest, " 12345678901234567890123456789012");
+  const Command full = parseCommand(longest);
+  TEST_ASSERT_EQUAL(CommandType::ShowSave, full.type);
+  TEST_ASSERT_FALSE(full.areStepsMalformed);
+  TEST_ASSERT_EQUAL_UINT8(SHOW_MAX_STEPS, full.stepCount);
+  char tooLong[MAX_LINE_LENGTH + 10];
+  std::memset(tooLong, 'a', MAX_LINE_LENGTH + 5);
+  tooLong[MAX_LINE_LENGTH + 5] = '\0';
   TEST_ASSERT_EQUAL(CommandType::Invalid, parseCommand(tooLong).type);
 }
 
@@ -228,6 +269,7 @@ int runAllTests() {
   RUN_TEST(test_valid_pin_format);
   RUN_TEST(test_admin_classification);
   RUN_TEST(test_preset_commands_keep_name_case_and_spaces);
+  RUN_TEST(test_preset_save_and_load_take_a_fixture_prefix);
   RUN_TEST(test_show_commands_and_steps);
   RUN_TEST(test_max_steps_and_line_length);
   return UNITY_END();

@@ -38,13 +38,14 @@ uint8_t laserAt(const Context& ctx) { return laserIndex(ctx.settings.patch); }
 
 State laserStateAt(const Context& ctx, uint8_t index) { return State{toLaserChannels(ctx.fixtures[index].channels)}; }
 
-// A laser look as the laser fixture stores it: inside the current limits.
-FixtureChannels clampedLook(const Channels& look, const Limits& limits) {
-  return toFixtureChannels(reclamp(State{look}, limits).channels);
+// A look as a fixture stores it: a laser look inside the current limits, a head look as it is.
+FixtureChannels typedLook(FixtureType type, const FixtureChannels& look, const Limits& limits) {
+  return type == FixtureType::Laser ? toFixtureChannels(reclamp(State{toLaserChannels(look)}, limits).channels) : look;
 }
 
-// The show drives the laser (shows only hold laser looks for now).
-bool isShowDriving(const Context& ctx, uint8_t index) { return ctx.playback.isPlaying && index == laserAt(ctx); }
+bool isShowDriving(const Context& ctx, uint8_t index) {
+  return ctx.playback.isPlaying && ((ctx.playback.fixtureMask >> index) & 1u) != 0;
+}
 
 // The type's "off": the laser's CH1 to 0, the head's light channels and macro to 0.
 FixtureChannels offChannels(FixtureType type, const FixtureChannels& channels) {
@@ -77,16 +78,38 @@ Context endCalibration(const Context& ctx) {
 }
 
 uint32_t stepHoldMs(const Playback& playback) {
-  return static_cast<uint32_t>(playback.show.holdTenths[playback.step]) * 100u;
+  return static_cast<uint32_t>(playback.show.steps[playback.step].holdTenths) * 100u;
 }
 
-// Rule 8 for library looks: lighting the laser needs a saved limit.
-bool isLookAllowed(const Channels& look, const Limits& limits) {
+// Rule 8 for laser looks from the library: lighting the laser needs a saved limit.
+bool isLaserLookAllowed(const FixtureChannels& look, const Limits& limits) {
   return isModeAllowed(look[CH_MODE - 1], limits);
 }
 
-ErrorCode lookError(const Channels& look) {
+ErrorCode laserLookError(const FixtureChannels& look) {
   return look[CH_MODE - 1] >= MODE_AUTO_MIN ? ErrorCode::AutoBlocked : ErrorCode::NotCalibrated;
+}
+
+// The cue reaches the fixture in slot k only if the preset is for its type.
+const ShowLook* cueFor(const Context& ctx, const ActiveShow& show, const FlatStep& step, uint8_t k) {
+  if (step.looks[k] == NO_LOOK) {
+    return nullptr;
+  }
+  const ShowLook& look = show.looks[step.looks[k]];
+  return look.type == typeAt(ctx, k) ? &look : nullptr;
+}
+
+// Puts the current step's cues on the fixtures they reach.
+void applyStep(Context& next) {
+  const Playback& play = next.playback;
+  const FlatStep& step = play.show.steps[play.step];
+  for (uint8_t k = 0; k < MAX_FIXTURES; ++k) {
+    const ShowLook* look = cueFor(next, play.show, step, k);
+    if (look != nullptr) {
+      next.fixtures[k].channels = typedLook(look->type, look->channels, next.settings.limits);
+      next.fixtures[k].loadedPreset = look->presetSlot;
+    }
+  }
 }
 
 ErrorCode fromApply(ApplyStatus status) {
@@ -409,6 +432,10 @@ const char* errorCodeName(ErrorCode code) {
     case ErrorCode::PresetInUse: return "preset-in-use";
     case ErrorCode::NoFixture: return "no-fixture";
     case ErrorCode::BadPatch: return "bad-patch";
+    case ErrorCode::WrongType: return "wrong-type";
+    case ErrorCode::ShowInUse: return "show-in-use";
+    case ErrorCode::ShowLoop: return "show-loop";
+    case ErrorCode::ShowTooLong: return "show-too-long";
   }
   return "unknown";
 }
@@ -492,15 +519,12 @@ Outcome tick(const Context& ctx, bool isStopLevelLow, uint32_t nowMs, bool isLoo
   }
   next.cal = advanceCheck(next.cal, nowMs);
   Playback& play = next.playback;
-  const uint8_t laser = laserAt(next);
-  const bool isStepOver = play.isPlaying && play.show.stepCount > 0 && nowMs - play.stepStartMs >= stepHoldMs(play);
-  if (isStepOver && laser != NO_FIXTURE) {
+  if (play.isPlaying && play.show.stepCount > 0 && nowMs - play.stepStartMs >= stepHoldMs(play)) {
     const uint32_t lateMs = nowMs - play.stepStartMs - stepHoldMs(play);
     play.step = static_cast<uint8_t>((play.step + 1) % play.show.stepCount);  // loops
     // Keep the schedule (a late frame must not stretch every step), unless it fell far behind.
     play.stepStartMs = lateMs < stepHoldMs(play) ? nowMs - lateMs : nowMs;
-    next.fixtures[laser].channels = clampedLook(play.show.looks[play.step], next.settings.limits);
-    next.fixtures[laser].loadedPreset = play.show.presetSlots[play.step];
+    applyStep(next);
   }
   return result(next);
 }
@@ -531,7 +555,7 @@ Outcome commitSettings(const Context& ctx, const Settings& saved, CommitKind kin
   }
   const uint8_t laser = laserAt(next);
   if (laser != NO_FIXTURE) {
-    next.fixtures[laser].channels = clampedLook(laserChannels(next), saved.limits);
+    next.fixtures[laser].channels = typedLook(FixtureType::Laser, next.fixtures[laser].channels, saved.limits);
   }
   return withStop(next, stop);
 }
@@ -581,28 +605,35 @@ ErrorCode libraryError(LibraryStatus status) {
     case LibraryStatus::BadName: return ErrorCode::BadName;
     case LibraryStatus::BadSteps: return ErrorCode::BadSteps;
     case LibraryStatus::PresetInUse: return ErrorCode::PresetInUse;
+    case LibraryStatus::ShowInUse: return ErrorCode::ShowInUse;
+    case LibraryStatus::ShowLoop: return ErrorCode::ShowLoop;
+    case LibraryStatus::ShowTooLong: return ErrorCode::ShowTooLong;
   }
   return ErrorCode::BadCommand;
 }
 
-Outcome loadPreset(const Context& ctx, uint16_t slot, const Channels& look) {
+Outcome loadPreset(const Context& ctx, uint8_t fixture, uint16_t slot, const Preset& preset) {
   if (isActive(ctx.cal)) {
     return withError(ctx, ErrorCode::CalibrationBusy);
   }
   if (ctx.button.isHeld) {
     return withError(ctx, ErrorCode::StopHeld);
   }
-  const uint8_t laser = laserAt(ctx);
-  if (laser == NO_FIXTURE) {
+  if (fixture >= MAX_FIXTURES || typeAt(ctx, fixture) == FixtureType::None) {
     return withError(ctx, ErrorCode::NoFixture);
   }
-  if (!isLookAllowed(look, ctx.settings.limits)) {
-    return withError(ctx, lookError(look));
+  if (typeAt(ctx, fixture) != preset.type) {
+    return withError(ctx, ErrorCode::WrongType);
+  }
+  if (preset.type == FixtureType::Laser && !isLaserLookAllowed(preset.channels, ctx.settings.limits)) {
+    return withError(ctx, laserLookError(preset.channels));
   }
   Context next = ctx;
-  next.playback = Playback{};
-  next.fixtures[laser].channels = clampedLook(look, ctx.settings.limits);
-  next.fixtures[laser].loadedPreset = static_cast<uint8_t>(slot);
+  if (isShowDriving(ctx, fixture)) {
+    next.playback = Playback{};  // loading takes over from the show
+  }
+  next.fixtures[fixture].channels = typedLook(preset.type, preset.channels, ctx.settings.limits);
+  next.fixtures[fixture].loadedPreset = static_cast<uint8_t>(slot);
   return result(next);
 }
 
@@ -613,26 +644,33 @@ Outcome startShow(const Context& ctx, uint16_t slot, const ActiveShow& show, uin
   if (ctx.button.isHeld) {
     return withError(ctx, ErrorCode::StopHeld);
   }
-  const uint8_t laser = laserAt(ctx);
-  if (laser == NO_FIXTURE) {
-    return withError(ctx, ErrorCode::NoFixture);
-  }
   if (show.stepCount == 0) {
     return withError(ctx, ErrorCode::EmptySlot);
   }
+  uint8_t fixtureMask = 0;
   for (uint8_t i = 0; i < show.stepCount; ++i) {
-    if (!isLookAllowed(show.looks[i], ctx.settings.limits)) {
-      return withError(ctx, lookError(show.looks[i]));
+    for (uint8_t k = 0; k < MAX_FIXTURES; ++k) {
+      const ShowLook* look = cueFor(ctx, show, show.steps[i], k);
+      if (look == nullptr) {
+        continue;
+      }
+      if (look->type == FixtureType::Laser && !isLaserLookAllowed(look->channels, ctx.settings.limits)) {
+        return withError(ctx, laserLookError(look->channels));
+      }
+      fixtureMask = static_cast<uint8_t>(fixtureMask | (1u << k));
     }
+  }
+  if (fixtureMask == 0) {
+    return withError(ctx, ErrorCode::NoFixture);  // nothing it is made for is patched
   }
   Context next = ctx;
   next.playback = Playback{};
   next.playback.isPlaying = true;
   next.playback.showSlot = static_cast<uint8_t>(slot);
+  next.playback.fixtureMask = fixtureMask;
   next.playback.stepStartMs = nowMs;
   next.playback.show = show;
-  next.fixtures[laser].channels = clampedLook(show.looks[0], ctx.settings.limits);
-  next.fixtures[laser].loadedPreset = show.presetSlots[0];
+  applyStep(next);
   return result(next);
 }
 
@@ -642,43 +680,36 @@ Outcome stopShow(const Context& ctx) {
   return result(next);
 }
 
-Outcome showDeleted(const Context& ctx, uint16_t slot) {
-  if (!ctx.playback.isPlaying || ctx.playback.showSlot != slot) {
-    return result(ctx);
-  }
-  return stopShow(ctx);
+Outcome showChanged(const Context& ctx, uint16_t slot) {
+  const bool isBuiltFromIt = ctx.playback.isPlaying && ((ctx.playback.show.showMask >> (slot - 1)) & 1u) != 0;
+  return isBuiltFromIt ? stopShow(ctx) : result(ctx);
 }
 
-Outcome presetSaved(const Context& ctx, uint16_t slot, const Channels& look) {
-  const uint8_t laser = laserAt(ctx);
-  if (laser == NO_FIXTURE) {
-    return result(ctx);
-  }
+Outcome presetSaved(const Context& ctx, uint16_t slot, uint8_t fixture, const FixtureChannels& look) {
   Context next = ctx;
-  const Playback& play = ctx.playback;
-  for (uint8_t i = 0; play.isPlaying && i < play.show.stepCount; ++i) {
-    if (play.show.presetSlots[i] == slot) {
-      next.playback = Playback{};  // its copy of this preset is stale
+  if (ctx.playback.isPlaying && ((ctx.playback.show.presetMask >> (slot - 1)) & 1u) != 0) {
+    next.playback = Playback{};  // its copy of this preset is stale
+  }
+  for (uint8_t k = 0; k < MAX_FIXTURES; ++k) {
+    FixtureState& state = next.fixtures[k];
+    // Compare as stored: after a blackout the laser state can hold CH7 below the limit.
+    const bool isSavedFromHere = k == fixture && !isShowDriving(next, k) &&
+                                 sanitizeLook(typeAt(next, k), state.channels, next.settings.limits) == look;
+    if (isSavedFromHere) {
+      state.loadedPreset = static_cast<uint8_t>(slot);
+    } else if (state.loadedPreset == slot) {
+      state.loadedPreset = 0;  // the preset changed under it
     }
-  }
-  if (next.playback.isPlaying) {
-    return result(next);  // the show keeps marking its own step
-  }
-  // Compare as stored: after a blackout the state can hold CH7 below the limit.
-  FixtureState& fixture = next.fixtures[laser];
-  if (sanitizeLook(toLaserChannels(fixture.channels), next.settings.limits) == look) {
-    fixture.loadedPreset = static_cast<uint8_t>(slot);
-  } else if (fixture.loadedPreset == slot) {
-    fixture.loadedPreset = 0;
   }
   return result(next);
 }
 
 Outcome presetDeleted(const Context& ctx, uint16_t slot) {
   Context next = ctx;
-  const uint8_t laser = laserAt(ctx);
-  if (laser != NO_FIXTURE && next.fixtures[laser].loadedPreset == slot) {
-    next.fixtures[laser].loadedPreset = 0;
+  for (FixtureState& state : next.fixtures) {
+    if (state.loadedPreset == slot) {
+      state.loadedPreset = 0;
+    }
   }
   return result(next);
 }

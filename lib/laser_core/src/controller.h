@@ -42,8 +42,12 @@ enum class ErrorCode : uint8_t {
   BadName,
   BadSteps,
   PresetInUse,
-  NoFixture,  // nothing patched where the command points (or no laser for a laser-only action)
+  NoFixture,  // nothing patched where the command points (or nothing a show or session could drive)
   BadPatch,   // the new patch would overlap, run past slot 512 or hold two lasers
+  WrongType,  // a preset loaded onto a fixture of another type
+  ShowInUse,  // the show is nested in another show
+  ShowLoop,   // the show would end up playing itself
+  ShowTooLong,  // unfolded, the show would be too deep, too long or use too many presets
 };
 
 enum class StopReason : uint8_t {
@@ -70,7 +74,8 @@ const char* stopReasonName(StopReason reason);
 struct Playback {
   bool isPlaying = false;
   uint8_t showSlot = 0;
-  uint8_t step = 0;
+  uint8_t step = 0;         // in show.steps, the unfolded show
+  uint8_t fixtureMask = 0;  // bit k: the show drives the fixture in patch slot k
   uint32_t stepStartMs = 0;
   ActiveShow show;
 };
@@ -139,21 +144,26 @@ bool isFactoryPin(const Context& ctx);
 
 ErrorCode libraryError(LibraryStatus status);
 
-// Library actions (explicit user commands, rule 5). They act on the laser
-// (no-fixture when none is patched). Refused during a calibration/debug
-// session, while IO0 is held, and (rule 8) if the look would light the laser
-// while uncalibrated. Loading stops any running show.
-Outcome loadPreset(const Context& ctx, uint16_t slot, const Channels& look);
+// Library actions (explicit user commands, rule 5). Refused during a
+// calibration/debug session, while IO0 is held, and (rule 8) if a look would
+// light the laser while uncalibrated.
+// Loads the preset onto the fixture in patch slot `fixture` (0-based); it must
+// be patched and of the preset's type. Stops the show if it drives that fixture.
+Outcome loadPreset(const Context& ctx, uint8_t fixture, uint16_t slot, const Preset& preset);
+// A cue reaches a fixture only if the preset's type matches the fixture patched
+// in its slot, so one show plays with whatever is connected. Refused
+// (no-fixture) if it would drive nothing that is patched.
 Outcome startShow(const Context& ctx, uint16_t slot, const ActiveShow& show, uint32_t nowMs);
-// Stops advancing; the current look stays.
+// Stops advancing; the current looks stay.
 Outcome stopShow(const Context& ctx);
-// The show in this slot was deleted: stop it if it is playing.
-Outcome showDeleted(const Context& ctx, uint16_t slot);
-// The preset in this slot was saved with this look: a playing show that uses
-// it holds a stale copy and stops (the look stays). The slot becomes the
-// loaded preset if the current look, as the library would store it, is that look.
-Outcome presetSaved(const Context& ctx, uint16_t slot, const Channels& look);
-// The preset in this slot was deleted: it is no longer the loaded one.
+// The show in this slot was saved or deleted: a playing show built from it
+// (also as a nested show) holds a stale copy and stops.
+Outcome showChanged(const Context& ctx, uint16_t slot);
+// Fixture `fixture` was saved as this preset with this look. A playing show
+// built from the preset stops (the looks stay). The slot becomes that fixture's
+// loaded preset if its look, as stored, is this look; other fixtures forget it.
+Outcome presetSaved(const Context& ctx, uint16_t slot, uint8_t fixture, const FixtureChannels& look);
+// The preset in this slot was deleted: no fixture has it loaded any more.
 Outcome presetDeleted(const Context& ctx, uint16_t slot);
 uint32_t holdLeftMs(const Context& ctx, uint32_t nowMs);
 

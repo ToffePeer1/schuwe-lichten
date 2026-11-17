@@ -40,9 +40,9 @@ laser::Outcome SharedLaserState::clientLeft(uint8_t slot) {
   return outcome;
 }
 
-laser::Outcome SharedLaserState::loadPreset(uint16_t slot, const laser::Channels& look) {
+laser::Outcome SharedLaserState::loadPreset(uint8_t fixture, uint16_t slot, const laser::Preset& preset) {
   portENTER_CRITICAL(&mux_);
-  const laser::Outcome loaded = laser::loadPreset(ctx_, slot, look);
+  const laser::Outcome loaded = laser::loadPreset(ctx_, fixture, slot, preset);
   const laser::Outcome outcome = storeLocked(loaded, loaded.error == laser::ErrorCode::None);
   portEXIT_CRITICAL(&mux_);
   return outcome;
@@ -63,16 +63,16 @@ laser::Outcome SharedLaserState::stopShow() {
   return outcome;
 }
 
-laser::Outcome SharedLaserState::showDeleted(uint16_t slot) {
+laser::Outcome SharedLaserState::showChanged(uint16_t slot) {
   portENTER_CRITICAL(&mux_);
-  const laser::Outcome outcome = storeLocked(laser::showDeleted(ctx_, slot), true);
+  const laser::Outcome outcome = storeLocked(laser::showChanged(ctx_, slot), true);
   portEXIT_CRITICAL(&mux_);
   return outcome;
 }
 
-laser::Outcome SharedLaserState::presetSaved(uint16_t slot, const laser::Channels& look) {
+laser::Outcome SharedLaserState::presetSaved(uint16_t slot, uint8_t fixture, const laser::FixtureChannels& look) {
   portENTER_CRITICAL(&mux_);
-  const laser::Outcome outcome = storeLocked(laser::presetSaved(ctx_, slot, look), true);
+  const laser::Outcome outcome = storeLocked(laser::presetSaved(ctx_, slot, fixture, look), true);
   portEXIT_CRITICAL(&mux_);
   return outcome;
 }

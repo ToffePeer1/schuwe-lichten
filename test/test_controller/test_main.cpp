@@ -481,20 +481,81 @@ Channels presetLook(uint8_t pattern, uint8_t ch7) {
   return look;
 }
 
+Preset laserPreset(const Channels& look) {
+  Preset preset;
+  preset.isUsed = true;
+  preset.type = FixtureType::Laser;
+  preset.channels = toFixtureChannels(look);
+  return preset;
+}
+
+FixtureChannels headLook(uint8_t dimmer, uint8_t pan) {
+  FixtureChannels look{};
+  look[HEAD_CH_DIMMER - 1] = dimmer;
+  look[HEAD_CH_PAN - 1] = pan;
+  return look;
+}
+
+Preset headPreset(uint8_t dimmer, uint8_t pan) {
+  Preset preset;
+  preset.isUsed = true;
+  preset.type = FixtureType::Head;
+  preset.channels = headLook(dimmer, pan);
+  return preset;
+}
+
+// Onto the laser in patch slot 1 (the default patch).
+Outcome loadLaserPreset(const Context& ctx, uint16_t slot, const Channels& look) {
+  return loadPreset(ctx, 0, slot, laserPreset(look));
+}
+
+// The laser in patch slot 1 was saved as preset `slot`.
+Outcome laserPresetSaved(const Context& ctx, uint16_t slot, const Channels& look) {
+  return presetSaved(ctx, slot, 0, toFixtureChannels(look));
+}
+
+// An unfolded step: {patch slot index, look index} cues and a hold.
+FlatStep stepOf(std::initializer_list<std::pair<uint8_t, uint8_t>> cues, uint16_t holdTenths) {
+  FlatStep step;
+  for (const auto& cue : cues) {
+    step.looks[cue.first] = cue.second;
+  }
+  step.holdTenths = holdTenths;
+  return step;
+}
+
+// Show 3: laser preset 1 for 1 s, then laser preset 2 for 2 s.
 ActiveShow twoStepShow() {
   ActiveShow show;
+  show.looks[0] = ShowLook{FixtureType::Laser, 1, toFixtureChannels(presetLook(10, 60))};
+  show.looks[1] = ShowLook{FixtureType::Laser, 2, toFixtureChannels(presetLook(20, 5))};  // below the limit
+  show.lookCount = 2;
+  show.steps[0] = stepOf({{0, 0}}, 10);
+  show.steps[1] = stepOf({{0, 1}}, 20);
   show.stepCount = 2;
-  show.presetSlots[0] = 1;
-  show.presetSlots[1] = 2;
-  show.holdTenths[0] = 10;  // 1 s
-  show.holdTenths[1] = 20;  // 2 s
-  show.looks[0] = presetLook(10, 60);
-  show.looks[1] = presetLook(20, 5);  // below the limit: clamped on load and per frame
+  show.presetMask = 0x3;
+  show.showMask = 1u << 2;
+  return show;
+}
+
+// Show 5 (nesting show 6): laser preset 1 and head preset 7, then head preset 8 alone.
+// Its cues are for slot 1 (laser) and slot 2 (head).
+ActiveShow laserAndHeadShow() {
+  ActiveShow show;
+  show.looks[0] = ShowLook{FixtureType::Laser, 1, toFixtureChannels(presetLook(10, 60))};
+  show.looks[1] = ShowLook{FixtureType::Head, 7, headLook(255, 20)};
+  show.looks[2] = ShowLook{FixtureType::Head, 8, headLook(128, 200)};
+  show.lookCount = 3;
+  show.steps[0] = stepOf({{0, 0}, {1, 1}}, 10);
+  show.steps[1] = stepOf({{1, 2}}, 10);
+  show.stepCount = 2;
+  show.presetMask = (1u << 0) | (1u << 6) | (1u << 7);
+  show.showMask = (1u << 4) | (1u << 5);
   return show;
 }
 
 void test_load_preset_is_explicit_and_clamped() {
-  const Outcome o = loadPreset(calibrated(30, 100), 4, presetLook(10, 5));
+  const Outcome o = loadLaserPreset(calibrated(30, 100), 4, presetLook(10, 5));
   TEST_ASSERT_EQUAL(ErrorCode::None, o.error);
   TEST_ASSERT_EQUAL_UINT8(4, o.ctx.fixtures[0].loadedPreset);
   TEST_ASSERT_EQUAL_UINT8(96, frameCh(o.ctx, CH_MODE));
@@ -502,16 +563,16 @@ void test_load_preset_is_explicit_and_clamped() {
 }
 
 void test_library_looks_follow_rule_8() {
-  TEST_ASSERT_EQUAL(ErrorCode::NotCalibrated, loadPreset(boot(), 1, presetLook(10, 60)).error);
+  TEST_ASSERT_EQUAL(ErrorCode::NotCalibrated, loadLaserPreset(boot(), 1, presetLook(10, 60)).error);
   TEST_ASSERT_EQUAL(ErrorCode::NotCalibrated, startShow(boot(), 1, twoStepShow(), 0).error);
   Channels dark = presetLook(10, 60);
   dark[CH_MODE - 1] = 0;
-  TEST_ASSERT_EQUAL(ErrorCode::None, loadPreset(boot(), 1, dark).error);  // an "off" look is fine
+  TEST_ASSERT_EQUAL(ErrorCode::None, loadLaserPreset(boot(), 1, dark).error);  // an "off" look is fine
 }
 
 void test_library_refused_during_sessions_and_stop() {
   const Context calibrating = must(calibrated(30, 100), "cal start", ADMIN);
-  TEST_ASSERT_EQUAL(ErrorCode::CalibrationBusy, loadPreset(calibrating, 1, presetLook(10, 60)).error);
+  TEST_ASSERT_EQUAL(ErrorCode::CalibrationBusy, loadLaserPreset(calibrating, 1, presetLook(10, 60)).error);
   TEST_ASSERT_EQUAL(ErrorCode::CalibrationBusy, startShow(calibrating, 1, twoStepShow(), 0).error);
   Context held = tick(calibrated(30, 100), false, 0).ctx;
   held = tick(tick(held, true, 25).ctx, true, 50).ctx;
@@ -564,13 +625,13 @@ void test_show_stop_keeps_the_look_and_delete_stops_only_that_show() {
   const Context stopped = stopShow(playing).ctx;
   TEST_ASSERT_FALSE(stopped.playback.isPlaying);
   TEST_ASSERT_EQUAL_UINT8(10, frameCh(stopped, CH_PATTERN));
-  TEST_ASSERT_TRUE(showDeleted(playing, 4).ctx.playback.isPlaying);
-  TEST_ASSERT_FALSE(showDeleted(playing, 3).ctx.playback.isPlaying);
+  TEST_ASSERT_TRUE(showChanged(playing, 4).ctx.playback.isPlaying);
+  TEST_ASSERT_FALSE(showChanged(playing, 3).ctx.playback.isPlaying);
 }
 
 void test_loading_a_preset_stops_a_show() {
   const Context playing = startShow(calibrated(30, 100), 3, twoStepShow(), 0).ctx;
-  const Context loaded = loadPreset(playing, 7, presetLook(30, 80)).ctx;
+  const Context loaded = loadLaserPreset(playing, 7, presetLook(30, 80)).ctx;
   TEST_ASSERT_FALSE(loaded.playback.isPlaying);
   TEST_ASSERT_EQUAL_UINT8(7, loaded.fixtures[0].loadedPreset);
 }
@@ -594,10 +655,10 @@ void test_show_steps_keep_their_schedule_when_a_frame_is_late() {
 void test_saving_a_preset_a_playing_show_uses_stops_the_show() {
   const Context playing = startShow(calibrated(30, 100), 3, twoStepShow(), 0).ctx;
   const Channels current = laserChannels(playing);
-  const Context other = presetSaved(playing, 9, current).ctx;
+  const Context other = laserPresetSaved(playing, 9, current).ctx;
   TEST_ASSERT_TRUE(other.playback.isPlaying);  // the show doesn't use slot 9
   TEST_ASSERT_EQUAL_UINT8(1, other.fixtures[0].loadedPreset);
-  const Context used = presetSaved(playing, 2, current).ctx;
+  const Context used = laserPresetSaved(playing, 2, current).ctx;
   TEST_ASSERT_FALSE(used.playback.isPlaying);  // its copy of preset 2 is stale
   TEST_ASSERT_EQUAL_UINT8(2, used.fixtures[0].loadedPreset);  // what is showing was just saved as 2
   TEST_ASSERT_EQUAL_UINT8(10, frameCh(used, CH_PATTERN));  // the look stays
@@ -606,18 +667,19 @@ void test_saving_a_preset_a_playing_show_uses_stops_the_show() {
 void test_saved_or_deleted_preset_updates_the_loaded_mark() {
   const Context manual = must(calibrated(30, 100), "1 96", GUEST);
   TEST_ASSERT_EQUAL_UINT8(0, manual.fixtures[0].loadedPreset);
-  TEST_ASSERT_EQUAL_UINT8(5, presetSaved(manual, 5, laserChannels(manual)).ctx.fixtures[0].loadedPreset);
-  const Context loaded = loadPreset(calibrated(30, 100), 4, presetLook(10, 60)).ctx;
-  TEST_ASSERT_EQUAL_UINT8(0, presetSaved(loaded, 4, presetLook(11, 60)).ctx.fixtures[0].loadedPreset);  // 4 changed meanwhile
+  TEST_ASSERT_EQUAL_UINT8(5, laserPresetSaved(manual, 5, laserChannels(manual)).ctx.fixtures[0].loadedPreset);
+  const Context loaded = loadLaserPreset(calibrated(30, 100), 4, presetLook(10, 60)).ctx;
+  TEST_ASSERT_EQUAL_UINT8(0, laserPresetSaved(loaded, 4, presetLook(11, 60)).ctx.fixtures[0].loadedPreset);  // 4 changed meanwhile
   TEST_ASSERT_EQUAL_UINT8(4, presetDeleted(loaded, 6).ctx.fixtures[0].loadedPreset);
   TEST_ASSERT_EQUAL_UINT8(0, presetDeleted(loaded, 4).ctx.fixtures[0].loadedPreset);
 }
 
 void test_preset_saved_after_blackout_is_marked_loaded() {
   const Context dark = must(calibrated(30, 100), "0", GUEST);  // the state holds CH7 = 0, below the limit
-  const Channels stored = sanitizeLook(laserChannels(dark), dark.settings.limits);  // what the library stores
+  const Channels stored =  // what the library stores
+      toLaserChannels(sanitizeLook(FixtureType::Laser, toFixtureChannels(laserChannels(dark)), dark.settings.limits));
   TEST_ASSERT_EQUAL_UINT8(30, stored[CH_VERTICAL_POSITION - 1]);
-  TEST_ASSERT_EQUAL_UINT8(5, presetSaved(dark, 5, stored).ctx.fixtures[0].loadedPreset);
+  TEST_ASSERT_EQUAL_UINT8(5, laserPresetSaved(dark, 5, stored).ctx.fixtures[0].loadedPreset);
 }
 
 // --- several fixtures on one DMX line ------------------------------------------
@@ -628,6 +690,8 @@ Context patched(const Context& ctx, const char* line) { return commit(run(ctx, l
 Context laserAndHead() { return patched(calibrated(30, 100), "patch 2 head 11"); }
 
 uint8_t headCh(const Context& ctx, uint8_t channel) { return fixtureFrame(ctx, 1)[channel - 1]; }
+
+FixtureChannels laserChannelsAsFixture(const Context& ctx) { return toFixtureChannels(laserChannels(ctx)); }
 
 void test_adding_the_head_keeps_the_laser_calibrated() {
   const Context ctx = laserAndHead();
@@ -786,8 +850,73 @@ void test_laser_only_actions_need_a_laser() {
   const Context headOnly = patched(boot(), "patch 1 head 1");
   TEST_ASSERT_EQUAL(ErrorCode::NoFixture, run(headOnly, "cal start", ADMIN).error);
   TEST_ASSERT_EQUAL(ErrorCode::NoFixture, run(headOnly, "dbg start", ADMIN).error);
-  TEST_ASSERT_EQUAL(ErrorCode::NoFixture, loadPreset(headOnly, 1, presetLook(10, 60)).error);
+  TEST_ASSERT_EQUAL(ErrorCode::WrongType, loadLaserPreset(headOnly, 1, presetLook(10, 60)).error);  // slot 1 is the head
   TEST_ASSERT_EQUAL(ErrorCode::NoFixture, startShow(headOnly, 1, twoStepShow(), 0).error);
+}
+
+// --- shared shows and typed presets ----------------------------------------------
+
+void test_a_show_drives_every_fixture_it_cues() {
+  Context ctx = startShow(laserAndHead(), 5, laserAndHeadShow(), 0).ctx;
+  TEST_ASSERT_EQUAL_UINT8(0x3, ctx.playback.fixtureMask);
+  TEST_ASSERT_EQUAL_UINT8(96, frameCh(ctx, CH_MODE));
+  TEST_ASSERT_EQUAL_UINT8(255, headCh(ctx, HEAD_CH_DIMMER));
+  TEST_ASSERT_EQUAL_UINT8(7, ctx.fixtures[1].loadedPreset);
+  ctx = tick(ctx, false, 1000).ctx;  // step 2 only moves the head; the laser keeps its look
+  TEST_ASSERT_EQUAL_UINT8(200, headCh(ctx, HEAD_CH_PAN));
+  TEST_ASSERT_EQUAL_UINT8(96, frameCh(ctx, CH_MODE));
+  TEST_ASSERT_FALSE(must(ctx, "f2 7 10", GUEST).playback.isPlaying);  // the head is the show's now
+}
+
+void test_a_show_plays_with_whatever_is_patched() {
+  const Context laserOnly = startShow(calibrated(30, 100), 5, laserAndHeadShow(), 0).ctx;
+  TEST_ASSERT_TRUE(laserOnly.playback.isPlaying);
+  TEST_ASSERT_EQUAL_UINT8(0x1, laserOnly.playback.fixtureMask);  // the head cues go nowhere
+  const Context headOnly = patched(boot(), "patch 2 head 11");
+  const Context noLaser = patched(headOnly, "patch 1 none");
+  const Outcome headShow = startShow(noLaser, 5, laserAndHeadShow(), 0);
+  TEST_ASSERT_EQUAL(ErrorCode::None, headShow.error);  // uncalibrated is fine: no laser look reaches a laser
+  TEST_ASSERT_EQUAL_UINT8(0x2, headShow.ctx.playback.fixtureMask);
+  TEST_ASSERT_EQUAL(ErrorCode::NoFixture, startShow(noLaser, 3, twoStepShow(), 0).error);  // a laser-only show
+}
+
+void test_a_laser_look_in_a_show_still_needs_a_limit() {
+  const Context uncalibrated = patched(boot(), "patch 2 head 11");
+  TEST_ASSERT_EQUAL(ErrorCode::NotCalibrated, startShow(uncalibrated, 5, laserAndHeadShow(), 0).error);
+}
+
+void test_head_presets_load_onto_heads_only() {
+  const Context ctx = laserAndHead();
+  const Outcome onHead = loadPreset(ctx, 1, 7, headPreset(255, 250));
+  TEST_ASSERT_EQUAL(ErrorCode::None, onHead.error);
+  TEST_ASSERT_EQUAL_UINT8(250, headCh(onHead.ctx, HEAD_CH_PAN));  // no limits on the head
+  TEST_ASSERT_EQUAL_UINT8(7, onHead.ctx.fixtures[1].loadedPreset);
+  TEST_ASSERT_EQUAL(ErrorCode::WrongType, loadPreset(ctx, 0, 7, headPreset(255, 250)).error);
+  TEST_ASSERT_EQUAL(ErrorCode::WrongType, loadPreset(ctx, 1, 1, laserPreset(presetLook(10, 60))).error);
+  TEST_ASSERT_EQUAL(ErrorCode::NoFixture, loadPreset(ctx, 2, 7, headPreset(255, 250)).error);
+}
+
+void test_loading_onto_a_fixture_the_show_leaves_alone_keeps_it_playing() {
+  const Context playing = startShow(laserAndHead(), 3, twoStepShow(), 0).ctx;  // laser only
+  TEST_ASSERT_TRUE(loadPreset(playing, 1, 7, headPreset(255, 20)).ctx.playback.isPlaying);
+  TEST_ASSERT_FALSE(loadLaserPreset(playing, 4, presetLook(30, 60)).ctx.playback.isPlaying);
+}
+
+void test_editing_a_nested_show_or_its_presets_stops_the_show() {
+  const Context playing = startShow(laserAndHead(), 5, laserAndHeadShow(), 0).ctx;
+  TEST_ASSERT_FALSE(showChanged(playing, 6).ctx.playback.isPlaying);  // nested in show 5
+  TEST_ASSERT_TRUE(showChanged(playing, 7).ctx.playback.isPlaying);
+  TEST_ASSERT_FALSE(presetSaved(playing, 8, 0, laserChannelsAsFixture(playing)).ctx.playback.isPlaying);
+  TEST_ASSERT_TRUE(presetSaved(playing, 9, 0, laserChannelsAsFixture(playing)).ctx.playback.isPlaying);
+}
+
+void test_saving_from_the_head_marks_it_and_others_forget_the_slot() {
+  Context ctx = loadLaserPreset(laserAndHead(), 7, presetLook(10, 60)).ctx;  // slot 7 holds a laser look
+  ctx = must(ctx, "f2 7 200", GUEST);
+  const Outcome saved = presetSaved(ctx, 7, 1, ctx.fixtures[1].channels);  // the head's look overwrites slot 7
+  TEST_ASSERT_EQUAL_UINT8(7, saved.ctx.fixtures[1].loadedPreset);  // the head shows exactly preset 7 now
+  TEST_ASSERT_EQUAL_UINT8(0, saved.ctx.fixtures[0].loadedPreset);  // the laser's copy of 7 is outdated
+  TEST_ASSERT_EQUAL_UINT8(0, presetDeleted(saved.ctx, 7).ctx.fixtures[1].loadedPreset);
 }
 
 int runAllTests() {
@@ -865,6 +994,13 @@ int runAllTests() {
   RUN_TEST(test_session_channels_beyond_the_laser_are_bad_commands);
   RUN_TEST(test_an_unchanged_patch_is_not_saved);
   RUN_TEST(test_laser_only_actions_need_a_laser);
+  RUN_TEST(test_a_show_drives_every_fixture_it_cues);
+  RUN_TEST(test_a_show_plays_with_whatever_is_patched);
+  RUN_TEST(test_a_laser_look_in_a_show_still_needs_a_limit);
+  RUN_TEST(test_head_presets_load_onto_heads_only);
+  RUN_TEST(test_loading_onto_a_fixture_the_show_leaves_alone_keeps_it_playing);
+  RUN_TEST(test_editing_a_nested_show_or_its_presets_stops_the_show);
+  RUN_TEST(test_saving_from_the_head_marks_it_and_others_forget_the_slot);
   return UNITY_END();
 }
 
