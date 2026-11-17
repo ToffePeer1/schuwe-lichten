@@ -33,7 +33,7 @@ Lines are at most 1023 bytes.
 
 | Command | Who | Effect |
 |---|---|---|
-| `<ch> <value>` | anyone | Set a channel of fixture 1 (during a calibration or debug session: of the laser) to 0-255. On the laser: CH1 ≥ 128 is refused, CH1 ≥ 64 needs a calibrated limit, CH6/CH7 are clamped, and a running show stops. |
+| `<ch> <value>` | anyone | Set a channel of fixture 1 (during a calibration or debug session: of the laser) to 0-255. On the laser: CH1 ≥ 128 is refused, CH1 ≥ 64 needs a calibrated limit, CH6/CH7 are clamped. A show that drives the fixture stops. |
 | `f<1-4> <ch> <value>` | anyone | The same for the fixture in that slot. |
 | `0` | anyone | Every channel of every fixture to 0. Ends a calibration or debug session. `f<n> 0`: only that fixture. |
 | `off` | anyone | Every fixture off (laser CH1 = 0, head CH7-19 = 0), positions kept. Ends a session. `f<n> off`: only that fixture. |

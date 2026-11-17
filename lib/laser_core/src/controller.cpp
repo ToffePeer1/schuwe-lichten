@@ -587,16 +587,6 @@ Universe buildUniverse(const Context& ctx) {
   return universe;
 }
 
-Channels laserChannels(const Context& ctx) {
-  const uint8_t laser = laserAt(ctx);
-  return laser == NO_FIXTURE ? Channels{} : toLaserChannels(ctx.fixtures[laser].channels);
-}
-
-Channels laserFrame(const Context& ctx) {
-  const uint8_t laser = laserAt(ctx);
-  return laser == NO_FIXTURE ? Channels{} : toLaserChannels(fixtureFrame(ctx, laser));
-}
-
 ErrorCode libraryError(LibraryStatus status) {
   switch (status) {
     case LibraryStatus::Ok: return ErrorCode::None;

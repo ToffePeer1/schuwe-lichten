@@ -102,7 +102,8 @@ bool isShowInUse(const Library& library, uint16_t slot);  // nested in another s
 // the limits. A head look: as it is (no limits).
 FixtureChannels sanitizeLook(FixtureType type, const FixtureChannels& look, const Limits& limits);
 
-LibraryStatus checkPresetSave(const Command& command);
+// Slot and name valid; a preset a show uses keeps its type (its cue would reach nothing otherwise).
+LibraryStatus checkPresetSave(const Library& library, const Command& command, FixtureType type);
 LibraryStatus checkPresetSlot(const Library& library, uint16_t slot);  // exists?
 LibraryStatus checkPresetDelete(const Library& library, uint16_t slot);
 // Every step valid, and with the new show in place this show and every show

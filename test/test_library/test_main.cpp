@@ -96,12 +96,23 @@ void test_laser_looks_are_sanitised_and_head_looks_kept() {
 }
 
 void test_preset_save_checks() {
-  Command c = parseCommand("preset save 48 Rood");
-  TEST_ASSERT_EQUAL(LibraryStatus::Ok, checkPresetSave(c));
-  TEST_ASSERT_EQUAL(LibraryStatus::BadSlot, checkPresetSave(parseCommand("preset save 49 Rood")));
-  TEST_ASSERT_EQUAL(LibraryStatus::BadName, checkPresetSave(parseCommand("preset save 1 quote\"d")));
+  const Library lib = withPresets();
+  const FixtureType head = FixtureType::Head;
+  TEST_ASSERT_EQUAL(LibraryStatus::Ok, checkPresetSave(lib, parseCommand("preset save 48 Rood"), head));
+  TEST_ASSERT_EQUAL(LibraryStatus::BadSlot, checkPresetSave(lib, parseCommand("preset save 49 Rood"), head));
+  TEST_ASSERT_EQUAL(LibraryStatus::BadName, checkPresetSave(lib, parseCommand("preset save 1 quote\"d"), head));
   TEST_ASSERT_EQUAL(LibraryStatus::BadName,
-                    checkPresetSave(parseCommand("preset save 1 123456789012345678901234567890123")));
+                    checkPresetSave(lib, parseCommand("preset save 1 123456789012345678901234567890123"), head));
+}
+
+void test_a_preset_a_show_uses_keeps_its_type() {
+  Library lib = withPresets();
+  save(lib, "show save 1 1=1:10 Laser");
+  // A head look over laser preset 1 would leave the show's cue reaching nothing.
+  TEST_ASSERT_EQUAL(LibraryStatus::PresetInUse,
+                    checkPresetSave(lib, parseCommand("preset save 1 Nu kop"), FixtureType::Head));
+  TEST_ASSERT_EQUAL(LibraryStatus::Ok, checkPresetSave(lib, parseCommand("preset save 1 Nieuw"), FixtureType::Laser));
+  TEST_ASSERT_EQUAL(LibraryStatus::Ok, checkPresetSave(lib, parseCommand("preset save 2 Kop"), FixtureType::Head));
 }
 
 void test_store_and_erase_typed_presets() {
@@ -337,6 +348,7 @@ int runAllTests() {
   RUN_TEST(test_slots);
   RUN_TEST(test_laser_looks_are_sanitised_and_head_looks_kept);
   RUN_TEST(test_preset_save_checks);
+  RUN_TEST(test_a_preset_a_show_uses_keeps_its_type);
   RUN_TEST(test_store_and_erase_typed_presets);
   RUN_TEST(test_show_step_checks);
   RUN_TEST(test_presets_and_shows_in_use_cannot_be_deleted);

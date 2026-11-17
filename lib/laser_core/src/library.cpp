@@ -416,10 +416,12 @@ FixtureChannels sanitizeLook(FixtureType type, const FixtureChannels& look, cons
   return toFixtureChannels(laser);
 }
 
-LibraryStatus checkPresetSave(const Command& command) {
+LibraryStatus checkPresetSave(const Library& library, const Command& command, FixtureType type) {
   if (!isValidPresetSlot(command.slot)) return LibraryStatus::BadSlot;
   if (command.isNameTooLong || !isValidName(command.name)) return LibraryStatus::BadName;
-  return LibraryStatus::Ok;
+  const Preset& old = library.presets[command.slot - 1];
+  const bool isRetyped = old.isUsed && old.type != type;
+  return isRetyped && isPresetInUse(library, command.slot) ? LibraryStatus::PresetInUse : LibraryStatus::Ok;
 }
 
 LibraryStatus checkPresetSlot(const Library& library, uint16_t slot) {

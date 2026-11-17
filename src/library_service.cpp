@@ -34,13 +34,13 @@ Result persist(bool (*save)(const laser::Library&), bool* isFileReset) {
 }
 
 Result savePreset(SharedLaserState& state, const laser::Command& command) {
-  const laser::LibraryStatus status = laser::checkPresetSave(command);
-  if (status != laser::LibraryStatus::Ok) {
-    return fail(laser::libraryError(status));
-  }
   const laser::Context ctx = state.snapshot(nullptr);
   const uint8_t fixture = command.fixture == 0 ? 0 : static_cast<uint8_t>(command.fixture - 1);
   const laser::FixtureType type = ctx.settings.patch.slots[fixture].type;
+  const laser::LibraryStatus status = laser::checkPresetSave(live, command, type);
+  if (status != laser::LibraryStatus::Ok) {
+    return fail(laser::libraryError(status));
+  }
   if (type == laser::FixtureType::None) {
     return fail(laser::ErrorCode::NoFixture);
   }

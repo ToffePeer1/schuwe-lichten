@@ -57,6 +57,17 @@ Context calibrated(uint8_t low, uint8_t high) {
   return commit(run(ctx, "lim save", ADMIN, 5));  // the Controle round is optional
 }
 
+// The laser's requested and outgoing channels (all 0 when no laser is patched).
+Channels laserChannels(const Context& ctx) {
+  const uint8_t laser = laserIndex(ctx.settings.patch);
+  return laser == NO_FIXTURE ? Channels{} : toLaserChannels(ctx.fixtures[laser].channels);
+}
+
+Channels laserFrame(const Context& ctx) {
+  const uint8_t laser = laserIndex(ctx.settings.patch);
+  return laser == NO_FIXTURE ? Channels{} : toLaserChannels(fixtureFrame(ctx, laser));
+}
+
 uint8_t frameCh(const Context& ctx, uint8_t channel) { return laserFrame(ctx)[channel - 1]; }
 
 // Laser off: CH1 = 0 and nothing set except the clamped positions (CH6/CH7 sit

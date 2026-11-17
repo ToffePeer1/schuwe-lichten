@@ -93,7 +93,7 @@ struct Context {
   StopButton button;
   PinGuard guard;
   char factoryPin[PIN_MAX_DIGITS + 1] = {};
-  Playback playback;  // drives the laser; never persisted: a reboot is dark (rule 1)
+  Playback playback;  // never persisted: a reboot is dark (rule 1)
 };
 
 struct Outcome {
@@ -135,10 +135,6 @@ FixtureChannels fixtureFrame(const Context& ctx, uint8_t index);
 
 // The whole DMX universe: every fixture's frame at its address, every other slot 0.
 Universe buildUniverse(const Context& ctx);
-
-// The laser's requested and outgoing channels (all 0 when no laser is patched).
-Channels laserChannels(const Context& ctx);
-Channels laserFrame(const Context& ctx);
 
 bool isFactoryPin(const Context& ctx);
 
